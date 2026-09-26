@@ -94,4 +94,17 @@ struct RemoveSideEffectsTests {
         let names = op.mutations(in: makeParsedSource(code)).map(\.description)
         #expect(names.contains { $0.hasPrefix("remove foo") })
     }
+
+    @Test(
+        "Given an initializer delegation, when visited, then it is never removed while the calls around it still are",
+        arguments: [
+            "class A: B { override init() { super.init(); foo() } }",
+            "struct S { init() { self.init(x: 1); foo() } }",
+        ]
+    )
+    func initializerDelegationIsNeverRemoved(code: String) {
+        let removed = op.mutations(in: makeParsedSource(code)).map(\.description)
+        #expect(removed.contains { $0.hasPrefix("remove foo") })
+        #expect(!removed.contains { $0.contains(".init") })
+    }
 }

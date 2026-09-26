@@ -4,6 +4,7 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
     private static let deniedCallee: Set<String> = [
         "print", "debugPrint", "assert", "assertionFailure",
         "precondition", "preconditionFailure", "fatalError",
+        "super.init", "self.init",
     ]
 
     override func visit(_ node: CodeBlockItemSyntax) -> SyntaxVisitorContinueKind {
