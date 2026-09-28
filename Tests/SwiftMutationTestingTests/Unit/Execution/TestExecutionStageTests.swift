@@ -411,9 +411,10 @@ struct TestExecutionStageTests {
     private func makeLoadFixture(
         in dir: URL,
         launcher: TimeoutUnderLoadLauncher,
-        reporter: MockProgressReporter
+        reporter: MockProgressReporter,
+        concurrency: Int = 4
     ) async throws -> (TestExecutionStage, TestExecutionContext, ExecutionDeps) {
-        let pool = SimulatorPool(baseUDID: nil, size: 4, destination: "platform=macOS", launcher: launcher)
+        let pool = SimulatorPool(baseUDID: nil, size: concurrency, destination: "platform=macOS", launcher: launcher)
         try await pool.setUp()
         let deps = makeExecutionDeps(
             launcher: launcher,
@@ -425,7 +426,7 @@ struct TestExecutionStageTests {
             artifact: BuildArtifact(derivedDataPath: dir.path, xctestrunURL: nil, plist: nil),
             sandbox: Sandbox(rootURL: dir),
             pool: pool,
-            configuration: makeRunnerConfiguration(projectType: .spm, concurrency: 4)
+            configuration: makeRunnerConfiguration(projectType: .spm, timeout: 30, concurrency: concurrency)
         )
         return (TestExecutionStage(deps: deps), context, deps)
     }
@@ -473,6 +474,45 @@ struct TestExecutionStageTests {
         #expect(firstRetry > lastFirstAttempt)
         #expect(await launcher.maxInFlightDuringFirstAttempts >= 2)
         #expect(await launcher.inFlightDuringRetry == ["m0": 1, "m2": 1])
+    }
+
+    @Test("Given a mutant under load, when it runs, then its limit is twice the timeout and the run again uses the timeout")
+    func loadedPassDoublesTheLimitAndTheRunAgainRestoresIt() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let launcher = TimeoutUnderLoadLauncher(timesOutFirst: ["m1"])
+        let (stage, context, _) = try await makeLoadFixture(in: dir, launcher: launcher, reporter: MockProgressReporter())
+
+        _ = try await stage.execute(mutants: fourMutants(), in: context)
+
+        let timeouts = await launcher.timeouts
+        #expect(timeouts["m1"]?.count == 2)
+        #expect(timeouts["m1"]?[0] ?? 0 > 59)
+        #expect(timeouts["m1"]?[0] ?? 0 <= 60)
+        #expect(timeouts["m1"]?[1] ?? 0 > 29)
+        #expect(timeouts["m1"]?[1] ?? 0 <= 30)
+        #expect(timeouts["m0"]?.count == 1)
+        #expect(timeouts["m0"]?[0] ?? 0 > 59)
+    }
+
+    @Test("Given eight workers and stragglers, when they run again, then at most two run at once")
+    func stragglersRunAgainWithAQuarterOfTheWorkers() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let stragglers: Set<String> = ["m0", "m1", "m2", "m3"]
+        let launcher = TimeoutUnderLoadLauncher(timesOutFirst: stragglers)
+        let (stage, context, _) = try await makeLoadFixture(
+            in: dir, launcher: launcher, reporter: MockProgressReporter(), concurrency: 8
+        )
+
+        _ = try await stage.execute(mutants: fourMutants(), in: context)
+
+        let inFlight = await launcher.inFlightDuringRetry
+        #expect(Set(inFlight.keys) == stragglers)
+        #expect(inFlight.values.max() == 2)
+        #expect(await launcher.maxInFlightDuringFirstAttempts == 4)
     }
 
     @Test("Given a mutant that times out even alone, when the pass ends, then it is reported as a timeout once")

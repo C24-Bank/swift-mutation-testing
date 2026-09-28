@@ -945,7 +945,7 @@ struct MutantExecutorTests {
         #expect(!buildTimeouts.isEmpty)
         #expect(buildTimeouts.allSatisfy { $0 == 240 })
         #expect(!testTimeouts.isEmpty)
-        #expect(testTimeouts.allSatisfy { $0 <= 30 })
+        #expect(testTimeouts.allSatisfy { $0 <= 30 * TestExecutionStage.loadedTimeoutFactor })
     }
 
     @Test("Given the shared build times out, when execute called, then the run fails instead of reporting unviable")

@@ -9,6 +9,7 @@ actor TimeoutUnderLoadLauncher: ProcessLaunching {
     private var inFlight = 0
     private(set) var sequence: [(id: String, attempt: Int)] = []
     private(set) var inFlightDuringRetry: [String: Int] = [:]
+    private(set) var timeouts: [String: [Double]] = [:]
     private(set) var maxInFlightDuringFirstAttempts = 0
 
     init(timesOutFirst: Set<String>, alwaysTimesOut: Set<String> = []) {
@@ -38,6 +39,7 @@ actor TimeoutUnderLoadLauncher: ProcessLaunching {
         let attempt = (attempts[id] ?? 0) + 1
         attempts[id] = attempt
         sequence.append((id: id, attempt: attempt))
+        timeouts[id, default: []].append(request.timeout)
         if attempt > 1 {
             inFlightDuringRetry[id] = inFlight
         } else {
