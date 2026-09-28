@@ -26,7 +26,7 @@ struct SandboxFactory: Sendable {
 }
 ```
 
-Creates an isolated copy of the project in `$TMPDIR/xmr-<UUID>/`. Supports both Xcode and SPM projects. The original project is never modified.
+Creates an isolated copy of the project in `$TMPDIR/xmr-<pid>-<UUID>/`, where `<pid>` is the process that created it. Supports both Xcode and SPM projects. The original project is never modified.
 
 **Three factory methods:**
 
@@ -75,9 +75,24 @@ A lightweight wrapper around the sandbox root URL.
 
 | Field | Description |
 |---|---|
-| `rootURL` | Absolute URL of the `xmr-<UUID>` directory in `$TMPDIR` |
+| `rootURL` | Absolute URL of the `xmr-<pid>-<UUID>` directory in `$TMPDIR` |
 
 `cleanup()` removes the entire `rootURL` directory tree via `FileManager.default.removeItem(at:)`.
+
+---
+
+## Sandbox/SandboxName.swift
+
+```swift
+enum SandboxName {
+    static let prefix: String
+    static func make(pid: pid_t = getpid()) -> String
+    static func ownerPID(of name: String) -> pid_t?
+    static func isOwnerAlive(of name: String) -> Bool
+}
+```
+
+The one place that knows how a sandbox directory is named, so that the side that creates them and the side that deletes them cannot drift apart. `make()` produces `xmr-<pid>-<UUID>`; `ownerPID(of:)` reads the pid back, or `nil` when the name was not made by this scheme; `isOwnerAlive(of:)` answers whether that process still exists. See **Ownership** under `SandboxCleaner` below for what the sweep does with the answer.
 
 ---
 
@@ -96,10 +111,18 @@ Handles cleanup of orphaned and active sandbox directories.
 
 | Method | Description |
 |---|---|
-| `removeOrphaned(in:)` | Scans the directory for `xmr-*` entries and removes them. Called once at startup to clean up sandboxes from interrupted runs |
+| `removeOrphaned(in:)` | Scans the directory for `xmr-*` entries and removes the ones whose owning process is gone. Called once at startup to clean up sandboxes from interrupted runs |
 | `register(_:)` | Stores the sandbox root path in a C pointer accessible to signal handlers |
 | `deregister()` | Clears the stored path and deallocates the pointer |
 | `installSignalHandlers()` | Installs `SIGINT` and `SIGTERM` handlers that remove the active sandbox and call `_exit(1)` |
+
+**Ownership.** The sweep runs at startup, before arguments are parsed, and it used to delete every `xmr-*` directory in `$TMPDIR` on the grounds that a sandbox found at startup must belong to a run that is over. It does not: a second invocation — `--help` included — destroyed the sandbox of a run already in progress, and that run then reported every remaining mutant as unviable, or died without writing a report (#86, reported by @jwp23 with the mechanism pinned to the line).
+
+The name now carries the owner: `SandboxName.make()` puts the creating process's pid in the directory name, and the sweep keeps any directory whose pid is still alive (`kill(pid, 0)`, treating `EPERM` as alive — the process exists, it is simply not ours to signal). Putting the pid in the name rather than in a file inside the directory is what makes this safe without a lock: the directory is named by `createDirectory` itself, so there is no window in which a live sandbox looks unowned.
+
+A name that does not parse — anything from a version before this, or a foreign directory that happens to start with `xmr-` — is treated as orphaned, which preserves the old behaviour for leftovers. Parsing is strict about both halves: the pid must be positive, and the remainder must be a well-formed UUID, so an old `xmr-<UUID>` whose UUID opens with digits is not read as a pid and left behind forever.
+
+The one case this does not cover is a crashed run whose pid has since been reused by an unrelated process: its sandbox is kept rather than swept. That leaks a temp directory until the system purges `$TMPDIR`; it does not lose anyone's data, which is the trade the old behaviour got backwards.
 
 The active sandbox path is stored as a `nonisolated(unsafe)` `UnsafeMutablePointer<CChar>` at module scope — necessary because C signal handlers cannot capture Swift context. `register`/`deregister` are called sequentially from `MutantExecutor.execute`, so no concurrent access occurs during normal operation.
 

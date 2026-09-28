@@ -19,7 +19,7 @@ struct SwiftMutationTesting {
 }
 ```
 
-The program entry point. `main()` installs signal handlers for sandbox cleanup (`SandboxCleaner.installSignalHandlers()`), removes orphaned sandboxes from previous interrupted runs (`SandboxCleaner.removeOrphaned()`), then drops `CommandLine.arguments[0]` (the executable name) and delegates to `run(args:launcher:)`.
+The program entry point. `main()` installs signal handlers for sandbox cleanup (`SandboxCleaner.installSignalHandlers()`), removes sandboxes left by interrupted runs whose process is gone (`SandboxCleaner.removeOrphaned()`), then drops `CommandLine.arguments[0]` (the executable name) and delegates to `run(args:launcher:)`.
 
 `run` catches two error categories before returning an exit code:
 - `UsageError` — prints `message` to stderr
