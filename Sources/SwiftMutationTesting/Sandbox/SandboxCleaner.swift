@@ -10,8 +10,6 @@ private func handleSignal(_: Int32) {
 
 enum SandboxCleaner {
 
-    private static let prefix = "xmr-"
-
     static func cleanupActiveSandbox() {
         if let path = activeSandboxPath {
             let url = URL(fileURLWithPath: String(cString: path))
@@ -29,7 +27,8 @@ enum SandboxCleaner {
             )
         else { return }
 
-        for url in contents where url.lastPathComponent.hasPrefix(prefix) {
+        for url in contents where url.lastPathComponent.hasPrefix(SandboxName.prefix) {
+            guard !SandboxName.isOwnerAlive(of: url.lastPathComponent) else { continue }
             try? FileManager.default.removeItem(at: url)
         }
     }
