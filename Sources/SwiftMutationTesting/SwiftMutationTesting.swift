@@ -46,6 +46,15 @@ public struct SwiftMutationTesting {
             fileValues: fileValues
         )
 
+        return try await SleepInhibitor.preventingIdleSleep {
+            try await runPipeline(configuration: configuration, launcher: launcher)
+        }
+    }
+
+    private static func runPipeline(
+        configuration: RunnerConfiguration,
+        launcher: (any ProcessLaunching)?
+    ) async throws -> ExitCode {
         let (input, discoveryDuration) = try await discover(configuration: configuration)
 
         if !configuration.reporting.quiet {

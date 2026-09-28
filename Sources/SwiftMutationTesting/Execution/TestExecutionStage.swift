@@ -3,40 +3,75 @@ import Foundation
 struct TestExecutionStage: Sendable {
     let deps: ExecutionDeps
 
+    static let loadedTimeoutFactor: Double = 2
+    static let retryWorkerShare = 4
+
     func execute(
         mutants: [MutantDescriptor],
         in context: TestExecutionContext
     ) async throws -> [ExecutionResult] {
-        var results: [ExecutionResult] = []
+        let timeout = context.configuration.build.timeout
         let concurrency = context.configuration.build.concurrency
+        var results: [ExecutionResult] = []
+        var timedOut: [MutantDescriptor] = []
 
-        try await withThrowingTaskGroup(of: ExecutionResult.self) { group in
-            var activeTasks = 0
-            var iterator = mutants.makeIterator()
-
-            while activeTasks < concurrency, let mutant = iterator.next() {
-                let key = MutantCacheKey.make(for: mutant)
-                group.addTask { try await self.run(mutant: mutant, key: key, in: context) }
-                activeTasks += 1
-            }
-
-            for try await result in group {
+        try await forEach(mutants, concurrency: concurrency, run: { mutant in
+            try await self.attempt(mutant, in: context, timeout: timeout * Self.loadedTimeoutFactor)
+        }) { attempt in
+            switch attempt {
+            case .settled(let result):
                 results.append(result)
-                if let next = iterator.next() {
-                    let key = MutantCacheKey.make(for: next)
-                    group.addTask { try await self.run(mutant: next, key: key, in: context) }
-                }
+            case .timedOut(let mutant):
+                timedOut.append(mutant)
             }
+        }
+
+        try await forEach(timedOut, concurrency: max(1, concurrency / Self.retryWorkerShare), run: { mutant in
+            try await self.runAgain(mutant, in: context, timeout: timeout)
+        }) { result in
+            results.append(result)
         }
 
         return results
     }
 
-    private func run(
-        mutant: MutantDescriptor,
-        key: MutantCacheKey,
-        in context: TestExecutionContext
-    ) async throws -> ExecutionResult {
+    private func forEach<Element, Outcome: Sendable>(
+        _ elements: [Element],
+        concurrency: Int,
+        run: @escaping @Sendable (Element) async throws -> Outcome,
+        collect: (Outcome) -> Void
+    ) async throws where Element: Sendable {
+        try await withThrowingTaskGroup(of: Outcome.self) { group in
+            var activeTasks = 0
+            var iterator = elements.makeIterator()
+
+            while activeTasks < concurrency, let element = iterator.next() {
+                group.addTask { try await run(element) }
+                activeTasks += 1
+            }
+
+            for try await outcome in group {
+                collect(outcome)
+
+                if let next = iterator.next() {
+                    group.addTask { try await run(next) }
+                }
+            }
+        }
+    }
+
+    private enum Attempt: Sendable {
+        case settled(ExecutionResult)
+        case timedOut(MutantDescriptor)
+    }
+
+    private func attempt(
+        _ mutant: MutantDescriptor,
+        in context: TestExecutionContext,
+        timeout: Double
+    ) async throws -> Attempt {
+        let key = MutantCacheKey.make(for: mutant)
+
         if let cached = await deps.cacheStore.result(for: key) {
             let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
             let result = ExecutionResult(
@@ -45,18 +80,44 @@ struct TestExecutionStage: Sendable {
             let index = await deps.counter.increment()
             await deps.reporter.report(
                 .mutantFinished(descriptor: mutant, status: cached, index: index, total: deps.counter.total))
-            return result
+            return .settled(result)
         }
 
+        let (outcome, launched) = try await measure(mutant, in: context, timeout: timeout)
+
+        if case .timedOut = outcome {
+            return .timedOut(mutant)
+        }
+
+        return .settled(
+            await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
+        )
+    }
+
+    private func runAgain(
+        _ mutant: MutantDescriptor,
+        in context: TestExecutionContext,
+        timeout: Double
+    ) async throws -> ExecutionResult {
+        let key = MutantCacheKey.make(for: mutant)
+        let (outcome, launched) = try await measure(mutant, in: context, timeout: timeout)
+        return await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
+    }
+
+    private func measure(
+        _ mutant: MutantDescriptor,
+        in context: TestExecutionContext,
+        timeout: Double
+    ) async throws -> (TestRunOutcome, TestLaunchResult) {
         guard let plist = context.artifact.plist else {
-            return try await runSPM(mutant: mutant, key: key, in: context)
+            return try await measureSPM(mutant, in: context, timeout: timeout)
         }
 
         let plistData = plist.activating(mutant.id)
         let slot = try await context.pool.acquire()
         let launched: TestLaunchResult
         do {
-            launched = try await launch(plistData: plistData, slot: slot, in: context)
+            launched = try await launch(plistData: plistData, slot: slot, in: context, timeout: timeout)
         } catch {
             await context.pool.release(slot)
             throw error
@@ -68,22 +129,22 @@ struct TestExecutionStage: Sendable {
             exitCode: launched.exitCode,
             output: launched.output,
             xcresultPath: launched.xcresultPath,
-            timeout: context.configuration.build.timeout
+            timeout: timeout
         )
         try? FileManager.default.removeItem(atPath: launched.xcresultPath)
 
-        return await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
+        return (outcome, launched)
     }
 
-    private func runSPM(
-        mutant: MutantDescriptor,
-        key: MutantCacheKey,
-        in context: TestExecutionContext
-    ) async throws -> ExecutionResult {
+    private func measureSPM(
+        _ mutant: MutantDescriptor,
+        in context: TestExecutionContext,
+        timeout: Double
+    ) async throws -> (TestRunOutcome, TestLaunchResult) {
         let slot = try await context.pool.acquire()
         let launched: TestLaunchResult
         do {
-            launched = try await launchSPM(mutant: mutant, in: context)
+            launched = try await launchSPM(mutant: mutant, in: context, timeout: timeout)
         } catch {
             await context.pool.release(slot)
             throw error
@@ -91,7 +152,7 @@ struct TestExecutionStage: Sendable {
 
         let outcome = SPMResultParser().parse(exitCode: launched.exitCode, output: launched.output)
         await context.pool.release(slot)
-        return await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
+        return (outcome, launched)
     }
 
     private func recordResult(
@@ -129,12 +190,13 @@ struct TestExecutionStage: Sendable {
 
     private func launchSPM(
         mutant: MutantDescriptor,
-        in context: TestExecutionContext
+        in context: TestExecutionContext,
+        timeout: Double
     ) async throws -> TestLaunchResult {
         let start = Date()
         let captured = try await run(
-            spmRequests(mutant: mutant, in: context),
-            deadline: start.addingTimeInterval(context.configuration.build.timeout)
+            spmRequests(mutant: mutant, in: context, timeout: timeout),
+            deadline: start.addingTimeInterval(timeout)
         )
 
         return TestLaunchResult(
@@ -172,7 +234,8 @@ struct TestExecutionStage: Sendable {
 
     private func spmRequests(
         mutant: MutantDescriptor,
-        in context: TestExecutionContext
+        in context: TestExecutionContext,
+        timeout: Double
     ) -> [ProcessRequest] {
         let configuration = context.configuration
 
@@ -182,7 +245,8 @@ struct TestExecutionStage: Sendable {
                     filter: configuration.build.testTarget,
                     mutantID: mutant.id,
                     workingDirectory: context.sandbox.rootURL,
-                    timeout: configuration.build.timeout
+                    timeout: timeout,
+                    libraries: context.libraries
                 )
         }
 
@@ -198,7 +262,7 @@ struct TestExecutionStage: Sendable {
                 environment: nil,
                 additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": mutant.id],
                 workingDirectoryURL: context.sandbox.rootURL,
-                timeout: configuration.build.timeout
+                timeout: timeout
             )
         ]
     }
@@ -206,7 +270,8 @@ struct TestExecutionStage: Sendable {
     private func launch(
         plistData: Data,
         slot: SimulatorSlot,
-        in context: TestExecutionContext
+        in context: TestExecutionContext,
+        timeout: Double
     ) async throws -> TestLaunchResult {
         let baseURL =
             context.artifact.xctestrunURL?.deletingLastPathComponent()
@@ -239,7 +304,7 @@ struct TestExecutionStage: Sendable {
                 environment: nil,
                 additionalEnvironment: [:],
                 workingDirectoryURL: context.sandbox.rootURL,
-                timeout: context.configuration.build.timeout
+                timeout: timeout
             )
         )
 

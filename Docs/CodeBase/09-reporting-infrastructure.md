@@ -457,6 +457,19 @@ The descendants are collected **before** the first signal, while the process tha
 
 ---
 
+## Infrastructure/SleepInhibitor.swift
+
+```swift
+enum SleepInhibitor {
+    static func preventingIdleSleep<T>(_ body: () async throws -> T) async rethrows -> T
+    static func isHeld(by pid: pid_t = getpid()) -> Bool
+}
+```
+
+Holds an IOKit `PreventSystemSleep` assertion for as long as `body` runs, the same one `caffeinate -s` takes. The entry point wraps discovery and execution in it, so a run left unattended keeps going instead of pausing whenever the machine sleeps: with 15 test processes suspended mid-run, every one of them comes back past its timeout and the wall-clock time of the run grows by the length of the nap. `PreventUserIdleSystemSleep` (`caffeinate -i`) is not enough, because it only counts while the machine is fully awake; a machine that wakes briefly for maintenance goes straight back to sleep under it, and a mutation run can spend most of its life in exactly that state. Like `caffeinate -s`, the assertion only applies on AC power. `isHeld` reads the assertion table back and exists so tests can observe the assertion being taken and released.
+
+---
+
 ## Infrastructure/XCTestRunPlist.swift
 
 ```swift

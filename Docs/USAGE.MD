@@ -110,7 +110,8 @@ destination: platform=iOS Simulator,name=iPhone 16
 # Limit test execution to a specific target (recommended when the project has UI tests)
 # testTarget: MyAppTests
 
-# Per-mutant test timeout in seconds (default: 120 Xcode, 30 SPM)
+# Per-mutant test timeout in seconds (default: 120 Xcode, 30 SPM).
+# Applies to the run that decides a verdict; the first, parallel pass allows twice this.
 timeout: 60
 
 # Build timeout in seconds (default: 120)
