@@ -12,6 +12,7 @@ struct SwiftMutationTesting {
     static func main() async
     static func run(args: [String], launcher: (any ProcessLaunching)? = nil) async -> ExitCode
     private static func execute(args: [String], launcher: (any ProcessLaunching)?) async throws -> ExitCode
+    private static func runPipeline(configuration: RunnerConfiguration, launcher: (any ProcessLaunching)?) async throws -> ExitCode
     private static func discover(configuration: RunnerConfiguration) async throws -> (RunnerInput, TimeInterval)
     static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration)
     static func defaultLauncher(for projectType: ProjectType) -> any ProcessLaunching
@@ -37,12 +38,15 @@ flowchart TD
     C -- no --> D{showInit?}
     D -- yes --> INIT[ProjectDetector.detect\nConfigurationFileWriter.write → .success]
     D -- no --> E[ConfigurationFileParser.parse\nConfigurationResolver.resolve]
-    E --> F[discover → RunnerInput]
+    E --> S[SleepInhibitor.preventingIdleSleep]
+    S --> F[discover → RunnerInput]
     F --> G[MutantExecutor.execute → results]
     G --> H[RunnerSummary]
     H --> I[TextReporter.report]
     I --> J[writeReports → .success]
 ```
+
+`runPipeline` holds a `SleepInhibitor` assertion from discovery to the last report, so an unattended run does not stop while the machine sleeps.
 
 `discover` runs `DiscoveryPipeline` and, when `quiet` is false, emits `.discoveryFinished` to a `ConsoleProgressReporter`.
 
