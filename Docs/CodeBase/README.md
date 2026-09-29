@@ -62,7 +62,7 @@ RunnerInput
 
 ### Regions the suite deliberately does not cover
 
-Region coverage is 98.8%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
+Region coverage is 98.9%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
 
 Each entry was tried before it was listed. The rule from #95 applies: a region that cannot be made to fail under a negative control is a candidate for deletion, not for a test — five were deleted rather than covered (`MutantExecutor`'s probe guard, `RemoveSideEffectsVisitor`'s first-token guard, and three `?? false` fallbacks in `SandboxFactory` that became `== true`).
 
@@ -98,11 +98,9 @@ These stay because removing them replaces a graceful degrade with a crash or a f
 
 | file | line | what it protects |
 |---|---|---|
-| `Infrastructure/SPMProcessLauncher.swift` | 33 | `kill(-0, SIGTERM)` signals the tool's own process group. The guard fires when a run is cancelled before its process exists |
-| `Infrastructure/XcodeProcessLauncher.swift` | 27 | same |
 | `Simulator/SimulatorPool.swift` | 150 | a slot request cancelled after it was already resumed |
 
-A test would have to win a race against `Process.run()`, and a flaky test costs more than the line it covers.
+The two launchers used to be here too — `guard pid > 0` before `kill(-pid, SIGTERM)`, which is what stands between a run cancelled before its process exists and the tool signalling its own process group. They are covered now: the timeout handler is a static `terminate(pid:…)` that takes the `kill` function as a parameter defaulting to `Darwin.kill`, so a test can hand it a recorder and assert that pid 0 sends nothing. That is the pattern for anything else on this list that a system call keeps unreachable: inject at the failing call itself — not at the function around it, which would replace the branch instead of exercising it — default the parameter to the real call so no production site changes, and keep the `try?`/`??` at the call site so the fake can make it fire.
 
 **The entry point**
 
