@@ -111,4 +111,38 @@ struct SwiftMutationTestingExecutionPathTests {
 
         #expect(result == .error)
     }
+
+    @Test("Given quiet is off and the project has mutants, when run called, then discovery is reported")
+    func quietFalseReportsWhatDiscoveryFound() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let yml = "scheme: NonExistentScheme\ndestination: platform=macOS\nquiet: false\n"
+        try yml.write(to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8)
+        try "func f() -> Bool { true }\n".write(
+            to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
+        )
+
+        var result: ExitCode = .error
+        let output = await captureOutput {
+            result = await SwiftMutationTesting.run(args: [dir.path], launcher: MockProcessLauncher(exitCode: 1))
+        }
+
+        #expect(result == .success)
+        #expect(output.contains("Discovery"))
+        #expect(output.contains("1 mutant"))
+    }
+
+    @Test("Given no launcher, when run called, then the run picks one for the project type")
+    func runWithoutALauncherPicksOne() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let yml = "scheme: NonExistentScheme\ndestination: platform=macOS\n"
+        try yml.write(to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8)
+
+        let result = await SwiftMutationTesting.run(args: [dir.path])
+
+        #expect(result == .success)
+    }
 }

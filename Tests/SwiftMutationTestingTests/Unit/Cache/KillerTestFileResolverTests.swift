@@ -113,4 +113,44 @@ struct KillerTestFileResolverTests {
 
         #expect(hashedKeys.contains(killerFile), "\(killerFile) is not among \(hashedKeys)")
     }
+
+    @Test("Given an empty test name, when resolved, then no file is named")
+    func anEmptyTestNameResolvesToNothing() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let filePath = dir.appendingPathComponent("SomeTests.swift").path
+        try "import Testing".write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        let resolver = KillerTestFileResolver(testFilePaths: [filePath], projectPath: dir.path)
+
+        #expect(resolver.resolve(testName: "") == nil)
+    }
+
+    @Test("Given the name appears only inside a @Test title, when resolved, then that file is named")
+    func aNameThatAppearsOnlyInATestTitleStillNamesTheFile() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let filePath = dir.appendingPathComponent("TitleTests.swift").path
+        try #"@Test("covers aCheck") func somethingElse() {}"#
+            .write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        let resolver = KillerTestFileResolver(testFilePaths: [filePath], projectPath: dir.path)
+
+        #expect(resolver.resolve(testName: "TitleTests/aCheck") == "TitleTests.swift")
+    }
+
+    @Test("Given no test file mentions the name, when resolved, then no file is named")
+    func aNameNoFileMentionsResolvesToNothing() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let filePath = dir.appendingPathComponent("OtherTests.swift").path
+        try "import Testing".write(toFile: filePath, atomically: true, encoding: .utf8)
+
+        let resolver = KillerTestFileResolver(testFilePaths: [filePath], projectPath: dir.path)
+
+        #expect(resolver.resolve(testName: "OtherTests/missingCheck") == nil)
+    }
 }

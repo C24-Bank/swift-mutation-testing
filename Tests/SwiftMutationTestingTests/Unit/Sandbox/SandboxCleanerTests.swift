@@ -266,4 +266,9 @@ struct SandboxCleanerTests {
 
         #expect(capturedExitCode == 1)
     }
+
+    @Test("Given a directory that cannot be listed, when removeOrphaned called, then it returns without complaint")
+    func aDirectoryThatCannotBeListedIsLeftAlone() {
+        SandboxCleaner.removeOrphaned(in: URL(fileURLWithPath: "/does/not/exist/\(UUID().uuidString)"))
+    }
 }

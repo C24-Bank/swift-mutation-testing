@@ -91,4 +91,27 @@ struct TestFilesHasherTests {
 
         #expect(result.isEmpty)
     }
+
+    @Test("Given a Swift file that is not text, when hashing, then it is left out instead of failing the run")
+    func aFileThatIsNotTextIsLeftOut() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let tests = dir.appendingPathComponent("Tests")
+        try FileManager.default.createDirectory(at: tests, withIntermediateDirectories: true)
+        try "import Testing".write(
+            to: tests.appendingPathComponent("GoodTests.swift"), atomically: true, encoding: .utf8
+        )
+        try Data([0xFF, 0xFE, 0x00, 0x80]).write(to: tests.appendingPathComponent("BadTests.swift"))
+
+        let hashes = TestFilesHasher().hashPerFile(projectPath: dir.path)
+
+        #expect(hashes.keys.contains { $0.hasSuffix("GoodTests.swift") })
+        #expect(!hashes.keys.contains { $0.hasSuffix("BadTests.swift") })
+    }
+
+    @Test("Given a project path that does not exist, when listing test files, then the list is empty")
+    func aMissingProjectPathListsNothing() {
+        #expect(TestFilesHasher().testFilePaths(projectPath: "/does/not/exist").isEmpty)
+    }
 }

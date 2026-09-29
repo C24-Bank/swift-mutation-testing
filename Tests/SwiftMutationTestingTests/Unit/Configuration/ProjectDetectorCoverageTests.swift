@@ -163,4 +163,86 @@ struct ProjectDetectorCoverageTests {
         #expect(result.scheme == nil)
         #expect(result.allSchemes.isEmpty)
     }
+
+    @Test("Given a runtime whose device list is not a list of devices, when detecting, then it falls back to macOS")
+    func aRuntimeWithoutADeviceListIsSkipped() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let xcodeprojURL = dir.appendingPathComponent("MyApp.xcodeproj")
+        try FileManager.default.createDirectory(at: xcodeprojURL, withIntermediateDirectories: true)
+        try "SDKROOT = iphoneos;".write(
+            to: xcodeprojURL.appendingPathComponent("project.pbxproj"),
+            atomically: true, encoding: .utf8
+        )
+
+        let simctlJSON = """
+            {
+              "devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-18-0": "not a device list"
+              }
+            }
+            """
+        let launcher = MockProcessLauncher(
+            exitCode: 0, output: projectJSON, responses: ["xcrun": (exitCode: 0, output: simctlJSON)]
+        )
+
+        let result = await ProjectDetector(launcher: launcher).detect(at: dir.path)
+
+        #expect(result.destination == "platform=macOS")
+    }
+
+    @Test("Given a runtime key with no version, when detecting, then it sorts last instead of failing")
+    func aRuntimeKeyWithoutAVersionSortsLast() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let xcodeprojURL = dir.appendingPathComponent("MyApp.xcodeproj")
+        try FileManager.default.createDirectory(at: xcodeprojURL, withIntermediateDirectories: true)
+        try "SDKROOT = iphoneos;".write(
+            to: xcodeprojURL.appendingPathComponent("project.pbxproj"),
+            atomically: true, encoding: .utf8
+        )
+
+        let simctlJSON = """
+            {
+              "devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-unreleased": [
+                  { "name": "iPhone Prototype", "isAvailable": true }
+                ],
+                "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+                  { "name": "iPhone 16 Pro", "isAvailable": true }
+                ]
+              }
+            }
+            """
+        let launcher = MockProcessLauncher(
+            exitCode: 0, output: projectJSON, responses: ["xcrun": (exitCode: 0, output: simctlJSON)]
+        )
+
+        let result = await ProjectDetector(launcher: launcher).detect(at: dir.path)
+
+        #expect(result.destination.contains("iPhone 16 Pro"))
+    }
+
+    @Test("Given a test file that is not text, when detecting the framework, then it is skipped")
+    func aTestFileThatIsNotTextIsSkipped() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let tests = dir.appendingPathComponent("Tests")
+        try FileManager.default.createDirectory(at: tests, withIntermediateDirectories: true)
+        try Data([0xFF, 0xFE, 0x00, 0x80]).write(to: tests.appendingPathComponent("ATests.swift"))
+        try "import XCTest".write(
+            to: tests.appendingPathComponent("BTests.swift"), atomically: true, encoding: .utf8
+        )
+        try FileManager.default.createDirectory(
+            at: dir.appendingPathComponent("MyApp.xcodeproj"), withIntermediateDirectories: true
+        )
+
+        let result = await ProjectDetector(launcher: MockProcessLauncher(exitCode: 0, output: "{}"))
+            .detect(at: dir.path)
+
+        #expect(result.testingFramework == .xctest)
+    }
 }

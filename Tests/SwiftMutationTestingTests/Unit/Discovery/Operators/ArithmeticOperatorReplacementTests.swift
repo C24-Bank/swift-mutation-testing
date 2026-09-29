@@ -80,4 +80,13 @@ struct ArithmeticOperatorReplacementTests {
         let result = op.mutations(in: source)
         #expect(result[0].operatorIdentifier == "ArithmeticOperatorReplacement")
     }
+
+    @Test("Given an operator declaration, when mutated, then the operator it declares is still a mutation point")
+    func anOperatorDeclarationIsStillAMutationPoint() {
+        let source = makeParsedSource("struct P { static func + (lhs: P, rhs: P) -> P { lhs } }")
+
+        let mutations = ArithmeticOperatorReplacement().mutations(in: source)
+
+        #expect(mutations.map(\.description) == ["+ → -"])
+    }
 }

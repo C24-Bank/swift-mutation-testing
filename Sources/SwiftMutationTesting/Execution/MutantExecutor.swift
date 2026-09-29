@@ -368,11 +368,12 @@ struct MutantExecutor: Sendable {
                 libraries: [library]
             )
 
-            guard let request = requests.first else { continue }
+            for request in requests {
+                let captured = try await deps.launcher.launchCapturing(request)
 
-            let captured = try await deps.launcher.launchCapturing(request)
-            if !TestBundleInvocation.reportsNoTests(exitCode: captured.exitCode, output: captured.output) {
-                present.insert(library)
+                if !TestBundleInvocation.reportsNoTests(exitCode: captured.exitCode, output: captured.output) {
+                    present.insert(library)
+                }
             }
         }
 

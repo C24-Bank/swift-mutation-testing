@@ -463,4 +463,152 @@ struct SandboxFactoryTests {
         #expect(!FileManager.default.fileExists(atPath: sandbox.rootURL.path))
     }
 
+    @Test("Given a pbxproj that is not a property list, when the sandbox is created, then it is left as it is")
+    func aPbxprojThatIsNotAPropertyListIsLeftAlone() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+
+        let xcodeproj = projectDir.appendingPathComponent("App.xcodeproj")
+        try FileManager.default.createDirectory(at: xcodeproj, withIntermediateDirectories: true)
+        try "this is not a plist".write(
+            to: xcodeproj.appendingPathComponent("project.pbxproj"), atomically: true, encoding: .utf8
+        )
+
+        let sandbox = try await factory.create(
+            projectPath: projectDir.path, schematizedFiles: [], supportFileContent: ""
+        )
+        defer { try? sandbox.cleanup() }
+
+        let copied = try String(
+            contentsOf: sandbox.rootURL.appendingPathComponent("App.xcodeproj/project.pbxproj"), encoding: .utf8
+        )
+
+        #expect(copied == "this is not a plist")
+    }
+
+    @Test("Given a pbxproj with no objects, when the sandbox is created, then it is left as it is")
+    func aPbxprojWithoutObjectsIsLeftAlone() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+
+        let xcodeproj = projectDir.appendingPathComponent("App.xcodeproj")
+        try FileManager.default.createDirectory(at: xcodeproj, withIntermediateDirectories: true)
+        let plist = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>archiveVersion</key>
+                <string>1</string>
+            </dict>
+            </plist>
+            """
+        try plist.write(
+            to: xcodeproj.appendingPathComponent("project.pbxproj"), atomically: true, encoding: .utf8
+        )
+
+        let sandbox = try await factory.create(
+            projectPath: projectDir.path, schematizedFiles: [], supportFileContent: ""
+        )
+        defer { try? sandbox.cleanup() }
+
+        let copied = try String(
+            contentsOf: sandbox.rootURL.appendingPathComponent("App.xcodeproj/project.pbxproj"), encoding: .utf8
+        )
+
+        #expect(copied.contains("archiveVersion"))
+        #expect(!copied.contains("exit 0"))
+    }
+
+    @Test("Given a schema whose last line opens a case, when the sandbox is created, then nothing is appended to it")
+    func aSchemaEndingInACaseIsWrittenAsItIs() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+
+        try FileHelpers.write("original", named: "File.swift", in: projectDir)
+        let filePath = projectDir.appendingPathComponent("File.swift").path
+        let schema = "switch id {\ncase \"swift-mutation-testing_0\":"
+
+        let sandbox = try await factory.create(
+            projectPath: projectDir.path,
+            schematizedFiles: [SchematizedFile(originalPath: filePath, schematizedContent: schema)],
+            supportFileContent: ""
+        )
+        defer { try? sandbox.cleanup() }
+
+        let written = try String(
+            contentsOf: sandbox.rootURL.appendingPathComponent("File.swift"), encoding: .utf8
+        )
+
+        #expect(written == schema)
+    }
+
+    @Test("Given the first schematized file lies outside the project, when created, then no support file is written")
+    func aSchematizedFileOutsideTheProjectGetsNoSupportFile() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        let elsewhere = try FileHelpers.makeTemporaryDirectory()
+        defer {
+            FileHelpers.cleanup(projectDir)
+            FileHelpers.cleanup(elsewhere)
+        }
+
+        try FileHelpers.write("original", named: "File.swift", in: projectDir)
+        let outside = elsewhere.appendingPathComponent("Outside.swift")
+        try "let x = 1".write(to: outside, atomically: true, encoding: .utf8)
+
+        let sandbox = try await factory.create(
+            projectPath: projectDir.path,
+            schematizedFiles: [SchematizedFile(originalPath: outside.path, schematizedContent: "let x = 2")],
+            supportFileContent: "let support = true"
+        )
+        defer { try? sandbox.cleanup() }
+
+        let entries = try FileManager.default.contentsOfDirectory(atPath: sandbox.rootURL.path)
+
+        #expect(entries == ["File.swift"])
+    }
+
+    @Test(
+        "Given the file the support goes into is not in the sandbox, when created, then support still lands"
+    )
+    func supportContentIsWrittenEvenWhenTheFileIsMissing() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+
+        try FileHelpers.write("original", named: "File.swift", in: projectDir)
+        let missing = projectDir.appendingPathComponent("Ghost.swift").path
+
+        let sandbox = try await factory.create(
+            projectPath: projectDir.path,
+            schematizedFiles: [SchematizedFile(originalPath: missing, schematizedContent: "let x = 2")],
+            supportFileContent: "let support = true"
+        )
+        defer { try? sandbox.cleanup() }
+
+        let written = try String(
+            contentsOf: sandbox.rootURL.appendingPathComponent("Ghost.swift"), encoding: .utf8
+        )
+
+        #expect(written == "\nlet support = true")
+    }
+
+    @Test("Given a project where Sources is a file, when the sandbox is created, then the run fails loudly")
+    func aProjectWhoseSourcesIsAFileFailsLoudly() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+
+        try FileHelpers.write("original", named: "File.swift", in: projectDir)
+        try "not a directory".write(
+            to: projectDir.appendingPathComponent("Sources"), atomically: true, encoding: .utf8
+        )
+        let filePath = projectDir.appendingPathComponent("File.swift").path
+
+        await #expect(throws: (any Error).self) {
+            _ = try await factory.create(
+                projectPath: projectDir.path,
+                schematizedFiles: [SchematizedFile(originalPath: filePath, schematizedContent: "mutated")],
+                supportFileContent: "let support = true"
+            )
+        }
+    }
 }

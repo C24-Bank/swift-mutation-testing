@@ -234,4 +234,30 @@ struct TestOutputParserTests {
 
         #expect(TestOutputParser().failingTests(in: output).isEmpty)
     }
+
+    @Test("Given an XCTest line whose markers are out of order, when parsed, then no test is named")
+    func xctestMarkersOutOfOrderNameNothing() {
+        let line = "]' failed at some point, then Test Case '-["
+
+        #expect(TestOutputParser().failingTests(in: line).isEmpty)
+    }
+
+    @Test("Given an XCTest line naming a single token, when parsed, then no test is named")
+    func xctestFailureWithoutASuiteAndTestNameNamesNothing() {
+        let line = "Test Case '-[OnlyOneToken]' failed (0.001 seconds)."
+
+        #expect(TestOutputParser().failingTests(in: line).isEmpty)
+    }
+
+    @Test("Given a Swift Testing line whose quoted name never closes, when parsed, then no test is named")
+    func unterminatedQuotedNameNamesNothing() {
+        let line = #"✘ Test "a name that never closes failed after 0.1 seconds."#
+
+        #expect(TestOutputParser().failingTests(in: line).isEmpty)
+    }
+
+    @Test("Given a Swift Testing line that ends at the test name, when parsed, then no test is named")
+    func aLineThatEndsAtTheTestNameNamesNothing() {
+        #expect(TestOutputParser().failingTests(in: "✘ Test aCheck()").isEmpty)
+    }
 }

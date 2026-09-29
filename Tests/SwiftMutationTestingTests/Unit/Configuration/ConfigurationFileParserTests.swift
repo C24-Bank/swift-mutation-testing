@@ -172,4 +172,38 @@ struct ConfigurationFileParserTests {
 
         #expect(result["sources-path"] == "/my/sources")
     }
+
+    @Test("Given a top-level line with no colon, when parsed, then it is ignored and the rest is kept")
+    func aLineWithoutAColonIsIgnored() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try FileHelpers.write(
+            "this line has no colon\ntimeout: 45\n",
+            named: ".swift-mutation-testing.yml",
+            in: dir
+        )
+
+        let result = try parser.parse(at: dir.path)
+
+        #expect(result["timeout"] == "45")
+        #expect(result.count == 1)
+    }
+
+    @Test("Given a line whose key is empty, when parsed, then no empty key reaches the configuration")
+    func aLineWithoutAKeyIsIgnored() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try FileHelpers.write(
+            ": orphaned value\ntimeout: 45\n",
+            named: ".swift-mutation-testing.yml",
+            in: dir
+        )
+
+        let result = try parser.parse(at: dir.path)
+
+        #expect(result[""] == nil)
+        #expect(result["timeout"] == "45")
+    }
 }

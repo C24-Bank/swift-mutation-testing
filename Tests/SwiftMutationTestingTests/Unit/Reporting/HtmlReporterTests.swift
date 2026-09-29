@@ -173,4 +173,44 @@ struct HtmlReporterTests {
         #expect(line5Index != nil && line20Index != nil)
         #expect(line5Index! < line20Index!)
     }
+
+    @Test("Given results in several files, when report called, then the files are listed in path order")
+    func filesAreListedInPathOrder() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let outputPath = dir.appendingPathComponent("report.html").path
+        let reporter = HtmlReporter(outputPath: outputPath, projectRoot: "/abs/MyApp")
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(id: "1", filePath: "/abs/MyApp/Sources/Zebra.swift", status: .survived),
+                makeExecutionResult(id: "2", filePath: "/abs/MyApp/Sources/Alpha.swift", status: .killed(by: "t")),
+            ],
+            totalDuration: 1
+        )
+
+        try reporter.report(summary)
+
+        let html = try String(contentsOfFile: outputPath, encoding: .utf8)
+        let alpha = try #require(html.range(of: "Alpha.swift"))
+        let zebra = try #require(html.range(of: "Zebra.swift"))
+
+        #expect(alpha.lowerBound < zebra.lowerBound)
+    }
+
+    @Test("Given a run with no results at all, when report called, then the report is written with no rows")
+    func aRunWithoutResultsStillProducesAReport() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let outputPath = dir.appendingPathComponent("report.html").path
+        let reporter = HtmlReporter(outputPath: outputPath, projectRoot: "/abs/MyApp")
+
+        try reporter.report(RunnerSummary(results: [], totalDuration: 0))
+
+        let html = try String(contentsOfFile: outputPath, encoding: .utf8)
+
+        #expect(html.contains("<!DOCTYPE html>"))
+        #expect(!html.contains("<tr class="))
+    }
 }
