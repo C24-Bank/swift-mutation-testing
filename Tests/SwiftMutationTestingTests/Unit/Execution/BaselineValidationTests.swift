@@ -134,4 +134,88 @@ struct BaselineValidationTests {
             mutants: [mutant]
         )
     }
+
+    @Test("Given a test bundle whose suite fails, when execute called, then the run ends naming the test")
+    func aFailingBundleBaselineEndsTheRun() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let launcher = TwoLibraryBundleLauncher(
+            xctestOutput: "Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds",
+            swiftTestingOutput: #"✘ Test "a check" failed after 0.001 seconds with 1 issue."#,
+            swiftTestingExitCode: 1
+        )
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        )
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+            mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+        )
+
+        await #expect(throws: BaselineError.testsFailed(tests: ["a check"])) {
+            _ = try await executor.execute(input)
+        }
+    }
+
+    @Test("Given a test bundle whose suite does not finish, when execute called, then the run ends with didNotFinish")
+    func aBundleBaselineThatDoesNotFinishEndsTheRun() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let launcher = TwoLibraryBundleLauncher(
+            xctestOutput: "Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds",
+            swiftTestingOutput: "◇ Test run started.",
+            swiftTestingExitCode: SPMResultParser.timedOutExitCode
+        )
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, timeout: 7),
+            launcher: launcher
+        )
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+            mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+        )
+
+        await #expect(throws: BaselineError.didNotFinish(seconds: 7)) {
+            _ = try await executor.execute(input)
+        }
+    }
+
+    @Test("Given a test bundle, when the baseline is probed, then each library runs exactly once before the mutants")
+    func theProbeIsTheBaseline() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let launcher = EmptyXCTestBundleLauncher()
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        )
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+            mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+        )
+
+        _ = try await executor.execute(input)
+
+        #expect((await launcher.xctestRuns, await launcher.swiftTestingRuns) == (1, 2))
+        #expect(await launcher.swiftTestCommandRuns == 0)
+    }
 }

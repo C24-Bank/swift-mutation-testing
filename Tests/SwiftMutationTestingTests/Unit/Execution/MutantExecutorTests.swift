@@ -1125,7 +1125,8 @@ struct MutantExecutorTests {
         let launcher = TwoLibraryBundleLauncher(
             xctestOutput: "Test Case '-[CalculatorTests testAddition]' failed (0.002 seconds).",
             xctestExitCode: 1,
-            swiftTestingOutput: "✔ Test run with 3 tests in 1 suite passed after 0.1 seconds."
+            swiftTestingOutput: "✔ Test run with 3 tests in 1 suite passed after 0.1 seconds.",
+            probePasses: true
         )
         let executor = MutantExecutor(
             configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
@@ -1157,7 +1158,8 @@ struct MutantExecutorTests {
         let launcher = TwoLibraryBundleLauncher(
             xctestOutput: "Test Suite 'All tests' passed\nExecuted 3 tests, with 0 failures",
             swiftTestingOutput: "✔ Test run with 3 tests passed",
-            swiftTestingDelay: .milliseconds(400)
+            swiftTestingDelay: .milliseconds(400),
+            probePasses: true
         )
         let executor = MutantExecutor(
             configuration: makeRunnerConfiguration(
@@ -1178,5 +1180,81 @@ struct MutantExecutorTests {
         )
 
         #expect(results.map(\.status) == [.timeout])
+    }
+
+    // MARK: - Targeted tests first
+
+    private func targetedProject(in dir: URL, withSuite: Bool) throws -> URL {
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+        let tests = dir.appendingPathComponent("Tests")
+        try FileManager.default.createDirectory(at: tests, withIntermediateDirectories: true)
+        let name = withSuite ? "FooTests" : "OtherTests"
+        try "@Suite struct \(name) {}".write(
+            to: tests.appendingPathComponent("\(name).swift"), atomically: true, encoding: .utf8
+        )
+        return sourceFile
+    }
+
+    private func targetedInput(projectDir dir: URL, sourceFile: URL) -> RunnerInput {
+        makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+            mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+        )
+    }
+
+    @Test("Given the file's own suite kills the mutant, when executed, then the full suite never runs")
+    func aKillInTheTargetedSuiteEndsTheRun() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = try targetedProject(in: dir, withSuite: true)
+
+        let launcher = TargetedRunLauncher(
+            targetedOutcome: (1, #"✘ Test "a check" failed after 0.001 seconds with 1 issue."#)
+        )
+        let results = try await MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        ).execute(targetedInput(projectDir: dir, sourceFile: sourceFile))
+
+        #expect(results.map(\.status) == [.killed(by: "a check")])
+        #expect(await launcher.filters == ["FooTests"])
+    }
+
+    @Test("Given the file's own suite lets the mutant live, when executed, then the full suite decides")
+    func aSurvivorOfTheTargetedSuiteGoesToTheFullSuite() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = try targetedProject(in: dir, withSuite: true)
+
+        let launcher = TargetedRunLauncher(
+            targetedOutcome: (0, "✔ Test run with 2 tests in 1 suite passed after 0.1 seconds."),
+            fullOutcome: (1, #"✘ Test "elsewhere" failed after 0.001 seconds with 1 issue."#)
+        )
+        let results = try await MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        ).execute(targetedInput(projectDir: dir, sourceFile: sourceFile))
+
+        #expect(results.map(\.status) == [.killed(by: "elsewhere")])
+        #expect(await launcher.filters == ["FooTests", nil])
+    }
+
+    @Test("Given no suite named after the file, when executed, then only the full suite runs")
+    func aFileWithoutItsOwnSuiteRunsTheFullSuiteOnly() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = try targetedProject(in: dir, withSuite: false)
+
+        let launcher = TargetedRunLauncher(targetedOutcome: (1, "should never be asked"))
+        let results = try await MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        ).execute(targetedInput(projectDir: dir, sourceFile: sourceFile))
+
+        #expect(results.map(\.status) == [.survived])
+        #expect(await launcher.filters == [nil])
     }
 }

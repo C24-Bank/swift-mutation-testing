@@ -127,7 +127,7 @@ struct ArithmeticOperatorReplacement: MutationOperator, Sendable {
 
 Swaps arithmetic operators: `+` ↔ `-`, `*` ↔ `/`, `%` → `*`.
 
-Skips nodes where either operand is a string literal to avoid producing invalid Swift.
+Skips `+` and `-` when either operand is a string literal, which would otherwise produce `"a" - "b"`. The check walks the token's enclosing expression list to find the operands; a `+` that is not part of a binary expression at all — an operator *declaration*, for instance — has no operands to inspect and is mutated like any other.
 
 Visitor: `ArithmeticOperatorVisitor` — visits `BinaryOperatorExprSyntax`.
 
@@ -157,6 +157,10 @@ struct SwapTernary: MutationOperator, Sendable {
 
 Swaps the true and false branches of a ternary expression.
 
+The mutation is anchored on the **whole** ternary — condition, `?`, both branches — not on the condition alone. Anchoring on the condition turns `flag ? a : b` into `flag ? b : a ? a : b`, which either fails to compile or means something else entirely. In a chain (`a ? b : c ? d : e`) the visitor walks back to the nearest preceding ternary to find where its own condition starts, so each link swaps its own branches.
+
+A ternary whose branches are identical is skipped at discovery: swapping them produces the same program, and an equivalent mutant can only ever be reported as survived.
+
 Visitor: `SwapTernaryVisitor` — visits `UnresolvedTernaryExprSyntax`.
 
 ---
@@ -169,11 +173,15 @@ struct RemoveSideEffects: MutationOperator, Sendable {
 }
 ```
 
-Removes standalone function call statements. Skips calls to a fixed deny-list of safety-critical functions.
+Removes standalone function call statements. Three things are never removed, each because removing them produces a mutant that cannot compile rather than one the tests could catch:
 
-**Deny-list:** `print`, `debugPrint`, `assert`, `assertionFailure`, `precondition`, `preconditionFailure`, `fatalError`
+**Deny-list:** `print`, `debugPrint`, `assert`, `assertionFailure`, `precondition`, `preconditionFailure`, `fatalError` — plus `super.init` and `self.init`, since an initializer that does not delegate does not compile.
 
-Visitor: `RemoveSideEffectsVisitor` — visits `CodeBlockItemSyntax` whose expression is a function call.
+**Sole statement of a body.** A call that is the only statement of a closure, an accessor block, a `switch` case, or the body of a function, initializer, deinitializer or accessor is left alone: removing it empties the body, and an empty `case` is a compile error for the whole file, not just for that mutant. `if`, `for`, `while`, `do` and `defer` bodies may be emptied and are still mutated.
+
+**Inside a `while` or `repeat`.** Handled by the infinite-loop filter below, not by the operator itself.
+
+Visitor: `RemoveSideEffectsVisitor` — visits `CodeBlockItemSyntax` whose expression is a function call. The reported line, column and offset come from the node's position after leading trivia, so a call preceded by a comment is reported at the call.
 
 ---
 
@@ -183,7 +191,7 @@ Visitor: `RemoveSideEffectsVisitor` — visits `CodeBlockItemSyntax` whose expre
 
 ```swift
 struct SuppressionAnnotationExtractor: Sendable {
-    func extract(from source: ParsedSource) -> [Range<AbsolutePosition>]
+    func extractSuppressedRanges(from syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
 }
 ```
 
@@ -216,6 +224,49 @@ Walks the AST looking for the `@SwiftMutationTestingDisabled` attribute. When fo
 **Supported declaration kinds:**
 
 `FunctionDeclSyntax`, `InitializerDeclSyntax`, `ClassDeclSyntax`, `StructDeclSyntax`, `EnumDeclSyntax`, `ExtensionDeclSyntax`, `VariableDeclSyntax`
+
+---
+
+## Infinite-loop prevention
+
+Two operators can turn a terminating loop into one that never ends: `ArithmeticOperatorReplacement`, which can flip the step that moves an index towards its bound, and `RemoveSideEffects`, which can delete the statement that advances it. A mutant like that does not fail the tests — it hangs them, and the run pays the full `--timeout` for a verdict of `Timeout` that says nothing about the test suite.
+
+Mutation points of those two operators are therefore dropped at discovery when they fall inside the body of a `while` or a `repeat`. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite.
+
+### Discovery/InfiniteLoopPrevention/InfiniteLoopBodyVisitor.swift
+
+```swift
+final class InfiniteLoopBodyVisitor: SyntaxVisitor {
+    private(set) var loopBodyRanges: [Range<AbsolutePosition>]
+}
+```
+
+Collects the body range of every `WhileStmtSyntax` and `RepeatStmtSyntax`, nested ones included.
+
+### Discovery/InfiniteLoopPrevention/InfiniteLoopBodyExtractor.swift
+
+```swift
+struct InfiniteLoopBodyExtractor: Sendable {
+    func extractLoopBodyRanges(from syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
+}
+```
+
+Walks the file once with `InfiniteLoopBodyVisitor` and returns what it found.
+
+### Discovery/InfiniteLoopPrevention/InfiniteLoopFilter.swift
+
+```swift
+struct InfiniteLoopFilter: Sendable {
+    func filter(
+        _ mutationPoints: [MutationPoint],
+        loopBodyRanges: [Range<AbsolutePosition>]
+    ) -> [MutationPoint]
+}
+```
+
+Removes the points of the two risky operators whose `utf8Offset` falls inside a collected range. Every other operator passes through untouched, and a file with no `while` or `repeat` returns its points unchanged without any range checks.
+
+`MutantDiscoveryStage` applies this after `SuppressionFilter`, so a suppressed region is never even considered.
 
 ---
 

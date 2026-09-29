@@ -106,7 +106,13 @@ Operators are activated by name via `--operator` or deactivated via `--disable-m
 
 ## Suppression
 
-Mutations can be suppressed on a per-scope basis using the inline annotation `// xmt:disable`. `SuppressionAnnotationExtractor` collects suppressed ranges from comments, and `SuppressionFilter` removes any `MutationPoint` whose location falls within a suppressed range before points reach `SchematizationStage`.
+Mutations can be suppressed per scope with the `@SwiftMutationTestingDisabled` attribute on a function, initializer, type or property. `SuppressionAnnotationExtractor` walks the file and records the full source range of every declaration carrying it, and `SuppressionFilter` removes any `MutationPoint` falling inside one before the points reach `MutantIndexingStage`.
+
+## Infinite-loop prevention
+
+`ArithmeticOperatorReplacement` and `RemoveSideEffects` can turn a terminating loop into one that never ends — by flipping the step that moves an index towards its bound, or by deleting the statement that advances it. A mutant like that does not fail the tests, it hangs them, and the run pays the full `--timeout` for a `Timeout` verdict that says nothing about the suite.
+
+`InfiniteLoopBodyExtractor` collects the body range of every `while` and `repeat`, and `InfiniteLoopFilter` drops the points of those two operators that fall inside one. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite. The filter runs right after suppression, inside `MutantDiscoveryStage`.
 
 ## Data Structures
 

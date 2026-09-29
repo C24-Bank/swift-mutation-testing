@@ -10,6 +10,8 @@ struct ProcessRunner: Sendable {
         let tempURL: URL
     }
 
+    private static let pollInterval: Duration = .milliseconds(100)
+
     final class KilledByUsFlag: @unchecked Sendable {
         private let lock = NSLock()
         private var flag = false
@@ -83,11 +85,13 @@ struct ProcessRunner: Sendable {
         process.standardError = fileHandle
 
         let killedByUs = KilledByUsFlag()
+        let stoppedByRule = KilledByUsFlag()
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.startCapturingProcess(
-                    process, killedByUs: killedByUs, timeout: request.timeout,
+                    process, killedByUs: killedByUs, stoppedByRule: stoppedByRule,
+                    timeout: request.timeout, stopRule: request.stopRule,
                     capture: CaptureTarget(fileHandle: fileHandle, tempURL: tempURL),
                     continuation: continuation
                 )
@@ -129,12 +133,31 @@ struct ProcessRunner: Sendable {
     private func startCapturingProcess(
         _ process: Process,
         killedByUs: KilledByUsFlag,
+        stoppedByRule: KilledByUsFlag,
         timeout: Double,
+        stopRule: OutputStopRule?,
         capture: CaptureTarget,
         continuation: CheckedContinuation<(exitCode: Int32, output: String), any Error>
     ) {
         let timeoutTask = Task {
-            try await Task.sleep(for: .seconds(timeout))
+            let deadline = ContinuousClock.now + .seconds(timeout)
+
+            if let stopRule {
+                var watcher = OutputWatcher(url: capture.tempURL, rule: stopRule)
+
+                while ContinuousClock.now < deadline {
+                    try await Task.sleep(for: min(Self.pollInterval, deadline - .now))
+
+                    if watcher.sawMarker() {
+                        stoppedByRule.mark()
+                        onTimeout(process.processIdentifier)
+                        return
+                    }
+                }
+            } else {
+                try await Task.sleep(until: deadline)
+            }
+
             killedByUs.mark()
             onTimeout(process.processIdentifier)
         }
@@ -145,7 +168,12 @@ struct ProcessRunner: Sendable {
             capture.fileHandle.closeFile()
             let output = (try? readCapturedOutput(capture.tempURL)) ?? ""
             try? FileManager.default.removeItem(at: capture.tempURL)
-            let exitCode: Int32 = killedByUs.value ? -1 : terminated.terminationStatus
+            let exitCode: Int32
+            if stoppedByRule.value, let stopRule {
+                exitCode = stopRule.exitCode
+            } else {
+                exitCode = killedByUs.value ? -1 : terminated.terminationStatus
+            }
             continuation.resume(returning: (exitCode: exitCode, output: output))
         }
 

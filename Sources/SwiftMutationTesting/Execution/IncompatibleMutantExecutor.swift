@@ -68,48 +68,83 @@ struct IncompatibleMutantExecutor: Sendable {
 
         guard !viable.isEmpty else { return results }
 
-        let sandbox = try await sandboxFactory.createClean(projectPath: configuration.projectPath)
+        let share = TestExecutionStage.retryWorkerShare
+        let workerCount = max(1, min(configuration.build.concurrency / share, viable.count))
+        let workers = try await warmSandboxes(count: workerCount, configuration: configuration)
+        defer { for worker in workers { try? worker.sandbox.cleanup() } }
 
-        let initialBuild = try await deps.launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                arguments: spmBuildArguments(),
-                environment: nil,
-                additionalEnvironment: [:],
-                workingDirectoryURL: sandbox.rootURL,
-                timeout: configuration.build.buildTimeout
-            )
-        )
+        let ready = workers.filter { $0.build.exitCode == 0 }
 
-        guard initialBuild.exitCode == 0 else {
+        guard !ready.isEmpty else {
+            let failed = workers[0].build
             for mutant in viable {
                 let key = MutantCacheKey.make(for: mutant)
                 results.append(
                     await storeAndReport(
                         mutant: mutant, key: key, sandbox: nil,
                         keepLogsPath: configuration.reporting.keepLogsPath,
-                        buildOutput: initialBuild.output,
-                        status: buildStatus(exitCode: initialBuild.exitCode)
+                        buildOutput: failed.output,
+                        status: buildStatus(exitCode: failed.exitCode)
                     )
                 )
             }
-            try? sandbox.cleanup()
             return results
         }
 
-        for mutant in viable {
-            let key = MutantCacheKey.make(for: mutant)
-            let result = try await runInSharedSandbox(
-                mutant: mutant,
-                key: key,
-                configuration: configuration,
-                sandbox: sandbox
-            )
-            results.append(result)
+        let numbered = Array(viable.enumerated())
+        let finished = try await withThrowingTaskGroup(of: [(Int, ExecutionResult)].self) { group in
+            for (slot, worker) in ready.enumerated() {
+                let mine = numbered.filter { $0.offset % ready.count == slot }
+                group.addTask {
+                    var done: [(Int, ExecutionResult)] = []
+                    for (offset, mutant) in mine {
+                        let key = MutantCacheKey.make(for: mutant)
+                        let result = try await runInSharedSandbox(
+                            mutant: mutant, key: key, configuration: configuration, sandbox: worker.sandbox
+                        )
+                        done.append((offset, result))
+                    }
+                    return done
+                }
+            }
+
+            var all: [(Int, ExecutionResult)] = []
+            for try await part in group { all += part }
+            return all
         }
 
-        try? sandbox.cleanup()
+        results += finished.sorted { $0.0 < $1.0 }.map(\.1)
         return results
+    }
+
+    private struct WarmSandbox: Sendable {
+        let sandbox: Sandbox
+        let build: (exitCode: Int32, output: String)
+    }
+
+    private func warmSandboxes(count: Int, configuration: RunnerConfiguration) async throws -> [WarmSandbox] {
+        try await withThrowingTaskGroup(of: (Int, WarmSandbox).self) { group in
+            for slot in 0 ..< count {
+                group.addTask {
+                    let sandbox = try await sandboxFactory.createClean(projectPath: configuration.projectPath)
+                    let build = try await deps.launcher.launchCapturing(
+                        ProcessRequest(
+                            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
+                            arguments: spmBuildArguments(),
+                            environment: nil,
+                            additionalEnvironment: [:],
+                            workingDirectoryURL: sandbox.rootURL,
+                            timeout: configuration.build.buildTimeout
+                        )
+                    )
+                    return (slot, WarmSandbox(sandbox: sandbox, build: build))
+                }
+            }
+
+            var warmed: [(Int, WarmSandbox)] = []
+            for try await entry in group { warmed.append(entry) }
+            return warmed.sorted { $0.0 < $1.0 }.map(\.1)
+        }
     }
 
     private func spmBuildArguments() -> [String] {

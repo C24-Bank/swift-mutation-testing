@@ -103,25 +103,29 @@ All options correspond directly to `RunnerConfiguration` fields. CLI values over
 
 ```
 swift-mutation-testing [<project-path>] [options]
-swift-mutation-testing [<project-path>] init
+swift-mutation-testing init [<project-path>]
 
 OPTIONS:
-  --scheme <scheme>             Xcode scheme to build and test (required)
-  --destination <destination>   xcodebuild destination specifier (required)
-  --target <test-target>        Limit test execution to this target
-  --timeout <seconds>           Per-mutant test timeout (default: 60)
-  --concurrency <n>             Parallel workers (default: CPUs - 1)
-  --no-cache                    Disable result caching
-  --output <json-path>          Write JSON report to path
+  --scheme <scheme>             Xcode scheme to build and test (Xcode projects only)
+  --destination <destination>   xcodebuild destination specifier (Xcode projects only)
+  --testing-framework <fw>       Testing framework: xctest or swift-testing (default: swift-testing)
+  --target <test-target>        Test target name
+  --timeout <seconds>           Per-mutant test timeout in seconds (default: 120 Xcode, 30 SPM)
+  --build-timeout <seconds>     Build timeout in seconds (default: 120)
+  --concurrency <n>             Parallel test workers (default: CPUs - 1). Simulator
+                                destinations only; SPM and macOS runs use one worker
+  --no-cache                    Disable the result cache — nothing is read or written
+  --output <json-path>          Write mutation report JSON to path
   --html-output <html-path>     Write HTML report to path
-  --sonar-output <json-path>    Write Sonar report to path
+  --sonar-output <json-path>    Write Sonar Generic Coverage report to path
+  --keep-logs <directory>       Write each mutant's captured test output to <directory>
   --quiet                       Suppress progress output
-  --sources-path <path>         Root for Swift source discovery (default: project path)
+  --sources-path <path>         Root directory to discover Swift source files (default: project path)
   --exclude <pattern>           Exclude files matching pattern (repeatable)
-  --operator <id>               Active mutation operator (repeatable, default: all)
-  --disable-mutator <id>        Disable a mutation operator (repeatable)
+  --operator <id>               Mutation operator to apply (repeatable, default: all)
+  --disable-mutator <id>        Disable a specific mutation operator (repeatable)
   --version                     Print version and exit
-  --help                        Print usage and exit
+  --help                        Print this help and exit
 ```
 
 ## Resolution Order

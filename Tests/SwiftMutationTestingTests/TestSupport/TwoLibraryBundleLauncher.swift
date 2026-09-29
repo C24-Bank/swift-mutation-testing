@@ -8,19 +8,22 @@ actor TwoLibraryBundleLauncher: ProcessLaunching {
     private let swiftTestingOutput: String
     private let swiftTestingExitCode: Int32
     private let swiftTestingDelay: Duration
+    private let probePasses: Bool
 
     init(
         xctestOutput: String,
         xctestExitCode: Int32 = 0,
         swiftTestingOutput: String,
         swiftTestingExitCode: Int32 = 0,
-        swiftTestingDelay: Duration = .zero
+        swiftTestingDelay: Duration = .zero,
+        probePasses: Bool = false
     ) {
         self.xctestOutput = xctestOutput
         self.xctestExitCode = xctestExitCode
         self.swiftTestingOutput = swiftTestingOutput
         self.swiftTestingExitCode = swiftTestingExitCode
         self.swiftTestingDelay = swiftTestingDelay
+        self.probePasses = probePasses
     }
 
     func launch(
@@ -43,13 +46,19 @@ actor TwoLibraryBundleLauncher: ProcessLaunching {
             return (0, "")
         }
 
+        let isProbe = request.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] == ""
+
         if request.arguments.first == "xctest" {
-            return (xctestExitCode, xctestOutput)
+            return probePasses && isProbe
+                ? (0, "Executed 3 tests, with 0 failures (0 unexpected) in 0.010 (0.011) seconds")
+                : (xctestExitCode, xctestOutput)
         }
 
         if request.executableURL.lastPathComponent == "swiftpm-testing-helper" {
             try await Task.sleep(for: swiftTestingDelay)
-            return (swiftTestingExitCode, swiftTestingOutput)
+            return probePasses && isProbe
+                ? (0, "✔ Test run with 3 tests in 1 suite passed after 0.1 seconds.")
+                : (swiftTestingExitCode, swiftTestingOutput)
         }
 
         return (0, "")

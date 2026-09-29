@@ -22,24 +22,39 @@ Multi-value flags (`--exclude`, `--operator`, `--disable-mutator`) accumulate in
 
 ```swift
 struct ParsedArguments: Sendable {
-    let projectPath: String
-    var showHelp: Bool
-    var showVersion: Bool
-    var showInit: Bool
-    var scheme: String?
-    var destination: String?
-    var testTarget: String?
-    var timeout: Double?
-    var concurrency: Int?
-    var noCache: Bool
-    var output: String?
-    var htmlOutput: String?
-    var sonarOutput: String?
-    var sourcesPath: String?
-    var excludePatterns: [String]
-    var operators: [String]
-    var disabledMutators: [String]
-    var quiet: Bool
+    var projectPath: String = "."
+    var showVersion: Bool = false
+    var showHelp: Bool = false
+    var showInit: Bool = false
+    var build: BuildOptions = BuildOptions()
+    var reporting: ReportingOptions = ReportingOptions()
+    var filter: FilterOptions = FilterOptions()
+
+    struct BuildOptions: Sendable {
+        var scheme: String?
+        var destination: String?
+        var testTarget: String?
+        var timeout: Double?
+        var buildTimeout: Double?
+        var concurrency: Int?
+        var noCache: Bool = false
+        var testingFramework: String?
+    }
+
+    struct ReportingOptions: Sendable {
+        var output: String?
+        var htmlOutput: String?
+        var sonarOutput: String?
+        var keepLogsPath: String?
+        var quiet: Bool = false
+    }
+
+    struct FilterOptions: Sendable {
+        var sourcesPath: String?
+        var excludePatterns: [String] = []
+        var operators: [String] = []
+        var disabledMutators: [String] = []
+    }
 }
 ```
 
@@ -49,20 +64,23 @@ struct ParsedArguments: Sendable {
 | `showHelp` | `false` | Set by `--help` |
 | `showVersion` | `false` | Set by `--version` |
 | `showInit` | `false` | Set by the `init` subcommand |
-| `scheme` | `nil` | `--scheme <value>` |
-| `destination` | `nil` | `--destination <value>` |
-| `testTarget` | `nil` | `--target <value>` |
-| `timeout` | `nil` | `--timeout <seconds>` |
-| `concurrency` | `nil` | `--concurrency <n>` |
-| `noCache` | `false` | `--no-cache` |
-| `output` | `nil` | `--output <path>` |
-| `htmlOutput` | `nil` | `--html-output <path>` |
-| `sonarOutput` | `nil` | `--sonar-output <path>` |
-| `sourcesPath` | `nil` | `--sources-path <path>` |
-| `excludePatterns` | `[]` | `--exclude <pattern>`, repeatable |
-| `operators` | `[]` | `--operator <id>`, repeatable |
-| `disabledMutators` | `[]` | `--disable-mutator <id>`, repeatable |
-| `quiet` | `false` | `--quiet` |
+| `build.scheme` | `nil` | `--scheme <value>` |
+| `build.destination` | `nil` | `--destination <value>` |
+| `build.testTarget` | `nil` | `--target <value>` |
+| `build.testingFramework` | `nil` | `--testing-framework <xctest\|swift-testing>` |
+| `build.timeout` | `nil` | `--timeout <seconds>` |
+| `build.buildTimeout` | `nil` | `--build-timeout <seconds>` |
+| `build.concurrency` | `nil` | `--concurrency <n>` |
+| `build.noCache` | `false` | `--no-cache` |
+| `reporting.output` | `nil` | `--output <path>` |
+| `reporting.htmlOutput` | `nil` | `--html-output <path>` |
+| `reporting.sonarOutput` | `nil` | `--sonar-output <path>` |
+| `reporting.keepLogsPath` | `nil` | `--keep-logs <directory>` |
+| `reporting.quiet` | `false` | `--quiet` |
+| `filter.sourcesPath` | `nil` | `--sources-path <path>` |
+| `filter.excludePatterns` | `[]` | `--exclude <pattern>`, repeatable |
+| `filter.operators` | `[]` | `--operator <id>`, repeatable |
+| `filter.disabledMutators` | `[]` | `--disable-mutator <id>`, repeatable |
 
 ---
 
@@ -77,6 +95,7 @@ struct RunnerConfiguration: Sendable {
 
     static let defaultXcodeTimeout: Double   // 120.0
     static let defaultSPMTimeout: Double     // 30.0
+    static let defaultBuildTimeout: Double   // 120.0
     static let defaultConcurrency: Int       // max(1, processorCount - 1)
 
     struct BuildOptions: Sendable {
@@ -109,6 +128,7 @@ Fully resolved configuration passed to both pipelines. Organized into three nest
 |---|---|
 | `defaultXcodeTimeout` | `120.0` |
 | `defaultSPMTimeout` | `30.0` |
+| `defaultBuildTimeout` | `120.0` |
 | `defaultConcurrency` | `max(1, ProcessInfo.processorCount - 1)` |
 
 ---

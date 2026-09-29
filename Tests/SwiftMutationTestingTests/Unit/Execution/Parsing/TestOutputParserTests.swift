@@ -260,4 +260,29 @@ struct TestOutputParserTests {
     func aLineThatEndsAtTheTestNameNamesNothing() {
         #expect(TestOutputParser().failingTests(in: "✘ Test aCheck()").isEmpty)
     }
+
+    @Test(
+        "Given a line that names a failure, when matched against the stop markers, then it stops the run",
+        arguments: [
+            "Test Case '-[CalculatorTests testAddition]' failed (0.002 seconds).",
+            #"✘ Test "a check" recorded an issue at File.swift:3:9: Expectation failed"#,
+            #"✘ Test "a check" failed after 0.001 seconds with 1 issue."#,
+        ]
+    )
+    func aFailureLineIsAStopMarker(line: String) {
+        #expect(OutputStopRule.firstTestFailure.matches(line))
+    }
+
+    @Test(
+        "Given a line that is not a failure, when matched against the stop markers, then the run goes on",
+        arguments: [
+            "Test Case '-[CalculatorTests testAddition]' passed (0.002 seconds).",
+            #"✘ Test "a check" recorded a known issue at File.swift:3:9"#,
+            "✔ Test run with 944 tests in 91 suites passed after 14.093 seconds.",
+            "Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds",
+        ]
+    )
+    func aNonFailureLineIsNotAStopMarker(line: String) {
+        #expect(!OutputStopRule.firstTestFailure.matches(line))
+    }
 }

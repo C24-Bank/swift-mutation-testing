@@ -13,16 +13,20 @@ flowchart TD
     IN[RunnerInput] --> PREP[prepareCacheStore\ngranular invalidation]
     PREP --> ALLCACHED{all cached?}
     ALLCACHED -- yes --> RETURN[return cached results]
-    ALLCACHED -- no --> CLEAN[SandboxCleaner.removeOrphaned]
+    ALLCACHED -- no --> CLEAN[SandboxCleaner.removeOrphaned\nowned sandboxes are spared]
     CLEAN --> SF[SandboxFactory\ncreate sandbox]
     SF --> REG[SandboxCleaner.register]
     REG --> BS[BuildStage\nbuild-for-testing]
-    BS -- success --> TES[TestExecutionStage\nparallel test-without-building]
-    BS -- compilationFailed --> FBP[FallbackExecutor\none build per schematized file]
+    BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
+    RETRY -- gave up --> FBP[FallbackExecutor\none build per schematized file]
+    BS -- success --> PROBE[probe each testing library once\nbaseline + which libraries have tests]
+    RETRY -- rebuilt --> PROBE
+    PROBE -- fails --> ABORT[throw BaselineError]
+    PROBE -- passes --> TES[TestExecutionStage\ntwo passes, see below]
     TES --> TR[TestResultResolver]
     TR --> CACHE[CacheStore]
     FBP --> CACHE
-    IN -- incompatible mutants --> IME[IncompatibleMutantExecutor\none full build+test per mutant]
+    IN -- incompatible mutants --> IME[IncompatibleMutantExecutor\nwarm sandboxes, incremental rebuild per mutant]
     IME --> CACHE
     CACHE --> DEREG[SandboxCleaner.deregister\nsandbox.cleanup]
     DEREG --> SUM[RunnerSummary]
@@ -106,22 +110,29 @@ Before the first mutant runs, the suite is run once with no mutant selected. `__
 
 The run continues only if that suite passes. A suite that already fails without a mutation kills every mutant it reaches, so every verdict it produces is worthless — and nothing in the report would reveal it. `MutantExecutor` throws `BaselineError` instead, naming the failing tests, the timeout that stopped the suite, or the output it failed with.
 
+**The baseline and the library probe are the same run.** When the package built to a test bundle, each testing library is invoked once against the unmutated sandbox, and that single invocation answers both questions: a library reporting no tests — exit 69 from SwiftPM's helper, `Executed 0 tests` from `xctest` — is dropped from every mutant's run, and a library that does have tests must pass them. Only when no bundle was produced does the baseline fall back to a separate `swift test --skip-build`. The probe runs the suite to the end; mutants stop at their first failing test.
+
 The Xcode path does not validate a baseline yet and has the same exposure.
 
 ## TestExecutionStage
 
-Runs `xcodebuild test-without-building` for each mutant in parallel via `withThrowingTaskGroup`.
+Runs each mutant's tests in parallel via `withThrowingTaskGroup` — `xcodebuild test-without-building` on the Xcode path, the test bundle directly on the SPM one — in two passes.
 
 ```mermaid
 flowchart TD
     MUTANTS["[MutantDescriptor]"] --> TG
-    subgraph TG["withThrowingTaskGroup (concurrency N)"]
-        T1["Task: mutant 1\nacquire slot → launch → release"] & T2["Task: mutant 2"] & T3["Task: mutant N"]
+    subgraph TG["pass 1 — withThrowingTaskGroup (concurrency N, limit = timeout × 2)"]
+        T1["Task: mutant 1\nacquire slot → targeted suite → full suite → release"] & T2["Task: mutant 2"] & T3["Task: mutant N"]
     end
-    TG --> RESULTS["[ExecutionResult]"]
+    TG -- settled --> RESULTS["[ExecutionResult]"]
+    TG -- still running at the limit --> SG
+    subgraph SG["pass 2 — the stragglers (concurrency ÷ 4, limit = timeout)"]
+        S1["Task: straggler 1"] & S2["Task: straggler M"]
+    end
+    SG --> RESULTS
 ```
 
-**Per-mutant execution:**
+**Per-mutant execution, Xcode path:**
 
 1. Check cache — return cached result immediately if `noCache` is false and a match exists
 2. Activate the mutant: `XCTestRunPlist.activating(_:)` injects the mutant ID into `EnvironmentVariables.__SWIFT_MUTATION_TESTING_ACTIVE` in a fresh `.xctestrun` copy
@@ -131,7 +142,16 @@ flowchart TD
 6. Parse the result via `ResultParser`
 7. Store status in `CacheStore`
 
-**Dynamic concurrency:** the task group seeds N tasks initially, then adds one new task for each completed task, maintaining exactly N active tasks at all times.
+**Per-mutant execution, SPM path:** the mutant id travels in the environment rather than in a plist, and the bundle is invoked directly instead of through `swift test`. Two things happen before the whole suite is asked:
+
+1. If a suite is named after the mutated file — `FooTests` for `Foo.swift`, and it declares a type of that name — it runs alone first. A failure there settles the verdict, and the rest of the suite is not run.
+2. Otherwise, or if that run let the mutant live, the whole suite runs, invoking only the libraries the probe found tests in.
+
+Either run stops at its first failing test: a mutant is killed by one test, and `TestOutputParser` reports that one. See `ProcessRunner` in [09 — Reporting & Infrastructure](../CodeBase/09-reporting-infrastructure.md) for the mechanism.
+
+**Two passes.** The first runs every mutant with `concurrency` workers and a limit of twice `--timeout`; a mutant still running at that point is not recorded, it is set aside. Once the group drains, the stragglers run again with a quarter of the workers and the configured `--timeout`, and that second outcome is the one reported. A verdict that settles under load is the verdict the mutant gets alone, so the wider limit only spares the second run — and the second pass has no contention to blame for a timeout.
+
+**Dynamic concurrency:** each pass seeds its workers, then adds one new task for each completed task, keeping exactly that many active at all times.
 
 ## FallbackExecutor
 
@@ -150,7 +170,7 @@ For each schematized file, `FallbackExecutor` creates a sandbox containing only 
 
 ## IncompatibleMutantExecutor
 
-Handles mutants that cannot be schematized — mutations outside function bodies (e.g. in stored property initializers or global scope). Each incompatible mutant requires a full build + test cycle.
+Handles mutants that cannot be schematized — mutations outside function bodies (e.g. in stored property initializers or global scope). Each incompatible mutant requires its own rebuild before its tests can run, which makes these the most expensive mutants in a run.
 
 ```mermaid
 flowchart TD
@@ -160,13 +180,16 @@ flowchart TD
     BS2 -- success --> TE2[xcodebuild test-without-building]
     BS2 -- compilationFailed --> UNVIABLE[.unviable]
     TE2 --> RP2[TestResultResolver]
-    PT -- .spm --> SHARED[Shared sandbox\nwrite mutated file → swift test]
-    SHARED --> SPM[SPMResultParser]
+    PT -- .spm --> WARM[warmSandboxes\nconcurrency ÷ 4, built in parallel]
+    WARM -- none built --> UNVIABLE
+    WARM --> DEAL[mutants dealt round-robin\nover the sandboxes that built]
+    DEAL --> WRITE[write mutated file\nincremental rebuild → tests → restore]
+    WRITE --> SPM[SPMResultParser]
 ```
 
 **Xcode path:** Each incompatible mutant creates its own sandbox via `SandboxFactory.create(projectPath:mutatedFilePath:mutatedContent:)`, which applies the single mutation directly without schematization. Runs sequentially, each with a full build + test cycle.
 
-**SPM path:** Uses a shared sandbox created via `SandboxFactory.createClean(projectPath:)`. For each mutant, writes the mutated source content directly to the sandbox, runs `swift test`, and restores the original file. This avoids creating a new sandbox per mutant.
+**SPM path:** Uses warm sandboxes created via `SandboxFactory.createClean(projectPath:)` — a quarter of `--concurrency` of them, never fewer than one and never more than there are mutants — each built once up front so that every mutant after the first costs an incremental rebuild rather than a cold one. Mutants are dealt round-robin over the sandboxes that built; for each, the mutated source is written into its sandbox, the package is rebuilt and tested, and the original file restored. A sandbox whose warm build failed is left out, and only when none built are the mutants reported unviable with that build's output.
 
 ## TestResultResolver
 

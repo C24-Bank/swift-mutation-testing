@@ -154,16 +154,20 @@ Assigns a globally unique sequential index to each mutation point (sorted by fil
 
 ```swift
 struct IndexedMutationPoint: Sendable {
-    let point: MutationPoint
-    let id: String
+    let index: Int
+    let mutation: MutationPoint
     let isSchematizable: Bool
+
+    var mutantID: String { get }
+    func toDescriptor(mutatedContent: String?, sourceContentHash: String) -> MutantDescriptor
 }
 ```
 
 | Field | Description |
 |---|---|
-| `point` | The original mutation point |
-| `id` | `"swift-mutation-testing_<index>"` — unique per run |
+| `index` | Position in the run's ordering, assigned by `MutantIndexingStage` |
+| `mutation` | The original mutation point |
+| `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID` is compared against in the schema |
 | `isSchematizable` | `true` if the mutation falls inside a function body (determined by `TypeScopeVisitor`) |
 
 ---
@@ -282,6 +286,7 @@ struct MutantDescriptor: Sendable, Codable {
     let description: String
     let isSchematizable: Bool
     let mutatedSourceContent: String?
+    let sourceContentHash: String
 }
 ```
 

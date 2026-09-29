@@ -21,9 +21,9 @@ graph TD
     DISCOVERY["Discovery\n(DiscoveryPipeline · Operators · Schematization)"]
     EXECUTION["Execution\n(MutantExecutor · FallbackExecutor · IncompatibleMutantExecutor\nBuildStage · TestExecutionStage · TestResultResolver)"]
     REPORTING["Reporting\n(TextReporter · JsonReporter · HtmlReporter · SonarReporter)"]
-    INFRA["Infrastructure\n(ProcessRunner · ProcessRequest · SPMProcessLauncher\nXCTestRunPlist · TestFilesHasher)"]
+    INFRA["Infrastructure\n(ProcessRunner · ProcessRequest · OutputStopRule\nSPMProcessLauncher · XcodeProcessLauncher · ProcessTree\nTimeoutEscalation · SleepInhibitor · XCTestRunPlist · TestFilesHasher)"]
     CACHE["Cache\n(CacheStore · MutantCacheKey · TestFileDiff\nKillerTestFileResolver)"]
-    SANDBOX["Sandbox\n(SandboxFactory · SandboxCleaner)"]
+    SANDBOX["Sandbox\n(SandboxFactory · SandboxName · SandboxCleaner)"]
 
     CLI --> CONFIG
     CLI --> DISCOVERY
@@ -73,17 +73,19 @@ flowchart TD
 flowchart LR
     subgraph Discovery
         FD[FileDiscoveryStage] --> PS[ParsingStage]
-        PS --> MD[MutantDiscoveryStage]
+        PS --> MD["MutantDiscoveryStage\noperators → suppression → infinite-loop filter"]
         MD --> MI[MutantIndexingStage]
         MI --> SS[SchematizationStage]
         MI --> IRS[IncompatibleRewritingStage]
     end
     subgraph Execution
         SF[SandboxFactory] --> BS[BuildStage]
-        BS --> TES[TestExecutionStage]
-        BS -- build failed --> FBP[FallbackExecutor\nper-file rebuild]
+        BS --> PROBE["probe each testing library once\nbaseline + which libraries have tests"]
+        PROBE --> TES["TestExecutionStage\ntwo passes"]
+        BS -- build failed --> RETRY[retryExcludingErrors]
+        RETRY -- gave up --> FBP[FallbackExecutor\nper-file rebuild]
         TES --> TR[TestResultResolver]
-        IME[IncompatibleMutantExecutor]
+        IME["IncompatibleMutantExecutor\nwarm sandboxes"]
     end
     SS -- RunnerInput --> SF
     IRS -- incompatible mutants --> IME

@@ -87,7 +87,7 @@ Drop a `.swift-mutation-testing.yml` in the project root:
 ```yaml
 scheme: MyApp
 destination: platform=iOS Simulator,name=iPhone 16
-# testTarget: MyAppTests
+# test-target: MyAppTests
 # timeout: 120
 # concurrency: 4
 ```
@@ -95,7 +95,7 @@ destination: platform=iOS Simulator,name=iPhone 16
 **SPM package** (scheme and destination are not needed):
 
 ```yaml
-# testTarget: MyPackageTests
+# test-target: MyPackageTests
 # timeout: 30
 # concurrency: 4
 ```

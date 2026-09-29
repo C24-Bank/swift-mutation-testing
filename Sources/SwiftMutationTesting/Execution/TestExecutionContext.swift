@@ -4,4 +4,5 @@ struct TestExecutionContext: Sendable {
     let pool: SimulatorPool
     let configuration: RunnerConfiguration
     var libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
+    var targetedSuites: Set<String> = []
 }

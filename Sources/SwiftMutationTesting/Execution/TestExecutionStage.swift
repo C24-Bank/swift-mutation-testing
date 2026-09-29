@@ -142,16 +142,33 @@ struct TestExecutionStage: Sendable {
         timeout: Double
     ) async throws -> (TestRunOutcome, TestLaunchResult) {
         let slot = try await context.pool.acquire()
-        let launched: TestLaunchResult
+
         do {
-            launched = try await launchSPM(mutant: mutant, in: context, timeout: timeout)
+            let measured = try await measureSPMTargetedFirst(mutant, in: context, timeout: timeout)
+            await context.pool.release(slot)
+            return measured
         } catch {
             await context.pool.release(slot)
             throw error
         }
+    }
 
+    private func measureSPMTargetedFirst(
+        _ mutant: MutantDescriptor,
+        in context: TestExecutionContext,
+        timeout: Double
+    ) async throws -> (TestRunOutcome, TestLaunchResult) {
+        if let suite = TargetedSuites.suite(for: mutant.filePath, among: context.targetedSuites) {
+            let targeted = try await launchSPM(mutant: mutant, in: context, timeout: timeout, filter: suite)
+            let outcome = SPMResultParser().parse(exitCode: targeted.exitCode, output: targeted.output)
+
+            if outcome.isKill { return (outcome, targeted) }
+        }
+
+        let launched = try await launchSPM(
+            mutant: mutant, in: context, timeout: timeout, filter: context.configuration.build.testTarget
+        )
         let outcome = SPMResultParser().parse(exitCode: launched.exitCode, output: launched.output)
-        await context.pool.release(slot)
         return (outcome, launched)
     }
 
@@ -191,11 +208,12 @@ struct TestExecutionStage: Sendable {
     private func launchSPM(
         mutant: MutantDescriptor,
         in context: TestExecutionContext,
-        timeout: Double
+        timeout: Double,
+        filter: String?
     ) async throws -> TestLaunchResult {
         let start = Date()
         let captured = try await run(
-            spmRequests(mutant: mutant, in: context, timeout: timeout),
+            spmRequests(mutant: mutant, in: context, timeout: timeout, filter: filter),
             deadline: start.addingTimeInterval(timeout)
         )
 
@@ -235,14 +253,15 @@ struct TestExecutionStage: Sendable {
     private func spmRequests(
         mutant: MutantDescriptor,
         in context: TestExecutionContext,
-        timeout: Double
+        timeout: Double,
+        filter: String?
     ) -> [ProcessRequest] {
         let configuration = context.configuration
 
         if let bundleURL = TestBundleInvocation.bundleURL(in: context.sandbox) {
             return TestBundleInvocation(bundleURL: bundleURL, framework: configuration.build.testingFramework)
                 .requests(
-                    filter: configuration.build.testTarget,
+                    filter: filter,
                     mutantID: mutant.id,
                     workingDirectory: context.sandbox.rootURL,
                     timeout: timeout,
@@ -251,8 +270,8 @@ struct TestExecutionStage: Sendable {
         }
 
         var arguments = ["test", "--skip-build"]
-        if let testTarget = configuration.build.testTarget {
-            arguments += ["--filter", testTarget]
+        if let filter {
+            arguments += ["--filter", filter]
         }
 
         return [
@@ -263,7 +282,7 @@ struct TestExecutionStage: Sendable {
                 additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": mutant.id],
                 workingDirectoryURL: context.sandbox.rootURL,
                 timeout: timeout
-            )
+            ).stopping(at: .firstTestFailure)
         ]
     }
 

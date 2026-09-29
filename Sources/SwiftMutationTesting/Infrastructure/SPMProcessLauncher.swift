@@ -28,8 +28,14 @@ struct SPMProcessLauncher: Sendable, ProcessLaunching {
     ) {
         guard pid > 0 else { return }
 
-        escalation.arm(pid: pid, descendants: ProcessTree.descendants(of: pid))
-        _ = kill(-pid, SIGTERM)
+        _ = kill(-pid, SIGSTOP)
+        let descendants = ProcessTree.descendants(of: pid)
+        escalation.arm(pid: pid, descendants: descendants)
+
+        for descendant in descendants {
+            _ = kill(descendant, SIGKILL)
+        }
+        _ = kill(-pid, SIGKILL)
     }
 
     private func makeRunner() -> ProcessRunner {

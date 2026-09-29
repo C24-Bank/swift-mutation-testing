@@ -32,6 +32,8 @@ This document explains every possible outcome for a mutant, what causes it, and 
 
 **What it tells you:** your tests are exercising this code path with a meaningful assertion. A high kill rate here is the goal.
 
+**How it is measured:** for a Swift package, the tests named after the mutated file — `FooTests` for `Foo.swift`, when such a suite exists — run first, and the whole suite runs only if they let the mutant live. Either way the run is stopped as soon as one test fails, and that test is the one reported. Running the rest of the suite would change nothing about the verdict — killed is killed — so it is not run. Which test is reported first can differ between runs when the library runs tests in parallel; the verdict cannot.
+
 **In the report:**
 
 ```
@@ -101,7 +103,9 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 - A negated conditional that sends execution down a much heavier path
 - An arithmetic change that produces a much larger iteration count
 
-**What it tells you:** a timeout almost certainly means the mutation altered the control flow in a way that a test would catch — it just ran out of time to do so. Timeouts are excluded from the mutation score denominator alongside kills, so they do not count against your score. If timeouts are frequent, consider raising `--timeout` or investigating whether your tests have sufficiently low execution time for the affected code paths.
+**What it tells you:** a timeout almost certainly means the mutation altered the control flow in a way that a test would catch — it just ran out of time to do so. It is **not** treated as a kill: a timeout counts in the score denominator and not in the numerator, exactly like a survivor, because nothing observed the mutation. If timeouts are frequent, consider raising `--timeout` or investigating whether your tests have sufficiently low execution time for the affected code paths.
+
+Mutants that loop forever are largely prevented at discovery rather than timing out here — see **Infinite-loop prevention** in the [mutation operators reference](CodeBase/04-mutation-operators.md).
 
 ---
 
@@ -113,7 +117,7 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 
 **What it tells you:** the code is untested by execution. This is worse than a survivor: a survivor at least means a test ran the code, just without asserting the right thing. No-coverage means the code is invisible to the test suite entirely. This is the highest-priority result to address: write a test that exercises the code path before worrying about what the mutation asserts.
 
-No-coverage mutants are excluded from the mutation score denominator alongside kills.
+No-coverage mutants count in the score denominator and not in the numerator, like survivors: the code was mutated and nothing noticed.
 
 ---
 
@@ -220,7 +224,7 @@ In all of these cases, the mutation site is not inside any executable scope that
 | Parallel execution | yes, N workers | sequential |
 | Typical cost | seconds per mutant | full build + test per mutant |
 
-A project with 10 incompatible mutants and a 20-second build will spend at least 200 extra seconds on incompatible execution alone, in addition to the shared build for schematizable mutants. The progress output calls this out explicitly:
+Incompatible mutants are the expensive ones: each needs its own rebuild before its tests can run. The rebuild is incremental — the sandbox is built once and only the mutated file is recompiled after that — and the mutants are spread over a quarter of the workers, but a project with 10 incompatible mutants still pays roughly 10 rebuilds plus 10 test runs on top of the shared build for schematizable mutants. The progress output calls this out explicitly:
 
 ```
   ✓ Discovery: 154 mutants (143 schematizable, 11 incompatible) in 2.3s
