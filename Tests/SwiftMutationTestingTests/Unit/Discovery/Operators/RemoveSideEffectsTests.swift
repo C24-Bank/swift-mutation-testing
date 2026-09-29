@@ -107,4 +107,13 @@ struct RemoveSideEffectsTests {
         #expect(removed.contains { $0.hasPrefix("remove foo") })
         #expect(!removed.contains { $0.contains(".init") })
     }
+
+    @Test("Given a call that is the only statement in the file, when mutated, then it can still be removed")
+    func aCallAloneAtTopLevelIsStillRemovable() {
+        let source = makeParsedSource("notify()\n")
+
+        let mutations = RemoveSideEffects().mutations(in: source)
+
+        #expect(mutations.map(\.description) == ["remove notify()"])
+    }
 }
