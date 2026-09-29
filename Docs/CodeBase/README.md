@@ -86,13 +86,9 @@ All ten are covered now, by the same move each time: the failing call is a param
 
 These stay because removing them replaces a graceful degrade with a crash or a force-unwrap. They are not free — each is a line that can rot without anyone noticing — which is why they are written down rather than left to be rediscovered.
 
-**Race guards that cannot be provoked deterministically**
+**Race guards that cannot be provoked deterministically** — none left
 
-| file | line | what it protects |
-|---|---|---|
-| `Simulator/SimulatorPool.swift` | 150 | a slot request cancelled after it was already resumed |
-
-The two launchers used to be here too — `guard pid > 0` before `kill(-pid, SIGTERM)`, which is what stands between a run cancelled before its process exists and the tool signalling its own process group. They are covered now: the timeout handler is a static `terminate(pid:…)` that takes the `kill` function as a parameter defaulting to `Darwin.kill`, so a test can hand it a recorder and assert that pid 0 sends nothing. That is the pattern for anything else on this list that a system call keeps unreachable: inject at the failing call itself — not at the function around it, which would replace the branch instead of exercising it — default the parameter to the real call so no production site changes, and keep the `try?`/`??` at the call site so the fake can make it fire.
+Three regions used to sit here: `guard pid > 0` in both launchers' timeout handlers, and `SimulatorPool.cancelPending` being asked to cancel a request that was already resumed. The launchers' guard is what stands between a run cancelled before its process exists and `kill(-0, SIGTERM)`, which would signal the tool's own process group; it is covered by handing the static `terminate(pid:…)` a recording `kill` and asserting that pid 0 sends nothing. `cancelPending` was simply made non-private so a test can call it with an id that was never queued, which is the one place on this page where coverage was bought with a visibility change rather than an injected call.
 
 **The entry point**
 
