@@ -24,7 +24,8 @@ struct TestBundleInvocation: Sendable {
         mutantID: String,
         workingDirectory: URL,
         timeout: Double,
-        libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
+        libraries: Set<TestingFramework> = [.xctest, .swiftTesting],
+        stoppingAtFirstFailure: Bool = true
     ) -> [ProcessRequest] {
         let xctest = xctestRequest(
             filter: filter, mutantID: mutantID, workingDirectory: workingDirectory, timeout: timeout
@@ -38,7 +39,9 @@ struct TestBundleInvocation: Sendable {
             ? [(.xctest, xctest), (.swiftTesting, swiftTesting)]
             : [(.swiftTesting, swiftTesting), (.xctest, xctest)]
 
-        return ordered.filter { libraries.contains($0.0) }.map { $0.1.stopping(at: .firstTestFailure) }
+        return ordered.filter { libraries.contains($0.0) }.map { entry in
+            stoppingAtFirstFailure ? entry.1.stopping(at: .firstTestFailure) : entry.1
+        }
     }
 
     // MARK: - Private

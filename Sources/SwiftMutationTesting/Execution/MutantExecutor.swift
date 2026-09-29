@@ -157,13 +157,14 @@ struct MutantExecutor: Sendable {
         let testableSchematizable = schematizable.filter { !excludedIDs.contains($0.id) }
 
         if let artifact {
+            var libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
             if case .spm = configuration.build.projectType {
-                try await validateSPMBaseline(sandbox: sandbox, deps: deps)
+                libraries = try await probeTestingLibraries(sandbox: sandbox, deps: deps)
             }
             let context = TestExecutionContext(
                 artifact: artifact, sandbox: sandbox, pool: pool,
                 configuration: configuration,
-                libraries: try await detectTestingLibraries(sandbox: sandbox, deps: deps)
+                libraries: libraries
             )
             results += try await runNormal(deps: deps, context: context, schematizable: testableSchematizable)
         } else if !testableSchematizable.isEmpty {
@@ -351,10 +352,13 @@ struct MutantExecutor: Sendable {
             .execute(mutants, configuration: configuration, pool: pool)
     }
 
-    private func detectTestingLibraries(sandbox: Sandbox, deps: ExecutionDeps) async throws -> Set<TestingFramework> {
+    private func probeTestingLibraries(sandbox: Sandbox, deps: ExecutionDeps) async throws -> Set<TestingFramework> {
         let all: Set<TestingFramework> = [.xctest, .swiftTesting]
 
-        guard let bundleURL = TestBundleInvocation.bundleURL(in: sandbox) else { return all }
+        guard let bundleURL = TestBundleInvocation.bundleURL(in: sandbox) else {
+            try await validateBaseline(running: swiftTestRequest(in: sandbox), deps: deps)
+            return all
+        }
 
         let invocation = TestBundleInvocation(bundleURL: bundleURL, framework: configuration.build.testingFramework)
         var present: Set<TestingFramework> = []
@@ -365,39 +369,47 @@ struct MutantExecutor: Sendable {
                 mutantID: "",
                 workingDirectory: sandbox.rootURL,
                 timeout: configuration.build.timeout,
-                libraries: [library]
+                libraries: [library],
+                stoppingAtFirstFailure: false
             )
 
             for request in requests {
                 let captured = try await deps.launcher.launchCapturing(request)
 
-                if !TestBundleInvocation.reportsNoTests(exitCode: captured.exitCode, output: captured.output) {
-                    present.insert(library)
-                }
+                guard !TestBundleInvocation.reportsNoTests(exitCode: captured.exitCode, output: captured.output)
+                else { continue }
+
+                try requireBaselineToPass(exitCode: captured.exitCode, output: captured.output)
+                present.insert(library)
             }
         }
 
         return present.isEmpty ? all : present
     }
 
-    private func validateSPMBaseline(sandbox: Sandbox, deps: ExecutionDeps) async throws {
+    private func swiftTestRequest(in sandbox: Sandbox) -> ProcessRequest {
         var arguments = ["test", "--skip-build"]
         if let testTarget = configuration.build.testTarget {
             arguments += ["--filter", testTarget]
         }
 
-        let captured = try await deps.launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                arguments: arguments,
-                environment: nil,
-                additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": ""],
-                workingDirectoryURL: sandbox.rootURL,
-                timeout: configuration.build.timeout
-            )
+        return ProcessRequest(
+            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
+            arguments: arguments,
+            environment: nil,
+            additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": ""],
+            workingDirectoryURL: sandbox.rootURL,
+            timeout: configuration.build.timeout
         )
+    }
 
-        switch SPMResultParser().parse(exitCode: captured.exitCode, output: captured.output) {
+    private func validateBaseline(running request: ProcessRequest, deps: ExecutionDeps) async throws {
+        let captured = try await deps.launcher.launchCapturing(request)
+        try requireBaselineToPass(exitCode: captured.exitCode, output: captured.output)
+    }
+
+    private func requireBaselineToPass(exitCode: Int32, output: String) throws {
+        switch SPMResultParser().parse(exitCode: exitCode, output: output) {
         case .testsSucceeded:
             return
 
@@ -405,9 +417,9 @@ struct MutantExecutor: Sendable {
             throw BaselineError.didNotFinish(seconds: configuration.build.timeout)
 
         case .testsFailed, .crashed, .unviable, .buildFailed:
-            let failing = TestOutputParser().failingTests(in: captured.output)
+            let failing = TestOutputParser().failingTests(in: output)
             throw failing.isEmpty
-                ? BaselineError.runFailed(output: captured.output)
+                ? BaselineError.runFailed(output: output)
                 : BaselineError.testsFailed(tests: failing)
         }
     }
@@ -552,7 +564,6 @@ struct MutantExecutor: Sendable {
             sourceContentHash: mutant.sourceContentHash
         )
     }
-
 
     private func makePool(launcher: any ProcessLaunching) async throws -> SimulatorPool {
         let destination: String
