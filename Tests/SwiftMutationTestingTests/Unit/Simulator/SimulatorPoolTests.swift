@@ -157,4 +157,15 @@ struct SimulatorPoolTests {
 
         #expect(slot.destination == "platform=iOS Simulator,id=CLONE-1")
     }
+
+    @Test("Given a request that is no longer pending, when it is cancelled, then the pool is untouched")
+    func cancellingARequestThatIsNotPendingChangesNothing() async throws {
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+
+        await pool.cancelPending(id: UUID())
+
+        let slot = try await pool.acquire()
+        await pool.release(slot)
+    }
 }
