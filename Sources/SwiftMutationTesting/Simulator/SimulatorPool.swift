@@ -146,7 +146,7 @@ actor SimulatorPool {
         }
     }
 
-    private func cancelPending(id: UUID) {
+    func cancelPending(id: UUID) {
         guard let index = pending.firstIndex(where: { $0.id == id }) else { return }
         let entry = pending.remove(at: index)
         entry.continuation.resume(throwing: CancellationError())

@@ -193,4 +193,30 @@ struct SPMProcessLauncherTests {
         let result = try await task.value
         #expect(result.exitCode == -1)
     }
+
+    @Test("Given a run cancelled before its process exists, when it times out, then nothing is signalled")
+    func aTimeoutWithoutAProcessSignalsNothing() {
+        let kill = RecordingKill()
+
+        SPMProcessLauncher.terminate(pid: 0, escalation: TimeoutEscalation(gracePeriod: 3600), kill: kill.asKill)
+
+        #expect(kill.recorded.isEmpty)
+    }
+
+    @Test("Given a running process, when it times out, then its group is asked to stop")
+    func aTimeoutSignalsTheProcessGroup() throws {
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        child.arguments = ["30"]
+        try child.run()
+        defer { child.terminate() }
+
+        let kill = RecordingKill()
+        let escalation = TimeoutEscalation(gracePeriod: 3600)
+        defer { escalation.processTerminated() }
+
+        SPMProcessLauncher.terminate(pid: child.processIdentifier, escalation: escalation, kill: kill.asKill)
+
+        #expect(kill.recorded == [SentSignal(pid: -child.processIdentifier, signal: SIGTERM)])
+    }
 }

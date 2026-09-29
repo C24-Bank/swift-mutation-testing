@@ -99,10 +99,15 @@ struct TestBundleInvocation: Sendable {
 
 enum DeveloperToolchain {
 
-    nonisolated(unsafe) static var developerPath: String = {
+    nonisolated(unsafe) static var developerPath: String = resolveDeveloperPath()
+
+    static func resolveDeveloperPath(
+        running executable: URL = URL(fileURLWithPath: "/usr/bin/xcode-select"),
+        arguments: [String] = ["-p"]
+    ) -> String {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
-        process.arguments = ["-p"]
+        process.executableURL = executable
+        process.arguments = arguments
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -113,7 +118,7 @@ enum DeveloperToolchain {
         process.waitUntilExit()
 
         return (String(bytes: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    }()
+    }
 
     static var testingHelperPath: String {
         "\(developerPath)/Toolchains/XcodeDefault.xctoolchain/usr/libexec/swift/pm/swiftpm-testing-helper"

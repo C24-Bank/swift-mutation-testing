@@ -165,4 +165,28 @@ struct TestBundleInvocationTests {
     func recognisesARunThatFoundNoTests(exitCode: Int32, output: String, expected: Bool) {
         #expect(TestBundleInvocation.reportsNoTests(exitCode: exitCode, output: output) == expected)
     }
+
+    @Test("Given xcode-select cannot be run, when the developer path is resolved, then it is empty")
+    func anUnrunnableXcodeSelectYieldsAnEmptyPath() {
+        let path = DeveloperToolchain.resolveDeveloperPath(running: URL(fileURLWithPath: "/does/not/exist"))
+
+        #expect(path == "")
+    }
+
+    @Test("Given xcode-select prints bytes that are not text, when the path is resolved, then it is empty")
+    func anXcodeSelectThatPrintsNoTextYieldsAnEmptyPath() {
+        let path = DeveloperToolchain.resolveDeveloperPath(
+            running: URL(fileURLWithPath: "/usr/bin/printf"), arguments: ["\\377"]
+        )
+
+        #expect(path == "")
+    }
+
+    @Test("Given the real xcode-select, when the path is resolved, then it is the one the toolchain uses")
+    func theRealXcodeSelectYieldsTheToolchainPath() {
+        let path = DeveloperToolchain.resolveDeveloperPath()
+
+        #expect(!path.isEmpty)
+        #expect(path == DeveloperToolchain.developerPath)
+    }
 }

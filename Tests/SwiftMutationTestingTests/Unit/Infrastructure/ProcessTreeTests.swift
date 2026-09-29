@@ -86,4 +86,25 @@ struct ProcessTreeTests {
         }
         if process.isRunning { process.terminate() }
     }
+
+    @Test("Given the process table cannot be sized, when descendants are asked for, then there are none")
+    func aTableThatCannotBeSizedHasNoDescendants() {
+        let failing: SystemCalls.Sysctl = { _, _, _, _, _, _ in -1 }
+
+        #expect(ProcessTree.descendants(of: 2, sysctl: failing).isEmpty)
+    }
+
+    @Test("Given the process table cannot be read after sizing, when descendants are asked for, then there are none")
+    func aTableThatCannotBeReadHasNoDescendants() {
+        var calls = 0
+        let failingOnRead: SystemCalls.Sysctl = { _, _, _, size, _, _ in
+            calls += 1
+            guard calls == 1 else { return -1 }
+            size?.pointee = MemoryLayout<kinfo_proc>.stride * 4
+            return 0
+        }
+
+        #expect(ProcessTree.descendants(of: 2, sysctl: failingOnRead).isEmpty)
+        #expect(calls == 2)
+    }
 }

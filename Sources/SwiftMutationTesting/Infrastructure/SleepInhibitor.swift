@@ -11,10 +11,10 @@ enum SleepInhibitor {
         return try await body()
     }
 
-    static func isHeld(by pid: pid_t = getpid()) -> Bool {
-        var assertions: Unmanaged<CFDictionary>?
-        _ = IOPMCopyAssertionsByProcess(&assertions)
-        let byProcess = assertions?.takeRetainedValue() as NSDictionary? ?? [:]
+    typealias AssertionTable = () -> NSDictionary?
+
+    static func isHeld(by pid: pid_t = getpid(), table: AssertionTable = assertionsByProcess) -> Bool {
+        let byProcess = table() ?? [:]
 
         return byProcess.contains { entry in
             (entry.key as? NSNumber)?.int32Value == pid && holdsReason(entry.value)
@@ -22,6 +22,12 @@ enum SleepInhibitor {
     }
 
     // MARK: - Private
+
+    private static func assertionsByProcess() -> NSDictionary? {
+        var assertions: Unmanaged<CFDictionary>?
+        _ = IOPMCopyAssertionsByProcess(&assertions)
+        return assertions?.takeRetainedValue() as NSDictionary?
+    }
 
     private static func acquire() -> IOPMAssertionID {
         var id: IOPMAssertionID = 0

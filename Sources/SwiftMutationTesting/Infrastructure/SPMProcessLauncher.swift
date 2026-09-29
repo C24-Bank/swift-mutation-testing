@@ -21,6 +21,17 @@ struct SPMProcessLauncher: Sendable, ProcessLaunching {
         try await makeRunner().launchCapturing(request)
     }
 
+    static func terminate(
+        pid: pid_t,
+        escalation: TimeoutEscalation,
+        kill: SystemCalls.Kill = Darwin.kill
+    ) {
+        guard pid > 0 else { return }
+
+        escalation.arm(pid: pid, descendants: ProcessTree.descendants(of: pid))
+        _ = kill(-pid, SIGTERM)
+    }
+
     private func makeRunner() -> ProcessRunner {
         let escalation = TimeoutEscalation()
 
@@ -30,10 +41,7 @@ struct SPMProcessLauncher: Sendable, ProcessLaunching {
                 escalation.processTerminated()
             },
             onTimeout: { pid in
-                guard pid > 0 else { return }
-
-                escalation.arm(pid: pid, descendants: ProcessTree.descendants(of: pid))
-                kill(-pid, SIGTERM)
+                Self.terminate(pid: pid, escalation: escalation)
             }
         )
     }
