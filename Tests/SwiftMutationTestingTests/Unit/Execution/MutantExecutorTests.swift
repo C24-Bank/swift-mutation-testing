@@ -1113,4 +1113,70 @@ struct MutantExecutorTests {
         #expect(results.map(\.status) == [.survived])
         #expect((await launcher.xctestRuns, await launcher.swiftTestingRuns) == (2, 2))
     }
+
+    @Test("Given the first library passes, when the second fails, then the verdict names the second's test")
+    func aFailureInTheSecondLibraryNamesItsTest() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let launcher = TwoLibraryBundleLauncher(
+            xctestOutput: "Test Case '-[CalculatorTests testAddition]' failed (0.002 seconds).",
+            xctestExitCode: 1,
+            swiftTestingOutput: "✔ Test run with 3 tests in 1 suite passed after 0.1 seconds."
+        )
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        )
+
+        let results = try await executor.execute(
+            makeRunnerInput(
+                projectPath: dir.path,
+                projectType: .spm,
+                schematizedFiles: [
+                    SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")
+                ],
+                mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+            )
+        )
+
+        #expect(results.map(\.status) == [.killed(by: "CalculatorTests.testAddition")])
+    }
+
+    @Test("Given the first library uses up the timeout, when the second would run, then the mutant times out")
+    func aLibraryThatUsesUpTheTimeoutStopsTheNextOne() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let launcher = TwoLibraryBundleLauncher(
+            xctestOutput: "Test Suite 'All tests' passed\nExecuted 3 tests, with 0 failures",
+            swiftTestingOutput: "✔ Test run with 3 tests passed",
+            swiftTestingDelay: .milliseconds(400)
+        )
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(
+                projectPath: dir.path, projectType: .spm, timeout: 0.1
+            ),
+            launcher: launcher
+        )
+
+        let results = try await executor.execute(
+            makeRunnerInput(
+                projectPath: dir.path,
+                projectType: .spm,
+                schematizedFiles: [
+                    SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")
+                ],
+                mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+            )
+        )
+
+        #expect(results.map(\.status) == [.timeout])
+    }
 }

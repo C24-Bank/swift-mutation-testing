@@ -62,7 +62,7 @@ RunnerInput
 
 ### Regions the suite deliberately does not cover
 
-Region coverage is 97.9%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
+Region coverage is 98.7%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
 
 Each entry was tried before it was listed. The rule from #95 applies: a region that cannot be made to fail under a negative control is a candidate for deletion, not for a test — five were deleted rather than covered (`MutantExecutor`'s probe guard, `RemoveSideEffectsVisitor`'s first-token guard, and three `?? false` fallbacks in `SandboxFactory` that became `== true`).
 
@@ -71,7 +71,7 @@ Each entry was tried before it was listed. The rule from #95 applies: a region t
 | file | line | call |
 |---|---|---|
 | `Infrastructure/ProcessTree.swift` | 32, 37 | `sysctl` fails |
-| `Execution/MutantExecutor.swift` | 557 | `realpath` fails |
+| `Execution/MutantExecutor.swift` | 558 | `realpath` fails |
 | `Infrastructure/SleepInhibitor.swift` | 17, 39 | the IOKit assertion table is absent or not a dictionary of arrays |
 | `Infrastructure/TestFilesHasher.swift` | 30 | `FileManager.enumerator(at:)` returns `nil` |
 | `Execution/TestBundleInvocation.swift` | 111, 115 | `xcode-select -p` fails to run, or prints nothing |
