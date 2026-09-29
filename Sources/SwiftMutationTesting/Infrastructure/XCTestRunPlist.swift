@@ -1,6 +1,8 @@
 import Foundation
 
 struct XCTestRunPlist: Sendable, Equatable {
+    typealias PlistSerializer = ([String: Any]) throws -> Data
+
     init?(_ data: Data) {
         guard (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) is [String: Any]
         else { return nil }
@@ -9,7 +11,12 @@ struct XCTestRunPlist: Sendable, Equatable {
 
     private let data: Data
 
-    func activating(_ mutantID: String) -> Data {
+    func activating(
+        _ mutantID: String,
+        serialize: PlistSerializer = {
+            try PropertyListSerialization.data(fromPropertyList: $0, format: .xml, options: 0)
+        }
+    ) -> Data {
         guard
             var dict = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil))
                 as? [String: Any]
@@ -38,6 +45,6 @@ struct XCTestRunPlist: Sendable, Equatable {
             }
         }
 
-        return (try? PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)) ?? data
+        return (try? serialize(dict)) ?? data
     }
 }

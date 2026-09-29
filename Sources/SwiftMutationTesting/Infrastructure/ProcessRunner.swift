@@ -3,6 +3,7 @@ import Foundation
 struct ProcessRunner: Sendable {
     var postTerminationCleanup: (@Sendable (Int32) -> Void)?
     let onTimeout: @Sendable (Int32) -> Void
+    var readCapturedOutput: @Sendable (URL) throws -> String = { try String(contentsOf: $0, encoding: .utf8) }
 
     private struct CaptureTarget {
         let fileHandle: FileHandle
@@ -142,7 +143,7 @@ struct ProcessRunner: Sendable {
             timeoutTask.cancel()
             postTerminationCleanup?(terminated.processIdentifier)
             capture.fileHandle.closeFile()
-            let output = (try? String(contentsOf: capture.tempURL, encoding: .utf8)) ?? ""
+            let output = (try? readCapturedOutput(capture.tempURL)) ?? ""
             try? FileManager.default.removeItem(at: capture.tempURL)
             let exitCode: Int32 = killedByUs.value ? -1 : terminated.terminationStatus
             continuation.resume(returning: (exitCode: exitCode, output: output))
