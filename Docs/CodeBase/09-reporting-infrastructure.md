@@ -400,6 +400,10 @@ struct ProcessRequest: Sendable {
     let additionalEnvironment: [String: String]
     let workingDirectoryURL: URL
     let timeout: Double
+    var stopRule: OutputStopRule? = nil
+
+    func withTimeout(_ timeout: Double) -> ProcessRequest
+    func stopping(at rule: OutputStopRule) -> ProcessRequest
 }
 ```
 
@@ -411,6 +415,9 @@ struct ProcessRequest: Sendable {
 | `additionalEnvironment` | Key-value pairs merged into the existing environment |
 | `workingDirectoryURL` | Working directory for the process |
 | `timeout` | Maximum execution time in seconds |
+| `stopRule` | When set, the runner ends the process as soon as its output contains one of the rule's markers, and reports the rule's exit code instead of the process's own |
+
+**`OutputStopRule`** (`Infrastructure/OutputStopRule.swift`) is a list of marker strings and the exit code to report when one is seen. `.firstTestFailure` carries `TestOutputParser.failureMarkers` — the XCTest `]' failed (` line, and Swift Testing's `recorded an issue` and `failed after` — with exit code 1, which is what both libraries exit with on a failure anyway.
 
 ---
 
@@ -429,6 +436,10 @@ struct ProcessRunner: Sendable {
 Low-level process execution engine. Uses `withTaskCancellationHandler` + `withCheckedThrowingContinuation` to bridge `Process.terminationHandler` into the Swift Concurrency runtime.
 
 **Timeout handling:** a `Task` sleeping for `timeout` seconds marks a `KilledByUsFlag` and calls `onTimeout(pid)`. The `terminationHandler` checks the flag and returns `-1` instead of the actual exit code.
+
+**Stopping at a marker:** when the request carries a `stopRule`, that same `Task` polls the capture file every 100ms instead of sleeping through the whole timeout. `OutputWatcher` reads only the bytes written since its last look and keeps the unterminated tail, so a marker split across two writes is still seen. On a match the process is ended through the same `onTimeout(pid)` path a timeout uses — group `SIGTERM`, then the launcher's escalation — but a second flag records *why*, and the `terminationHandler` reports the rule's exit code rather than `-1`. The timeout still applies underneath: a process that never prints a marker is killed at the deadline as before.
+
+This is what makes a killed mutant cheap. A mutant is killed by its *first* failing test, and `TestOutputParser.parse` already reports only that one; running the remaining tests after it changed nothing but the clock. Neither XCTest nor Swift Testing offers a stop-on-first-failure switch, so the runner watches for one. Measured on `swift-cpd` (987 mutants, a suite that runs 14s alone), a full run went from 38m30s to 25m38s with identical verdicts up to the project's own flaky tests. The first 300 mutants ran three times faster than before; the middle of the run less so, which is where the killing tests are the slow integration ones and the first failure lands late regardless of order. It applies to the SPM test-bundle runs and the `swift test` fallback only; `xcodebuild test-without-building` is left to finish, because its verdict is read from the `.xcresult` bundle it writes at the end.
 
 **Cancellation handling:** `onCancel` marks the flag and calls `onTimeout(pid)` immediately, ensuring the continuation is always resumed via the `terminationHandler`.
 
