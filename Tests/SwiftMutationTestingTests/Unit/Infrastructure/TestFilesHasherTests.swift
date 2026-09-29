@@ -114,4 +114,21 @@ struct TestFilesHasherTests {
     func aMissingProjectPathListsNothing() {
         #expect(TestFilesHasher().testFilePaths(projectPath: "/does/not/exist").isEmpty)
     }
+
+    @Test("Given a directory that cannot be enumerated, when listing or hashing, then both come back empty")
+    func aDirectoryThatCannotBeEnumeratedYieldsNothing() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let tests = dir.appendingPathComponent("Tests")
+        try FileManager.default.createDirectory(at: tests, withIntermediateDirectories: true)
+        try "import Testing".write(
+            to: tests.appendingPathComponent("RealTests.swift"), atomically: true, encoding: .utf8
+        )
+        let hasher = TestFilesHasher()
+
+        #expect(!hasher.testFilePaths(projectPath: dir.path).isEmpty)
+        #expect(hasher.testFilePaths(projectPath: dir.path, enumerate: { _ in nil }).isEmpty)
+        #expect(hasher.hashPerFile(projectPath: dir.path, enumerate: { _ in nil }).isEmpty)
+    }
 }
