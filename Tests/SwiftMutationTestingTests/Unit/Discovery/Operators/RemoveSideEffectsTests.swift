@@ -116,4 +116,23 @@ struct RemoveSideEffectsTests {
 
         #expect(mutations.map(\.description) == ["remove notify()"])
     }
+
+    @Test("Given a call with a comment above it, when mutated, then the point is the call and not the comment")
+    func aCallIsReportedWhereItStartsNotWhereItsTriviaDoes() {
+        let code = """
+            func f() {
+                // why we notify
+                notify()
+                other()
+            }
+            """
+        let source = makeParsedSource(code)
+
+        let mutation = RemoveSideEffects().mutations(in: source)[0]
+
+        #expect((mutation.line, mutation.column) == (3, 5))
+        let offset = code.utf8.index(code.utf8.startIndex, offsetBy: mutation.utf8Offset)
+
+        #expect(offset == code.range(of: "notify()")?.lowerBound)
+    }
 }
