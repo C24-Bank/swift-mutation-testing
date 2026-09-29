@@ -62,20 +62,15 @@ RunnerInput
 
 ### Regions the suite deliberately does not cover
 
-Region coverage is 99.2%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
+Region coverage is 99.5%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
 
 Each entry was tried before it was listed. The rule from #95 applies: a region that cannot be made to fail under a negative control is a candidate for deletion, not for a test — five were deleted rather than covered (`MutantExecutor`'s probe guard, `RemoveSideEffectsVisitor`'s first-token guard, and three `?? false` fallbacks in `SandboxFactory` that became `== true`).
 
-**Failure arms of system calls that macOS does not produce**
+**Failure arms of system calls that macOS does not produce** — none left
 
-| file | line | call |
-|---|---|---|
-| `Infrastructure/ProcessTree.swift` | 32, 37 | `sysctl` fails |
-| `Execution/TestBundleInvocation.swift` | 111, 115 | `xcode-select -p` fails to run, or prints nothing |
+This group used to hold ten regions: `sysctl` failing, `realpath` failing, `FileManager.enumerator(at:)` returning `nil`, `xcode-select -p` failing to run or printing bytes that are not text, the IOKit assertion table being absent or misshapen, a plist that cannot be written back, and the runner's own capture file being unreadable. `FileManager.enumerator(at:)` was measured rather than assumed: it returns a non-`nil` enumerator for a regular file, a path that does not exist, and a directory the user cannot read.
 
-`FileManager.enumerator(at:)` was measured rather than assumed: it returns a non-`nil` enumerator for a regular file, a path that does not exist, and a directory the user cannot read. Covering these means injecting the call, which is a design change bought for one branch that returns a sane default.
-
-Five of this group have been covered that way and left the list: `ProcessRunner` takes the function that reads the capture file back, `XCTestRunPlist.activating` takes the serializer, `SleepInhibitor.isHeld` takes the function that fetches the assertion table, `TestFilesHasher` takes the enumerator, and `realpath` moved out of `MutantExecutor` into `CanonicalPath.make(for:resolve:)`, which takes the resolver. Each defaults to the real call, and in each the `try?`/`??` stayed at the call site so the fake could make it fire.
+All ten are covered now, by the same move each time: the failing call is a parameter that defaults to the real call, so no production site changes, and the `try?`/`??` stays at the call site so a test can hand in a failing one and watch the arm fire. `ProcessRunner` takes the function that reads the capture file back; `XCTestRunPlist.activating` takes the serializer; `SleepInhibitor.isHeld` takes the function that fetches the assertion table; `TestFilesHasher` takes the enumerator; `ProcessTree.descendants` takes `sysctl`; `DeveloperToolchain.resolveDeveloperPath` takes the executable to run; and `realpath` moved out of `MutantExecutor` into `CanonicalPath.make(for:resolve:)`, which takes the resolver. The function typealiases live in `SystemCalls`. The same move covered the two launchers' `guard pid > 0` below.
 
 **Guards an earlier check in the same function already makes impossible**
 
