@@ -42,4 +42,9 @@ struct SPMResultParserTests {
         let result = parser.parse(exitCode: 1, output: "something unrelated")
         #expect(result == .unviable)
     }
+
+    @Test("Given a non-zero exit with no output at all, when parsed, then the run counts as a crash")
+    func failureWithoutOutputIsACrash() {
+        #expect(SPMResultParser().parse(exitCode: 1, output: "") == .crashed)
+    }
 }
