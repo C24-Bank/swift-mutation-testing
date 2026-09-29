@@ -36,4 +36,24 @@ struct SleepInhibitorTests {
     func unrelatedProcessHoldsNothing() {
         #expect(!SleepInhibitor.isHeld(by: 1))
     }
+
+    @Test("Given no assertion table at all, when asked, then nothing is held")
+    func aMissingTableHoldsNothing() {
+        #expect(!SleepInhibitor.isHeld(table: { nil }))
+    }
+
+    @Test("Given an entry for this process that is not a list of assertions, when asked, then nothing is held")
+    func anEntryThatIsNotAListHoldsNothing() {
+        let table: NSDictionary = [NSNumber(value: getpid()): "not a list"]
+
+        #expect(!SleepInhibitor.isHeld(table: { table }))
+    }
+
+    @Test("Given a table naming this process with the run's reason, when asked, then it is held")
+    func aTableWithTheReasonIsHeld() {
+        let entry = [[kIOPMAssertionNameKey as String: SleepInhibitor.reason]]
+        let table: NSDictionary = [NSNumber(value: getpid()): entry]
+
+        #expect(SleepInhibitor.isHeld(table: { table }))
+    }
 }

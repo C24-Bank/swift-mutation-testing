@@ -153,4 +153,19 @@ struct XCTestRunPlistTests {
 
         #expect(metadata["EnvironmentVariables"] == nil)
     }
+
+    @Test("Given the plist cannot be written back, when activating, then the original bytes are returned")
+    func aPlistThatCannotBeSerialisedIsReturnedAsIs() throws {
+        struct Unserialisable: Error {}
+
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: ["TestConfigurations": [["TestTargets": [["EnvironmentVariables": [:]]]]]],
+            format: .xml, options: 0
+        )
+        let plist = try #require(XCTestRunPlist(data))
+
+        let result = plist.activating("m1", serialize: { _ in throw Unserialisable() })
+
+        #expect(result == data)
+    }
 }
