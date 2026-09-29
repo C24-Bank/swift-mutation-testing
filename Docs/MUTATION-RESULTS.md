@@ -32,7 +32,7 @@ This document explains every possible outcome for a mutant, what causes it, and 
 
 **What it tells you:** your tests are exercising this code path with a meaningful assertion. A high kill rate here is the goal.
 
-**How it is measured:** the test run is stopped as soon as one test fails, and that test is the one reported. Running the rest of the suite would change nothing about the verdict — killed is killed — so it is not run. Which test is reported first can differ between runs when the library runs tests in parallel; the verdict cannot.
+**How it is measured:** for a Swift package, the tests named after the mutated file — `FooTests` for `Foo.swift`, when such a suite exists — run first, and the whole suite runs only if they let the mutant live. Either way the run is stopped as soon as one test fails, and that test is the one reported. Running the rest of the suite would change nothing about the verdict — killed is killed — so it is not run. Which test is reported first can differ between runs when the library runs tests in parallel; the verdict cannot.
 
 **In the report:**
 
