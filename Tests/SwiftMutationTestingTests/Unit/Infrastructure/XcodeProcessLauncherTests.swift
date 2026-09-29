@@ -193,4 +193,36 @@ struct XcodeProcessLauncherTests {
         let result = try await task.value
         #expect(result.exitCode == -1)
     }
+
+    @Test("Given a run cancelled before its process exists, when it times out, then nothing is signalled")
+    func aTimeoutWithoutAProcessSignalsNothing() async throws {
+        let kill = RecordingKill()
+
+        XcodeProcessLauncher.terminate(pid: 0, grace: .zero, kill: kill.asKill)
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(kill.recorded.isEmpty)
+    }
+
+    @Test("Given a running process, when it times out, then its group is asked to stop and then killed")
+    func aTimeoutSignalsTheProcessGroupTwice() async throws {
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        child.arguments = ["30"]
+        try child.run()
+        defer { child.terminate() }
+        let pid = child.processIdentifier
+
+        let kill = RecordingKill()
+
+        XcodeProcessLauncher.terminate(pid: pid, grace: .zero, kill: kill.asKill)
+
+        #expect(kill.recorded.first == SentSignal(pid: -pid, signal: SIGTERM))
+
+        for _ in 0 ..< 100 where kill.recorded.count < 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(kill.recorded == [SentSignal(pid: -pid, signal: SIGTERM), SentSignal(pid: -pid, signal: SIGKILL)])
+    }
 }
