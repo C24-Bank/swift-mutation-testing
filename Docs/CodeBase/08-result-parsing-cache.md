@@ -64,8 +64,10 @@ enum TestRunOutcome: Sendable {
     case testsFailed(failingTest: String)
     case crashed
     case timedOut
+    case buildFailed
     case unviable
 
+    var isKill: Bool { get }
     var asExecutionStatus: ExecutionStatus { get }
 }
 ```
@@ -78,7 +80,10 @@ Intermediate result from `TestResultResolver`/`ResultParser`/`SPMResultParser`, 
 | `testsFailed(failingTest:)` | `.killed(by: failingTest)` |
 | `crashed` | `.killedByCrash` |
 | `timedOut` | `.timeout` |
+| `buildFailed` | `.unviable` |
 | `unviable` | `.unviable` |
+
+`isKill` answers the narrower question "did the tests detect the mutant" — true for `testsFailed` and `crashed` only. `TestExecutionStage` uses it to decide whether the targeted run already settled the verdict or the whole suite still has to run.
 
 ---
 
@@ -86,7 +91,16 @@ Intermediate result from `TestResultResolver`/`ResultParser`/`SPMResultParser`, 
 
 ```swift
 struct TestOutputParser: Sendable {
-    func parse(_ output: String) -> TestRunOutcome
+    static let failureMarkers: [String]
+
+    enum Result: Sendable {
+        case killed(by: String)
+        case crashed
+        case unviable
+    }
+
+    func parse(_ output: String) -> Result
+    func failingTests(in output: String) -> [String]
 }
 ```
 
@@ -123,6 +137,8 @@ Returns `.testsKilled(reason: <first matching line>)` for test failures, `.proce
 
 ```swift
 struct SPMResultParser: Sendable {
+    static let timedOutExitCode: Int32
+
     func parse(exitCode: Int32, output: String) -> TestRunOutcome
 }
 ```

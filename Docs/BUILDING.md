@@ -26,11 +26,21 @@ Run a debug build for day-to-day development:
 swift build
 ```
 
-Run the Swift Package Manager test suite:
+Run the test suite:
 
 ```bash
-swift test
+make test        # swift test --no-parallel
 ```
+
+Always `--no-parallel`, which is what `make test` and CI do. Several tests
+capture stdout or drive real processes, and two of them running at once read
+each other's output.
+
+`make coverage` writes a coverage report for SonarCloud, and `make sonar`
+publishes it. Region coverage is the number that matters here: the regions the
+suite deliberately leaves uncovered are listed, with a reason each, in
+[Docs/CodeBase/README.md](CodeBase/README.md), and anything uncovered that is
+not on that list is a gap.
 
 The suite includes unit tests and fixture-backed integration coverage. If the
 toolchain is older than the version required by `Package.swift`, upgrade Swift

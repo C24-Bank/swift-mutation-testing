@@ -103,7 +103,9 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 - A negated conditional that sends execution down a much heavier path
 - An arithmetic change that produces a much larger iteration count
 
-**What it tells you:** a timeout almost certainly means the mutation altered the control flow in a way that a test would catch — it just ran out of time to do so. Timeouts are excluded from the mutation score denominator alongside kills, so they do not count against your score. If timeouts are frequent, consider raising `--timeout` or investigating whether your tests have sufficiently low execution time for the affected code paths.
+**What it tells you:** a timeout almost certainly means the mutation altered the control flow in a way that a test would catch — it just ran out of time to do so. It is **not** treated as a kill: a timeout counts in the score denominator and not in the numerator, exactly like a survivor, because nothing observed the mutation. If timeouts are frequent, consider raising `--timeout` or investigating whether your tests have sufficiently low execution time for the affected code paths.
+
+Mutants that loop forever are largely prevented at discovery rather than timing out here — see **Infinite-loop prevention** in the [mutation operators reference](CodeBase/04-mutation-operators.md).
 
 ---
 
@@ -115,7 +117,7 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 
 **What it tells you:** the code is untested by execution. This is worse than a survivor: a survivor at least means a test ran the code, just without asserting the right thing. No-coverage means the code is invisible to the test suite entirely. This is the highest-priority result to address: write a test that exercises the code path before worrying about what the mutation asserts.
 
-No-coverage mutants are excluded from the mutation score denominator alongside kills.
+No-coverage mutants count in the score denominator and not in the numerator, like survivors: the code was mutated and nothing noticed.
 
 ---
 

@@ -34,7 +34,7 @@ Serialises progress output to stdout. Each `RunnerEvent` case maps to a formatte
 | `.loadedFromCache` | `✓ Loaded N mutants from cache` |
 | `.buildStarted` | blank line + `Building for testing...` |
 | `.buildFinished` | `✓ Built in X.Xs` |
-| `.simulatorPoolReady` | `✓ N simulators ready` + blank line + `Testing mutants...` |
+| `.workersReady` | `✓ N simulators ready` or `✓ N workers ready` + blank line + `Testing mutants...` |
 | `.mutantFinished` | `<icon> <index>/<total>  <operator>  <filename>:<line>` |
 
 Progress icon is provided by `ExecutionStatus.progressIcon`.
@@ -61,7 +61,7 @@ enum RunnerEvent: Sendable {
     case loadedFromCache(mutantCount: Int)
     case buildStarted
     case buildFinished(duration: Double)
-    case simulatorPoolReady(size: Int)
+    case workersReady(count: Int, usesSimulators: Bool)
     case mutantStarted(descriptor: MutantDescriptor, index: Int, total: Int)
     case mutantFinished(descriptor: MutantDescriptor, status: ExecutionStatus, index: Int, total: Int)
     case fallbackBuildStarted(filePath: String)
@@ -367,6 +367,22 @@ struct SonarRange: Sendable, Encodable {
 
 ---
 
+## Reporting/MutantLogWriter.swift
+
+```swift
+struct MutantLogWriter: Sendable {
+    init?(directory: String?)
+
+    func write(mutant: MutantDescriptor, status: ExecutionStatus, duration: Double, output: String)
+}
+```
+
+Writes one `<mutant id>.log` per mutant into the directory given by `--keep-logs`, holding a header — id, operator, file and line, verdict, duration — followed by the whole test output that produced it. The initialiser fails when no directory was configured, so the call site is `MutantLogWriter(directory:)?.write(…)` and the feature costs nothing when it is off.
+
+Every verdict is logged, including `unviable`: a mutant that did not compile is exactly the one whose build output someone will want to read.
+
+---
+
 ## Infrastructure/ProcessLaunching.swift
 
 ```swift
@@ -427,6 +443,7 @@ struct ProcessRequest: Sendable {
 struct ProcessRunner: Sendable {
     var postTerminationCleanup: (@Sendable (Int32) -> Void)?
     let onTimeout: @Sendable (Int32) -> Void
+    var readCapturedOutput: @Sendable (URL) throws -> String
 
     func launch(executableURL:arguments:workingDirectoryURL:timeout:) async throws -> Int32
     func launchCapturing(_ request: ProcessRequest) async throws -> (exitCode: Int32, output: String)
@@ -439,7 +456,7 @@ Low-level process execution engine. Uses `withTaskCancellationHandler` + `withCh
 
 **Stopping at a marker:** when the request carries a `stopRule`, that same `Task` polls the capture file every 100ms instead of sleeping through the whole timeout. `OutputWatcher` reads only the bytes written since its last look and keeps the unterminated tail, so a marker split across two writes is still seen. On a match the process is ended through the same `onTimeout(pid)` path a timeout uses — group `SIGTERM`, then the launcher's escalation — but a second flag records *why*, and the `terminationHandler` reports the rule's exit code rather than `-1`. The timeout still applies underneath: a process that never prints a marker is killed at the deadline as before.
 
-This is what makes a killed mutant cheap. A mutant is killed by its *first* failing test, and `TestOutputParser.parse` already reports only that one; running the remaining tests after it changed nothing but the clock. Neither XCTest nor Swift Testing offers a stop-on-first-failure switch, so the runner watches for one. Measured on `swift-cpd` (987 mutants, a suite that runs 14s alone), a full run went from 38m30s to 25m38s with identical verdicts up to the project's own flaky tests. The first 300 mutants ran three times faster than before; the middle of the run less so, which is where the killing tests are the slow integration ones and the first failure lands late regardless of order. It applies to the SPM test-bundle runs and the `swift test` fallback only; `xcodebuild test-without-building` is left to finish, because its verdict is read from the `.xcresult` bundle it writes at the end.
+This is what makes a killed mutant cheap. A mutant is killed by its *first* failing test, and `TestOutputParser.parse` already reports only that one; running the remaining tests after it changed nothing but the clock. Neither XCTest nor Swift Testing offers a stop-on-first-failure switch, so the runner watches for one. Measured on `swift-cpd` (987 mutants, a suite that runs 14s alone), stopping early took a full run from 38m30s to 25m38s on its own, and 13m46s with the rest of the work in this area — the probe standing in for the baseline, the file's own tests running first, and incompatible mutants spread over warm sandboxes. The first 300 mutants ran three times faster than before; the middle of the run less so, which is where the killing tests are the slow integration ones and the first failure lands late regardless of order. It applies to the SPM test-bundle runs and the `swift test` fallback only; `xcodebuild test-without-building` is left to finish, because its verdict is read from the `.xcresult` bundle it writes at the end.
 
 **Cancellation handling:** `onCancel` marks the flag and calls `onTimeout(pid)` immediately, ensuring the continuation is always resumed via the `terminationHandler`.
 
@@ -453,6 +470,8 @@ This is what makes a killed mutant cheap. A mutant is killed by its *first* fail
 
 ```swift
 struct SPMProcessLauncher: Sendable, ProcessLaunching {
+    static func terminate(pid: pid_t, escalation: TimeoutEscalation, kill: SystemCalls.Kill = Darwin.kill)
+
     func launch(executableURL:arguments:workingDirectoryURL:timeout:) async throws -> Int32
     func launchCapturing(_ request: ProcessRequest) async throws -> (exitCode: Int32, output: String)
 }
@@ -470,6 +489,21 @@ The group is frozen **before** the descendants are collected, and the snapshot i
 
 ---
 
+## Infrastructure/XcodeProcessLauncher.swift
+
+```swift
+struct XcodeProcessLauncher: Sendable, ProcessLaunching {
+    static func terminate(pid: pid_t, grace: Duration = .seconds(5), kill: @escaping SystemCalls.Kill = Darwin.kill)
+
+    func launch(executableURL:arguments:workingDirectoryURL:timeout:) async throws -> Int32
+    func launchCapturing(_ request: ProcessRequest) async throws -> (exitCode: Int32, output: String)
+}
+```
+
+The default launcher for Xcode projects. Its timeout handler is simpler than the SPM one: `SIGTERM` to the group, then `SIGKILL` after a grace period, with no descendant snapshot — `xcodebuild` reaps its own children, and its results are read from the `.xcresult` bundle rather than from whatever the processes left on stdout.
+
+---
+
 ## Infrastructure/SleepInhibitor.swift
 
 ```swift
@@ -483,12 +517,95 @@ Holds an IOKit `PreventSystemSleep` assertion for as long as `body` runs, the sa
 
 ---
 
+## Infrastructure/OutputStopRule.swift
+
+```swift
+struct OutputStopRule: Sendable, Equatable {
+    static let firstTestFailure: OutputStopRule
+
+    let markers: [String]
+    let exitCode: Int32
+
+    func matches(_ text: String) -> Bool
+}
+```
+
+A list of strings that, once seen in a process's output, mean there is no point letting it run on — and the exit code to report when that happens. `.firstTestFailure` carries `TestOutputParser.failureMarkers` and exit code 1.
+
+## Infrastructure/OutputWatcher.swift
+
+```swift
+struct OutputWatcher {
+    init(url: URL, rule: OutputStopRule)
+
+    mutating func sawMarker() -> Bool
+}
+```
+
+Reads the capture file incrementally: each call starts where the last one stopped and keeps the trailing partial line, so a marker split across two writes is matched on the second look rather than missed. Used by `ProcessRunner` while a request carries a stop rule.
+
+---
+
+## Infrastructure/SystemCalls.swift
+
+```swift
+enum SystemCalls {
+    typealias Kill = @Sendable (pid_t, Int32) -> Int32
+    typealias Sysctl = (…) -> Int32
+}
+```
+
+The function types for the system calls this package injects, so a test can hand in one that fails. See **Regions the suite deliberately does not cover** in the [CodeBase index](README.md) for which calls take a parameter and why.
+
+---
+
+## Infrastructure/CanonicalPath.swift
+
+```swift
+enum CanonicalPath {
+    typealias Resolver = (UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
+
+    static func make(for path: String, resolve: Resolver = { realpath($0, nil) }) -> String
+}
+```
+
+Resolves symlinks with `realpath`, returning the input unchanged when it cannot. The sandbox lives under `$TMPDIR`, which is itself a symlink on macOS (`/var/folders/…` → `/private/var/folders/…`), and the compiler prints the resolved form; comparing paths without this is what made the build-retry parser miss every error it was given.
+
+---
+
+## Infrastructure/ProcessTree.swift
+
+```swift
+enum ProcessTree {
+    static func descendants(of pid: Int32, sysctl: SystemCalls.Sysctl = Darwin.sysctl) -> [Int32]
+}
+```
+
+Walks the process table from `sysctl(KERN_PROC_ALL)` and returns every descendant of a pid, at any depth. `SPMProcessLauncher.terminate` snapshots them while the group is frozen, so a test process that spawns children cannot leave one behind.
+
+---
+
+## Infrastructure/TimeoutEscalation.swift
+
+```swift
+final class TimeoutEscalation: @unchecked Sendable {
+    init(gracePeriod: Double = 5)
+
+    func arm(pid: Int32, descendants: [Int32])
+    func processTerminated()
+}
+```
+
+Owns the `SIGKILL` that sweeps up whatever the first round of signals missed, and ties it to the run's lifetime: a process that stops when asked has its snapshotted descendants killed at once and the pending task cancelled, rather than a timer firing seconds later when the pid may belong to something else.
+
+---
+
 ## Infrastructure/XCTestRunPlist.swift
 
 ```swift
 struct XCTestRunPlist: Sendable, Equatable {
     init?(_ data: Data)
-    func activating(_ mutantID: String) -> Data
+    func activating(_ mutantID: String, serialize: PlistSerializer = …) -> Data
 }
 ```
 
@@ -498,12 +615,26 @@ Wraps the raw plist `Data` from the `.xctestrun` file.
 
 ---
 
+## Infrastructure/ProjectRelativePath.swift
+
+```swift
+enum ProjectRelativePath {
+    static func make(for path: String, in projectPath: String) -> String
+}
+```
+
+Turns an absolute path into one relative to the project root, resolving symlinks on both sides first so a sandbox path and a project path can be compared at all. A path outside the root is returned unchanged. Every reporter uses it, which is why a mutant's file reads the same in the console, the JSON and the Sonar report no matter which sandbox produced it.
+
+---
+
 ## Infrastructure/TestFilesHasher.swift
 
 ```swift
 struct TestFilesHasher: Sendable {
-    func hashPerFile(projectPath: String) -> [String: String]
-    func testFilePaths(projectPath: String) -> [String]
+    static func defaultEnumerator(_ directory: URL) -> FileManager.DirectoryEnumerator?
+
+    func hashPerFile(projectPath: String, enumerate: FileEnumerator = Self.defaultEnumerator) -> [String: String]
+    func testFilePaths(projectPath: String, enumerate: FileEnumerator = Self.defaultEnumerator) -> [String]
 }
 ```
 

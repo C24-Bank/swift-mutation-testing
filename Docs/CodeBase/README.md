@@ -11,12 +11,12 @@ Type-level reference for every public and internal type in `swift-mutation-testi
 | [01 — Entry Point](01-entry-point.md) | `SwiftMutationTesting`, `ExitCode`, `HelpText`, `UsageError` |
 | [02 — Configuration](02-configuration.md) | `CommandLineParser`, `ParsedArguments`, `RunnerConfiguration`, `BuildOptions`, `ReportingOptions`, `FilterOptions`, `ProjectType`, `TestingFramework`, `ConfigurationResolver`, `ConfigurationFileParser`, `ConfigurationFileWriter`, `ProjectDetector`, `DetectedProject` |
 | [03 — Discovery Pipeline](03-discovery-pipeline.md) | `DiscoveryPipeline`, `DiscoveryInput`, `FileDiscoveryStage`, `FileDiscoveryError`, `ParsingStage`, `MutantDiscoveryStage`, `MutantIndexingStage`, `SchematizationStage`, `IncompatibleRewritingStage`, `SourceFile`, `ParsedSource`, `MutationPoint`, `IndexedMutationPoint`, `MutantDescriptor` |
-| [04 — Mutation Operators](04-mutation-operators.md) | `MutationOperator`, `MutationSyntaxVisitor`, `ReplacementKind`, all 7 operator structs and visitors, `SuppressionAnnotationExtractor`, `SuppressionFilter`, `SuppressionVisitor` |
+| [04 — Mutation Operators](04-mutation-operators.md) | `MutationOperator`, `MutationSyntaxVisitor`, `ReplacementKind`, all 7 operator structs and visitors, `SuppressionAnnotationExtractor`, `SuppressionFilter`, `SuppressionVisitor`, `InfiniteLoopBodyVisitor`, `InfiniteLoopBodyExtractor`, `InfiniteLoopFilter` |
 | [05 — Schematization](05-schematization.md) | `SchemataGenerator`, `MutationRewriter`, `TypeScopeVisitor`, `FunctionBodyScope`, `SchematizedFile` |
-| [06 — Sandbox & Build](06-sandbox-build.md) | `SandboxFactory`, `Sandbox`, `BuildStage`, `BuildArtifact`, `BuildError` |
-| [07 — Execution](07-execution.md) | `MutantExecutor`, `ExecutionDeps`, `TestExecutionStage`, `TestExecutionContext`, `TestLaunchResult`, `FallbackExecutor`, `IncompatibleMutantExecutor`, `SimulatorPool`, `SimulatorSlot`, `SimulatorManager`, `SimulatorError`, `MutationCounter`, `RunnerInput`, `ExecutionResult`, `ExecutionStatus` |
-| [08 — Result Parsing & Cache](08-result-parsing-cache.md) | `TestResultResolver`, `ResultParser`, `SPMResultParser`, `TestRunOutcome`, `TestOutputParser`, `XCResultParser`, `CacheStore`, `MutantCacheKey` |
-| [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) | `ProgressReporter`, `ConsoleProgressReporter`, `SilentProgressReporter`, `RunnerEvent`, `RunnerSummary`, `TextReporter`, `JsonReporter`, `HtmlReporter`, `SonarReporter`, all `MutationReport*` types, all `Sonar*` types, `ProcessLaunching`, `ProcessRunner`, `ProcessRequest`, `SPMProcessLauncher`, `XCTestRunPlist`, `TestFilesHasher` |
+| [06 — Sandbox & Build](06-sandbox-build.md) | `SandboxFactory`, `SandboxName`, `SandboxCleaner`, `Sandbox`, `BuildStage`, `BuildArtifact`, `BuildError` |
+| [07 — Execution](07-execution.md) | `MutantExecutor`, `ExecutionDeps`, `TestExecutionStage`, `TestExecutionContext`, `TestLaunchResult`, `TestBundleInvocation`, `DeveloperToolchain`, `TargetedSuites`, `FallbackExecutor`, `IncompatibleMutantExecutor`, `SimulatorPool`, `SimulatorSlot`, `SimulatorManager`, `SimulatorError`, `MutationCounter`, `RunnerInput`, `ExecutionResult`, `ExecutionStatus`, `BaselineError` |
+| [08 — Result Parsing & Cache](08-result-parsing-cache.md) | `TestResultResolver`, `ResultParser`, `SPMResultParser`, `TestRunOutcome`, `TestOutputParser`, `XCResultParser`, `CacheStore`, `MutantCacheKey`, `KillerTestFileResolver` |
+| [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) | `ProgressReporter`, `ConsoleProgressReporter`, `SilentProgressReporter`, `RunnerEvent`, `RunnerSummary`, `TextReporter`, `JsonReporter`, `HtmlReporter`, `SonarReporter`, `MutantLogWriter`, all `MutationReport*` types, all `Sonar*` types, `ProcessLaunching`, `ProcessRunner`, `ProcessRequest`, `OutputStopRule`, `OutputWatcher`, `SPMProcessLauncher`, `XcodeProcessLauncher`, `SleepInhibitor`, `SystemCalls`, `CanonicalPath`, `ProcessTree`, `TimeoutEscalation`, `XCTestRunPlist`, `TestFilesHasher`, `ProjectRelativePath` |
 
 ---
 
@@ -62,7 +62,7 @@ RunnerInput
 
 ### Regions the suite deliberately does not cover
 
-Region coverage is 99.5%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
+Region coverage is 99.5% — nine regions of 1939. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
 
 Each entry was tried before it was listed. The rule from #95 applies: a region that cannot be made to fail under a negative control is a candidate for deletion, not for a test — five were deleted rather than covered (`MutantExecutor`'s probe guard, `RemoveSideEffectsVisitor`'s first-token guard, and three `?? false` fallbacks in `SandboxFactory` that became `== true`).
 
