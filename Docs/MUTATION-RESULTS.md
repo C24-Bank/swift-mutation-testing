@@ -222,7 +222,7 @@ In all of these cases, the mutation site is not inside any executable scope that
 | Parallel execution | yes, N workers | sequential |
 | Typical cost | seconds per mutant | full build + test per mutant |
 
-A project with 10 incompatible mutants and a 20-second build will spend at least 200 extra seconds on incompatible execution alone, in addition to the shared build for schematizable mutants. The progress output calls this out explicitly:
+Incompatible mutants are the expensive ones: each needs its own rebuild before its tests can run. The rebuild is incremental — the sandbox is built once and only the mutated file is recompiled after that — and the mutants are spread over a quarter of the workers, but a project with 10 incompatible mutants still pays roughly 10 rebuilds plus 10 test runs on top of the shared build for schematizable mutants. The progress output calls this out explicitly:
 
 ```
   ✓ Discovery: 154 mutants (143 schematizable, 11 incompatible) in 2.3s
