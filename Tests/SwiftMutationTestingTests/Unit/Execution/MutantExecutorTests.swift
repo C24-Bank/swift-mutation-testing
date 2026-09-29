@@ -1125,7 +1125,8 @@ struct MutantExecutorTests {
         let launcher = TwoLibraryBundleLauncher(
             xctestOutput: "Test Case '-[CalculatorTests testAddition]' failed (0.002 seconds).",
             xctestExitCode: 1,
-            swiftTestingOutput: "✔ Test run with 3 tests in 1 suite passed after 0.1 seconds."
+            swiftTestingOutput: "✔ Test run with 3 tests in 1 suite passed after 0.1 seconds.",
+            probePasses: true
         )
         let executor = MutantExecutor(
             configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
@@ -1157,7 +1158,8 @@ struct MutantExecutorTests {
         let launcher = TwoLibraryBundleLauncher(
             xctestOutput: "Test Suite 'All tests' passed\nExecuted 3 tests, with 0 failures",
             swiftTestingOutput: "✔ Test run with 3 tests passed",
-            swiftTestingDelay: .milliseconds(400)
+            swiftTestingDelay: .milliseconds(400),
+            probePasses: true
         )
         let executor = MutantExecutor(
             configuration: makeRunnerConfiguration(

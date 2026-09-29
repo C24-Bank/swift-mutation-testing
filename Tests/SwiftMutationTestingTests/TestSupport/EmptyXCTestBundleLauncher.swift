@@ -5,6 +5,7 @@ import Foundation
 actor EmptyXCTestBundleLauncher: ProcessLaunching {
     private(set) var xctestRuns = 0
     private(set) var swiftTestingRuns = 0
+    private(set) var swiftTestCommandRuns = 0
 
     func launch(
         executableURL: URL,
@@ -23,6 +24,11 @@ actor EmptyXCTestBundleLauncher: ProcessLaunching {
                 .appendingPathComponent(".build/out/Products/Debug/PkgTests.xctest/Contents/MacOS")
             try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
             FileManager.default.createFile(atPath: macOS.appendingPathComponent("PkgTests").path, contents: Data())
+            return (0, "")
+        }
+
+        if request.arguments.first == "test" {
+            swiftTestCommandRuns += 1
             return (0, "")
         }
 
