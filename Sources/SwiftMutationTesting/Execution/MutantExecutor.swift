@@ -251,7 +251,7 @@ struct MutantExecutor: Sendable {
     ) async throws -> (BuildArtifact?, [MutantDescriptor]) {
         let sandbox = context.sandbox
         let input = context.input
-        let sandboxRoot = canonicalPath(sandbox.rootURL.path)
+        let sandboxRoot = CanonicalPath.make(for: sandbox.rootURL.path)
         let projectRoot = URL(fileURLWithPath: input.projectPath).resolvingSymlinksInPath().path
         let errorSandboxPaths = extractErrorPaths(from: output, sandboxRoot: sandboxRoot)
         let alreadyExcludedIDs = Set(alreadyExcluded.map(\.id))
@@ -553,13 +553,6 @@ struct MutantExecutor: Sendable {
         )
     }
 
-    private func canonicalPath(_ path: String) -> String {
-        path.withCString { ptr in
-            guard let resolved = realpath(ptr, nil) else { return path }
-            defer { free(resolved) }
-            return String(cString: resolved)
-        }
-    }
 
     private func makePool(launcher: any ProcessLaunching) async throws -> SimulatorPool {
         let destination: String

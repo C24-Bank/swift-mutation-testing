@@ -2,8 +2,17 @@ import Foundation
 
 struct TestFilesHasher: Sendable {
 
-    func hashPerFile(projectPath: String) -> [String: String] {
-        let paths = collectTestFilePaths(under: URL(fileURLWithPath: projectPath))
+    typealias FileEnumerator = (URL) -> FileManager.DirectoryEnumerator?
+
+    static func defaultEnumerator(_ directory: URL) -> FileManager.DirectoryEnumerator? {
+        FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+    }
+
+    func hashPerFile(
+        projectPath: String,
+        enumerate: FileEnumerator = Self.defaultEnumerator
+    ) -> [String: String] {
+        let paths = collectTestFilePaths(under: URL(fileURLWithPath: projectPath), enumerate: enumerate)
         var result: [String: String] = [:]
 
         for path in paths.sorted() {
@@ -16,18 +25,12 @@ struct TestFilesHasher: Sendable {
         return result
     }
 
-    func testFilePaths(projectPath: String) -> [String] {
-        collectTestFilePaths(under: URL(fileURLWithPath: projectPath))
+    func testFilePaths(projectPath: String, enumerate: FileEnumerator = Self.defaultEnumerator) -> [String] {
+        collectTestFilePaths(under: URL(fileURLWithPath: projectPath), enumerate: enumerate)
     }
 
-    private func collectTestFilePaths(under directory: URL) -> [String] {
-        guard
-            let enumerator = FileManager.default.enumerator(
-                at: directory,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            )
-        else { return [] }
+    private func collectTestFilePaths(under directory: URL, enumerate: FileEnumerator) -> [String] {
+        guard let enumerator = enumerate(directory) else { return [] }
 
         var paths: [String] = []
         for case let url as URL in enumerator {
