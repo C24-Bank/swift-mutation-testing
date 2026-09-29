@@ -263,7 +263,7 @@ struct TestExecutionStage: Sendable {
                 additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": mutant.id],
                 workingDirectoryURL: context.sandbox.rootURL,
                 timeout: timeout
-            )
+            ).stopping(at: .firstTestFailure)
         ]
     }
 

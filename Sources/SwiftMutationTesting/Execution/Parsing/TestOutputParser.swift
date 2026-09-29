@@ -1,4 +1,6 @@
 struct TestOutputParser: Sendable {
+    static let failureMarkers = ["]' failed (", " recorded an issue", " failed after "]
+
     enum Result: Sendable {
         case killed(by: String)
         case crashed

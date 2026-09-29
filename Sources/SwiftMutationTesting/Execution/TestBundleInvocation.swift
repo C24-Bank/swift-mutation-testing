@@ -38,7 +38,7 @@ struct TestBundleInvocation: Sendable {
             ? [(.xctest, xctest), (.swiftTesting, swiftTesting)]
             : [(.swiftTesting, swiftTesting), (.xctest, xctest)]
 
-        return ordered.filter { libraries.contains($0.0) }.map(\.1)
+        return ordered.filter { libraries.contains($0.0) }.map { $0.1.stopping(at: .firstTestFailure) }
     }
 
     // MARK: - Private
