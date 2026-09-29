@@ -203,8 +203,8 @@ struct SPMProcessLauncherTests {
         #expect(kill.recorded.isEmpty)
     }
 
-    @Test("Given a running process, when it times out, then its group is asked to stop")
-    func aTimeoutSignalsTheProcessGroup() throws {
+    @Test("Given a running process, when it times out, then its group is frozen and then killed")
+    func aTimeoutFreezesAndKillsTheProcessGroup() throws {
         let child = Process()
         child.executableURL = URL(fileURLWithPath: "/bin/sleep")
         child.arguments = ["30"]
@@ -217,6 +217,11 @@ struct SPMProcessLauncherTests {
 
         SPMProcessLauncher.terminate(pid: child.processIdentifier, escalation: escalation, kill: kill.asKill)
 
-        #expect(kill.recorded == [SentSignal(pid: -child.processIdentifier, signal: SIGTERM)])
+        #expect(
+            kill.recorded == [
+                SentSignal(pid: -child.processIdentifier, signal: SIGSTOP),
+                SentSignal(pid: -child.processIdentifier, signal: SIGKILL),
+            ]
+        )
     }
 }

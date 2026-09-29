@@ -83,4 +83,47 @@ struct SPMTimeoutCleanupTests {
             timeout: timeout
         )
     }
+
+    @Test(
+        "Given a run that spawns a grandchild after it was told to stop, when stopped, then none survives"
+    )
+    func aGrandchildBornAfterTheStopSignalDoesNotSurvive() async throws {
+        let marker = "sleep 60\(Int.random(in: 100_000 ... 999_999))"
+        defer { _ = try? runShell("pkill -9 -f '\(marker)'") }
+
+        let script = """
+            trap '' TERM
+            echo "Test Case '-[SuiteTests aCheck]' failed (0.001 seconds)."
+            sleep 0.4
+            set -m
+            \(marker) &
+            wait
+            """
+        let request = ProcessRequest(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", script],
+            environment: nil,
+            additionalEnvironment: [:],
+            workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+            timeout: 20
+        ).stopping(at: .firstTestFailure)
+
+        let result = try await SPMProcessLauncher().launchCapturing(request)
+        try await Task.sleep(for: .seconds(1))
+
+        #expect(result.exitCode == 1)
+        #expect(try runShell("pgrep -f '\(marker)' || true").isEmpty)
+    }
+
+    private func runShell(_ command: String) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
