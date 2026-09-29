@@ -89,8 +89,8 @@ struct SandboxFactory: Sendable {
             let name = item.lastPathComponent
             let dest = destination.appendingPathComponent(name)
             let values = try item.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            let isDirectory = values.isDirectory ?? false
-            let isSymlink = values.isSymbolicLink ?? false
+            let isDirectory = values.isDirectory == true
+            let isSymlink = values.isSymbolicLink == true
 
             if isDirectory && !isSymlink {
                 if shouldSkip(directoryName: name) {
@@ -137,7 +137,7 @@ struct SandboxFactory: Sendable {
         for item in items {
             let name = item.lastPathComponent
             let dest = destination.appendingPathComponent(name)
-            let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
 
             if isDir && name == "xcuserdata" {
                 try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)

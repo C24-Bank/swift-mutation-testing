@@ -24,10 +24,7 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
             return .visitChildren
         }
 
-        guard let firstToken = node.firstToken(viewMode: .sourceAccurate)
-        else { return .visitChildren }
-
-        let location = firstToken.startLocation(converter: locationConverter)
+        let location = locationConverter.location(for: node.positionAfterSkippingLeadingTrivia)
 
         mutations.append(
             MutationPoint(
@@ -35,7 +32,7 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
                 filePath: filePath,
                 line: location.line,
                 column: location.column,
-                utf8Offset: firstToken.positionAfterSkippingLeadingTrivia.utf8Offset,
+                utf8Offset: node.positionAfterSkippingLeadingTrivia.utf8Offset,
                 originalText: expr.trimmedDescription,
                 mutatedText: "",
                 replacement: .removeStatement,
