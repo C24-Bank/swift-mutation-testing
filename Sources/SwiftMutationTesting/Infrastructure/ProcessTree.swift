@@ -2,11 +2,11 @@ import Foundation
 
 enum ProcessTree {
 
-    static func descendants(of pid: Int32) -> [Int32] {
+    static func descendants(of pid: Int32, sysctl: SystemCalls.Sysctl = Darwin.sysctl) -> [Int32] {
         guard pid > 1 else { return [] }
 
         var childrenByParent: [Int32: [Int32]] = [:]
-        for entry in snapshot() where entry.pid > 1 {
+        for entry in snapshot(sysctl: sysctl) where entry.pid > 1 {
             childrenByParent[entry.parentPID, default: []].append(entry.pid)
         }
 
@@ -25,7 +25,7 @@ enum ProcessTree {
 
     // MARK: - Private
 
-    private static func snapshot() -> [(pid: Int32, parentPID: Int32)] {
+    private static func snapshot(sysctl: SystemCalls.Sysctl) -> [(pid: Int32, parentPID: Int32)] {
         var size = 0
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
 
