@@ -62,7 +62,7 @@ RunnerInput
 
 ### Regions the suite deliberately does not cover
 
-Region coverage is 98.7%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
+Region coverage is 98.8%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
 
 Each entry was tried before it was listed. The rule from #95 applies: a region that cannot be made to fail under a negative control is a candidate for deletion, not for a test — five were deleted rather than covered (`MutantExecutor`'s probe guard, `RemoveSideEffectsVisitor`'s first-token guard, and three `?? false` fallbacks in `SandboxFactory` that became `== true`).
 
@@ -109,4 +109,5 @@ A test would have to win a race against `Process.run()`, and a flaky test costs 
 | file | line | why |
 |---|---|---|
 | `Sandbox/SandboxCleaner.swift` | 4 | the default exit handler calls `_exit`, which would end the test process |
-| `SwiftMutationTesting.swift` | 61, 72 | the `quiet` branch and the launcher default, both taken by every real invocation |
+
+Covering that one means running the binary as a child process, sending it `SIGINT` and asserting on the exit code and the sandbox it left behind — an integration test, not a unit test.
