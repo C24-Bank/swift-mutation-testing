@@ -32,6 +32,64 @@ struct SandboxCleanerTests {
         #expect(!FileManager.default.fileExists(atPath: orphan2.path))
     }
 
+    @Test("Given a sandbox owned by a live process, when removeOrphaned called, then it is preserved")
+    func removeOrphanedPreservesSandboxOfLiveOwner() throws {
+        let baseDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(baseDir) }
+
+        let live = baseDir.appendingPathComponent(SandboxName.make())
+        try FileManager.default.createDirectory(at: live, withIntermediateDirectories: true)
+        try "content".write(
+            to: live.appendingPathComponent("file.swift"),
+            atomically: true, encoding: .utf8
+        )
+
+        SandboxCleaner.removeOrphaned(in: baseDir)
+
+        #expect(FileManager.default.fileExists(atPath: live.path))
+    }
+
+    @Test("Given a sandbox whose owner has exited, when removeOrphaned called, then it is deleted")
+    func removeOrphanedDeletesSandboxOfExitedOwner() throws {
+        let baseDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(baseDir) }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try process.run()
+        process.waitUntilExit()
+
+        let abandoned = baseDir.appendingPathComponent(SandboxName.make(pid: process.processIdentifier))
+        try FileManager.default.createDirectory(at: abandoned, withIntermediateDirectories: true)
+
+        SandboxCleaner.removeOrphaned(in: baseDir)
+
+        #expect(!FileManager.default.fileExists(atPath: abandoned.path))
+    }
+
+    @Test("Given a sandbox this process created, when another run sweeps, then the sandbox survives")
+    func sweepFromAnotherRunSparesASandboxInUse() async throws {
+        let baseDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(baseDir) }
+
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+        try "let x = 1".write(
+            to: projectDir.appendingPathComponent("Main.swift"),
+            atomically: true, encoding: .utf8
+        )
+
+        let sandbox = try await SandboxFactory().createClean(projectPath: projectDir.path)
+        defer { FileHelpers.cleanup(sandbox.rootURL) }
+
+        let asAnotherRunSeesIt = baseDir.appendingPathComponent(sandbox.rootURL.lastPathComponent)
+        try FileManager.default.copyItem(at: sandbox.rootURL, to: asAnotherRunSeesIt)
+
+        SandboxCleaner.removeOrphaned(in: baseDir)
+
+        #expect(FileManager.default.fileExists(atPath: asAnotherRunSeesIt.path))
+    }
+
     @Test("Given non-xmr directories, when removeOrphaned called, then they are preserved")
     func removeOrphanedPreservesNonXmrDirectories() throws {
         let baseDir = try FileHelpers.makeTemporaryDirectory()
