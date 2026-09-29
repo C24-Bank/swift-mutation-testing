@@ -459,10 +459,12 @@ struct SPMProcessLauncher: Sendable, ProcessLaunching {
 ```
 
 SPM-specific implementation of `ProcessLaunching`. Creates a `ProcessRunner` with:
-- `onTimeout`: snapshots the process's descendants via `ProcessTree`, arms a `TimeoutEscalation`, and sends `SIGTERM` to the group
+- `onTimeout`: freezes the group with `SIGSTOP`, snapshots the process's descendants via `ProcessTree`, arms a `TimeoutEscalation`, and kills the descendants and then the group with `SIGKILL`
 - `postTerminationCleanup`: kills the process group via `kill(-pid, SIGKILL)` and tells the escalation the process is gone
 
-The descendants are collected **before** the first signal, while the process that owns them is still alive to be traced back to. Cleanup that instead matched processes by sandbox name could not tell one mutant's run from another's when both ran in the same sandbox: it killed the next mutant's test binary, and the truncated output was read as a crash.
+The group is frozen **before** the descendants are collected, and the snapshot is taken while the process that owns them is still alive to be traced back to. Freezing first is what makes the snapshot complete: a test process that is asked to stop but ignores or delays the signal can spawn another child in the meantime, and that grandchild — born after the snapshot, in its own process group if the shell enabled job control — survives every signal aimed at the group and at the pids that were listed. It then runs forever at 100% of a core with no parent to reap it. `SIGSTOP` cannot be caught, blocked or ignored, so nothing new is forked between the freeze and the kill.
+
+`SIGKILL` rather than `SIGTERM` for the same reason: a test binary is not owed a chance to clean up after its deadline, and a handler that delays exit is a handler that delays the whole run. The `TimeoutEscalation` is still armed, now as the sweep for anything the snapshot missed rather than as the escalation from a polite signal. Cleanup that instead matched processes by sandbox name could not tell one mutant's run from another's when both ran in the same sandbox: it killed the next mutant's test binary, and the truncated output was read as a crash.
 
 **`TimeoutEscalation`** — owns the SIGKILL that follows SIGTERM, and ties it to the run's lifetime. A process that stops when asked has its descendants cleaned up at once and the pending kill cancelled, rather than a timer firing seconds later when the pid may belong to something else.
 
