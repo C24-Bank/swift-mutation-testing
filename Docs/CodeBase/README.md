@@ -62,7 +62,7 @@ RunnerInput
 
 ### Regions the suite deliberately does not cover
 
-Region coverage is 99.1%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
+Region coverage is 99.2%. The regions left are listed here with the reason, so that the next person measuring does not spend a second afternoon rediscovering them. Everything not on this list is expected to be covered; a new uncovered region is a gap, not a member of this set.
 
 Each entry was tried before it was listed. The rule from #95 applies: a region that cannot be made to fail under a negative control is a candidate for deletion, not for a test — five were deleted rather than covered (`MutantExecutor`'s probe guard, `RemoveSideEffectsVisitor`'s first-token guard, and three `?? false` fallbacks in `SandboxFactory` that became `== true`).
 
@@ -71,13 +71,11 @@ Each entry was tried before it was listed. The rule from #95 applies: a region t
 | file | line | call |
 |---|---|---|
 | `Infrastructure/ProcessTree.swift` | 32, 37 | `sysctl` fails |
-| `Execution/MutantExecutor.swift` | 558 | `realpath` fails |
-| `Infrastructure/TestFilesHasher.swift` | 30 | `FileManager.enumerator(at:)` returns `nil` |
 | `Execution/TestBundleInvocation.swift` | 111, 115 | `xcode-select -p` fails to run, or prints nothing |
 
 `FileManager.enumerator(at:)` was measured rather than assumed: it returns a non-`nil` enumerator for a regular file, a path that does not exist, and a directory the user cannot read. Covering these means injecting the call, which is a design change bought for one branch that returns a sane default.
 
-Three of this group have been covered that way and left the list: `ProcessRunner` takes the function that reads the capture file back, `XCTestRunPlist.activating` takes the serializer, and `SleepInhibitor.isHeld` takes the function that fetches the assertion table. Each defaults to the real call, and in each the `try?`/`??` stayed at the call site so the fake could make it fire.
+Five of this group have been covered that way and left the list: `ProcessRunner` takes the function that reads the capture file back, `XCTestRunPlist.activating` takes the serializer, `SleepInhibitor.isHeld` takes the function that fetches the assertion table, `TestFilesHasher` takes the enumerator, and `realpath` moved out of `MutantExecutor` into `CanonicalPath.make(for:resolve:)`, which takes the resolver. Each defaults to the real call, and in each the `try?`/`??` stayed at the call site so the fake could make it fire.
 
 **Guards an earlier check in the same function already makes impossible**
 
