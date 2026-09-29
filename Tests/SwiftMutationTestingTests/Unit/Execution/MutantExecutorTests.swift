@@ -1087,4 +1087,30 @@ struct MutantExecutorTests {
         #expect(results.map(\.status) == [.survived, .survived, .survived])
         #expect((await launcher.xctestRuns, await launcher.swiftTestingRuns) == (1, 4))
     }
+
+    @Test("Given no library reports tests, when the probe ends, then mutants are still run against both")
+    func aProbeThatFindsNothingKeepsBothLibraries() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let launcher = EmptyBundleLauncher()
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: launcher
+        )
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+            mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+        )
+
+        let results = try await executor.execute(input)
+
+        #expect(results.map(\.status) == [.survived])
+        #expect((await launcher.xctestRuns, await launcher.swiftTestingRuns) == (2, 2))
+    }
 }
