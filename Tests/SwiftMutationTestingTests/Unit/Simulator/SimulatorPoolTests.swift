@@ -139,4 +139,22 @@ struct SimulatorPoolTests {
 
         #expect(pool.size == 3)
     }
+
+    @Test("Given a destination with no platform, when the pool is set up, then slots fall back to the iOS Simulator")
+    func aDestinationWithoutAPlatformFallsBackToTheSimulator() async throws {
+        let pool = SimulatorPool(
+            baseUDID: "BASE-UDID",
+            size: 1,
+            destination: "id=BASE-UDID",
+            launcher: SimulatorCommandMock(
+                listOutput: SimulatorCommandMock.bootedDevicesJSON(udid: "CLONE-1"), cloneUDID: "CLONE-1"
+            )
+        )
+
+        try await pool.setUp()
+        let slot = try await pool.acquire()
+        await pool.release(slot)
+
+        #expect(slot.destination == "platform=iOS Simulator,id=CLONE-1")
+    }
 }

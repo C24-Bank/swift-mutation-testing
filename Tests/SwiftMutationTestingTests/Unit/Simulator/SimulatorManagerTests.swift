@@ -135,4 +135,15 @@ struct SimulatorManagerTests {
 
         #expect(threwBootTimeout)
     }
+
+    @Test(
+        "Given simctl output that is not device JSON, when waiting for a boot, then it times out"
+    )
+    func outputThatIsNotDeviceJsonIsNotReadAsBooted() async throws {
+        let manager = SimulatorManager(launcher: SimulatorCommandMock(listOutput: "not json at all", cloneUDID: ""))
+
+        await #expect(throws: SimulatorError.self) {
+            try await manager.waitForBooted(udid: "UDID-1", maxAttempts: 1, sleepDuration: .zero)
+        }
+    }
 }

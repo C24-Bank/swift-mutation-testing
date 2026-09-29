@@ -136,4 +136,45 @@ struct FallbackExecutorTests {
 
         #expect(await launcher.timeouts(forCommandStartingWith: verb) == [240])
     }
+
+    @Test("Given a schematized file no mutant belongs to, when execute called, then it produces no results")
+    func aFileWithoutMutantsProducesNoResults() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        let untouched = dir.appendingPathComponent("Bar.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+        try "let y = true".write(to: untouched, atomically: true, encoding: .utf8)
+
+        let deps = makeExecutionDeps(
+            launcher: MockProcessLauncher(exitCode: 0),
+            cacheStorePath: dir.appendingPathComponent("cache.json").path
+        )
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [
+                SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false"),
+                SchematizedFile(originalPath: untouched.path, schematizedContent: "let y = false"),
+            ],
+            mutants: [
+                makeMutantDescriptor(
+                    id: "m0", filePath: sourceFile.path,
+                    originalText: "true", mutatedText: "false",
+                    operatorIdentifier: "BooleanLiteralReplacement",
+                    replacementKind: .booleanLiteral, isSchematizable: true
+                )
+            ]
+        )
+
+        let results = try await FallbackExecutor(
+            deps: deps, configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm)
+        ).execute(input: input, pool: pool)
+
+        #expect(results.map(\.descriptor.id) == ["m0"])
+    }
 }
