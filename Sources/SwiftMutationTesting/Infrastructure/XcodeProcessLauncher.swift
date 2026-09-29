@@ -21,15 +21,24 @@ struct XcodeProcessLauncher: Sendable, ProcessLaunching {
         try await makeRunner().launchCapturing(request)
     }
 
+    static func terminate(
+        pid: pid_t,
+        grace: Duration = .seconds(5),
+        kill: @escaping SystemCalls.Kill = Darwin.kill
+    ) {
+        guard pid > 0 else { return }
+
+        _ = kill(-pid, SIGTERM)
+        Task {
+            try? await Task.sleep(for: grace)
+            _ = kill(-pid, SIGKILL)
+        }
+    }
+
     private func makeRunner() -> ProcessRunner {
         ProcessRunner(
             onTimeout: { pid in
-                guard pid > 0 else { return }
-                kill(-pid, SIGTERM)
-                Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    kill(-pid, SIGKILL)
-                }
+                Self.terminate(pid: pid)
             }
         )
     }
