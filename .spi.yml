@@ -1,11 +1,13 @@
 version: 1
+metadata:
+  authors: Érico Perez Neto
+external_links:
+  documentation: https://github.com/ericodx/swift-mutation-testing/blob/main/Docs/USAGE.MD
 builder:
   configs:
     - platform: macos-spm
-      swiftVersion: "6.3"
+      swift_version: "6.4"
     - platform: macos-spm
-      swiftVersion: "6.2"
+      swift_version: "6.3"
     - platform: macos-spm
-      swiftVersion: "6.1"
-    - platform: macos-spm
-      swiftVersion: "6.0"
+      swift_version: "6.2"
