@@ -835,4 +835,83 @@ struct IncompatibleMutantExecutorTests {
         #expect(test?.arguments.contains("AppTests") == true)
         #expect(build?.arguments.contains("-only-testing") == false)
     }
+
+    @Test("Given eight workers and four incompatible mutants, when executed, then two warm sandboxes share the work")
+    func incompatibleMutantsAreSpreadOverWarmSandboxes() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "let x = 1".write(to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8)
+
+        let launcher = WarmSandboxLauncher()
+        let executor = makeIncompatibleMutantExecutorSPM(in: dir, launcher: launcher)
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+
+        let results = try await executor.execute(
+            fourIncompatibleMutants(in: dir),
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, concurrency: 8),
+            pool: pool
+        )
+
+        #expect(results.map(\.descriptor.id) == ["m0", "m1", "m2", "m3"])
+        #expect(results.allSatisfy { $0.status == .survived })
+        #expect(await launcher.buildRoots.count == 2)
+        #expect(await launcher.maxInFlightBuilds == 2)
+        #expect(await launcher.testRunsByRoot.values.sorted() == [2, 2])
+    }
+
+    @Test("Given a warm sandbox whose build fails, when executed, then the others carry all the mutants")
+    func aWarmSandboxThatFailsToBuildIsLeftOut() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "let x = 1".write(to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8)
+
+        let launcher = WarmSandboxLauncher(failsWarmBuildsAfterTheFirstRoot: true)
+        let executor = makeIncompatibleMutantExecutorSPM(in: dir, launcher: launcher)
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+
+        let results = try await executor.execute(
+            fourIncompatibleMutants(in: dir),
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, concurrency: 8),
+            pool: pool
+        )
+
+        #expect(results.map(\.status) == [.survived, .survived, .survived, .survived])
+        #expect(await launcher.testRunsByRoot.count == 1)
+        #expect(await launcher.testRunsByRoot.values.first == 4)
+    }
+
+    @Test("Given every warm sandbox fails to build, when executed, then every mutant is unviable")
+    func whenNoWarmSandboxBuildsEveryMutantIsUnviable() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "let x = 1".write(to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8)
+
+        let launcher = WarmSandboxLauncher(failsEveryBuild: true)
+        let executor = makeIncompatibleMutantExecutorSPM(in: dir, launcher: launcher)
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+
+        let results = try await executor.execute(
+            fourIncompatibleMutants(in: dir),
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, concurrency: 8),
+            pool: pool
+        )
+
+        #expect(results.map(\.status) == [.unviable, .unviable, .unviable, .unviable])
+        #expect(await launcher.testRunsByRoot.isEmpty)
+    }
+
+    private func fourIncompatibleMutants(in dir: URL) -> [MutantDescriptor] {
+        (0 ..< 4).map {
+            makeMutantDescriptor(
+                id: "m\($0)",
+                filePath: dir.appendingPathComponent("Foo.swift").path,
+                utf8Offset: $0,
+                mutatedSourceContent: "let x = \($0 + 10)",
+                sourceContentHash: "test-hash"
+            )
+        }
+    }
 }
