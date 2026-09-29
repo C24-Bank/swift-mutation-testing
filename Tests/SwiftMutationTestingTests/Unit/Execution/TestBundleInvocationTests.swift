@@ -189,4 +189,15 @@ struct TestBundleInvocationTests {
         #expect(!path.isEmpty)
         #expect(path == DeveloperToolchain.developerPath)
     }
+
+    @Test("Given a test bundle, when requests are built, then each stops at the first test failure")
+    func requestsStopAtTheFirstFailure() {
+        let requests = TestBundleInvocation(
+            bundleURL: URL(fileURLWithPath: "/sandbox/.build/out/Products/Debug/PkgTests.xctest"),
+            framework: .swiftTesting
+        ).requests(filter: nil, mutantID: "m0", workingDirectory: URL(fileURLWithPath: "/sandbox"), timeout: 30)
+
+        #expect(requests.count == 2)
+        #expect(requests.allSatisfy { $0.stopRule == .firstTestFailure })
+    }
 }
