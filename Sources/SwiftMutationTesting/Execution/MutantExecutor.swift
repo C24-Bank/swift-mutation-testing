@@ -164,7 +164,10 @@ struct MutantExecutor: Sendable {
             let context = TestExecutionContext(
                 artifact: artifact, sandbox: sandbox, pool: pool,
                 configuration: configuration,
-                libraries: libraries
+                libraries: libraries,
+                targetedSuites: TargetedSuites.declared(
+                    in: TestFilesHasher().testFilePaths(projectPath: input.projectPath)
+                )
             )
             results += try await runNormal(deps: deps, context: context, schematizable: testableSchematizable)
         } else if !testableSchematizable.isEmpty {

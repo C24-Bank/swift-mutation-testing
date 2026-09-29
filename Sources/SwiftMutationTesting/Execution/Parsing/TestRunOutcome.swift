@@ -6,6 +6,13 @@ enum TestRunOutcome: Sendable {
     case buildFailed
     case unviable
 
+    var isKill: Bool {
+        switch self {
+        case .testsFailed, .crashed: return true
+        case .testsSucceeded, .timedOut, .buildFailed, .unviable: return false
+        }
+    }
+
     var asExecutionStatus: ExecutionStatus {
         switch self {
         case .testsFailed(let name): return .killed(by: name)
