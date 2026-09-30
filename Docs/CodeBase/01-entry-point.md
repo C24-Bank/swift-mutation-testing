@@ -14,9 +14,10 @@ struct SwiftMutationTesting {
     private static func execute(args: [String], launcher: (any ProcessLaunching)?) async throws -> ExitCode
     private static func runPipeline(configuration: RunnerConfiguration, baseline: Baseline?, launcher: (any ProcessLaunching)?) async throws -> ExitCode
     private static func discover(configuration: RunnerConfiguration) async throws -> (RunnerInput, TimeInterval)
-    static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration)
+    static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration, gate: GateResult? = nil)
     static func loadBaseline(for configuration: RunnerConfiguration) throws -> Baseline?
-    static func applyGate(_ summary: RunnerSummary, configuration: RunnerConfiguration, baseline: Baseline?, now: Date = Date()) throws -> ExitCode
+    static func evaluateGate(_ summary: RunnerSummary, configuration: RunnerConfiguration, baseline: Baseline?) -> GateResult?
+    static func applyGate(_ gate: GateResult?, summary: RunnerSummary, configuration: RunnerConfiguration, now: Date = Date()) throws -> ExitCode
     static func defaultLauncher(for projectType: ProjectType) -> any ProcessLaunching
 }
 ```
@@ -48,7 +49,8 @@ flowchart TD
     SW --> G[MutantExecutor.execute → results]
     G --> H[RunnerSummary]
     H --> I[TextReporter.report]
-    I --> J[writeReports]
+    I --> EG[evaluateGate]
+    EG --> J[writeReports]
     J --> K[applyGate → .success or .gateFailed]
 ```
 
@@ -56,11 +58,11 @@ flowchart TD
 
 `discover` runs `DiscoveryPipeline` and, when `quiet` is false, emits `.discoveryFinished` to a `ConsoleProgressReporter`.
 
-`writeReports` writes `JsonReporter`, `HtmlReporter`, and `SonarReporter` outputs when the corresponding output path is configured. Each reporter failure prints a warning to stderr without aborting.
+`writeReports` writes `JsonReporter`, `HtmlReporter`, `SonarReporter`, `SarifReporter` and `MarkdownReporter` outputs when the corresponding output path is configured. The Markdown summary includes the gate result, which is why the gate is evaluated before the reports are written. Each reporter failure prints a warning to stderr without aborting.
 
 `loadBaseline` reads the baseline named by `--baseline` before anything runs and compares its scope with the run's (`BaselineScope.differences`). A missing, unreadable or out-of-scope baseline throws `GateError`, so the run ends with `.error` before a single mutant is built.
 
-`applyGate` runs after the reports. When the gate is active it evaluates `QualityGate`, prints the result with `GateReporter` and returns `.gateFailed` if a check failed; then, when `--write-baseline` was given, it writes this run's baseline whatever the outcome. See [10 — Quality Gate](10-quality-gate.md).
+`evaluateGate` returns `nil` when the gate is inactive, and `QualityGate`'s result otherwise. `applyGate` runs after the reports: it prints that result with `GateReporter` and returns `.gateFailed` if a check failed; then, when `--write-baseline` was given, it writes this run's baseline whatever the outcome. See [10 — Quality Gate](10-quality-gate.md).
 
 ---
 

@@ -1,0 +1,118 @@
+import Foundation
+
+struct MarkdownReporter: Sendable {
+    static let listedLimit = 20
+
+    let outputPath: String
+    let projectRoot: String
+
+    func report(_ summary: RunnerSummary, gate: GateResult? = nil) throws {
+        try format(summary, gate: gate).write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: .utf8)
+    }
+
+    func format(_ summary: RunnerSummary, gate: GateResult? = nil) -> String {
+        var lines = ["## Mutation testing", ""]
+        lines.append("**Mutation score: \(String(format: "%.1f", summary.score))%**")
+        lines.append("")
+        lines.append(summary.detectionLine)
+        lines.append("")
+        lines.append(
+            "Killed: \(summary.killed.count) · Survived: \(summary.survived.count)"
+                + " · Timeouts: \(summary.timeouts.count) · Unviable: \(summary.unviable.count)"
+                + " · No coverage: \(summary.noCoverage.count)"
+        )
+
+        if let gate {
+            lines.append(contentsOf: gateSection(gate))
+        }
+
+        lines.append(contentsOf: filesSection(summary))
+        lines.append(contentsOf: undetectedSection(summary))
+
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    // MARK: - Private
+
+    private func gateSection(_ gate: GateResult) -> [String] {
+        var lines = ["", "### Quality gate: \(gate.passed ? "passed ✅" : "failed ❌")", ""]
+        lines.append(contentsOf: gate.checks.map { "- \($0.passed ? "✓" : "✗") \($0.summary)" })
+        if !gate.checksNewUndetected, !gate.newUndetected.isEmpty {
+            lines.append("- ℹ \(gate.newUndetectedSummary) since the baseline")
+        }
+        if let fixed = gate.fixedCount, fixed > 0 {
+            lines.append("- ℹ \(GateResult.count(fixed, "mutant")) detected now that were undetected in the baseline")
+        }
+        if !gate.newUndetected.isEmpty {
+            lines.append("")
+            lines.append("New undetected mutants:")
+            lines.append("")
+            lines.append(contentsOf: mutantTable(gate.newUndetected))
+        }
+        return lines
+    }
+
+    private func filesSection(_ summary: RunnerSummary) -> [String] {
+        guard !summary.results.isEmpty else { return [] }
+        var lines = [
+            "", "### Results by file", "",
+            "| File | Score | Killed | Survived | Timeout | Unviable | No coverage |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        ]
+        for (filePath, results) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
+            let file = RunnerSummary(results: results, totalDuration: 0)
+            lines.append(
+                "| \(cell(relative(filePath))) | \(String(format: "%.1f", file.score))%"
+                    + " | \(file.killed.count) | \(file.survived.count) | \(file.timeouts.count)"
+                    + " | \(file.unviable.count) | \(file.noCoverage.count) |"
+            )
+        }
+        return lines
+    }
+
+    private func undetectedSection(_ summary: RunnerSummary) -> [String] {
+        let undetected = sorted(summary.undetected)
+        guard !undetected.isEmpty else { return [] }
+        let heading =
+            undetected.count > Self.listedLimit
+            ? "### Undetected mutants (first \(Self.listedLimit) of \(undetected.count))"
+            : "### Undetected mutants"
+        return ["", heading, ""] + mutantTable(undetected)
+    }
+
+    private func mutantTable(_ results: [ExecutionResult]) -> [String] {
+        var lines = ["| Location | Operator | Mutation | Status |", "|---|---|---|---|"]
+        for result in sorted(results).prefix(Self.listedLimit) {
+            let descriptor = result.descriptor
+            let status = result.status == .noCoverage ? "no coverage" : "survived"
+            lines.append(
+                "| \(cell(relative(descriptor.filePath))):\(descriptor.line) | \(descriptor.operatorIdentifier)"
+                    + " | \(code(descriptor.description)) | \(status) |"
+            )
+        }
+        if results.count > Self.listedLimit {
+            lines.append("")
+            lines.append("…and \(results.count - Self.listedLimit) more — see the full report.")
+        }
+        return lines
+    }
+
+    private func sorted(_ results: [ExecutionResult]) -> [ExecutionResult] {
+        results.sorted {
+            ($0.descriptor.filePath, $0.descriptor.line, $0.descriptor.column)
+                < ($1.descriptor.filePath, $1.descriptor.line, $1.descriptor.column)
+        }
+    }
+
+    private func relative(_ path: String) -> String {
+        ProjectRelativePath.make(for: path, in: projectRoot)
+    }
+
+    private func cell(_ text: String) -> String {
+        text.replacingOccurrences(of: "|", with: "\\|")
+    }
+
+    private func code(_ text: String) -> String {
+        "`\(cell(text).replacingOccurrences(of: "`", with: "'"))`"
+    }
+}

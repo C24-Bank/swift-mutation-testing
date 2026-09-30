@@ -46,6 +46,8 @@ struct ParsedArguments: Sendable {
         var output: String?
         var htmlOutput: String?
         var sonarOutput: String?
+        var sarifOutput: String?
+        var markdownOutput: String?
         var keepLogsPath: String?
         var quiet: Bool = false
     }
@@ -84,6 +86,8 @@ struct ParsedArguments: Sendable {
 | `reporting.output` | `nil` | `--output <path>` |
 | `reporting.htmlOutput` | `nil` | `--html-output <path>` |
 | `reporting.sonarOutput` | `nil` | `--sonar-output <path>` |
+| `reporting.sarifOutput` | `nil` | `--sarif-output <path>` |
+| `reporting.markdownOutput` | `nil` | `--markdown-output <path>` |
 | `reporting.keepLogsPath` | `nil` | `--keep-logs <directory>` |
 | `reporting.quiet` | `false` | `--quiet` |
 | `filter.sourcesPath` | `nil` | `--sources-path <path>` |
@@ -128,6 +132,8 @@ struct RunnerConfiguration: Sendable {
         var output: String?
         var htmlOutput: String?
         var sonarOutput: String?
+        var sarifOutput: String?
+        var markdownOutput: String?
         var quiet: Bool
     }
 

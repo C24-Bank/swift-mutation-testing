@@ -82,9 +82,10 @@ public struct SwiftMutationTesting {
 
         let summary = RunnerSummary(results: results, totalDuration: duration)
         TextReporter(projectRoot: configuration.projectPath).report(summary)
-        writeReports(summary, configuration: configuration)
+        let gate = evaluateGate(summary, configuration: configuration, baseline: baseline)
+        writeReports(summary, configuration: configuration, gate: gate)
 
-        return try applyGate(summary, configuration: configuration, baseline: baseline)
+        return try applyGate(gate, summary: summary, configuration: configuration)
     }
 
     static func loadBaseline(for configuration: RunnerConfiguration) throws -> Baseline? {
@@ -100,18 +101,26 @@ public struct SwiftMutationTesting {
         return baseline
     }
 
-    static func applyGate(
+    static func evaluateGate(
         _ summary: RunnerSummary,
         configuration: RunnerConfiguration,
-        baseline: Baseline?,
+        baseline: Baseline?
+    ) -> GateResult? {
+        guard configuration.gate.isActive else { return nil }
+        return QualityGate().evaluate(summary, policy: configuration.gate.policy, baseline: baseline)
+    }
+
+    static func applyGate(
+        _ gate: GateResult?,
+        summary: RunnerSummary,
+        configuration: RunnerConfiguration,
         now: Date = Date()
     ) throws -> ExitCode {
         var exitCode = ExitCode.success
 
-        if configuration.gate.isActive {
-            let result = QualityGate().evaluate(summary, policy: configuration.gate.policy, baseline: baseline)
-            GateReporter(projectRoot: configuration.projectPath).report(result)
-            if !result.passed {
+        if let gate {
+            GateReporter(projectRoot: configuration.projectPath).report(gate)
+            if !gate.passed {
                 exitCode = .gateFailed
             }
         }
@@ -148,11 +157,12 @@ public struct SwiftMutationTesting {
         return (input, Date().timeIntervalSince(start))
     }
 
-    static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration) {
-        let hasReports =
-            configuration.reporting.output != nil
-            || configuration.reporting.htmlOutput != nil
-            || configuration.reporting.sonarOutput != nil
+    static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration, gate: GateResult? = nil) {
+        let reporting = configuration.reporting
+        let hasReports = [
+            reporting.output, reporting.htmlOutput, reporting.sonarOutput, reporting.sarifOutput,
+            reporting.markdownOutput,
+        ].contains { $0 != nil }
         guard hasReports else { return }
         StandardOutput.write("")
 
@@ -171,6 +181,19 @@ public struct SwiftMutationTesting {
         if let sonarOutput = configuration.reporting.sonarOutput {
             writeReport(label: "Sonar", to: sonarOutput) {
                 try SonarReporter(outputPath: sonarOutput, projectRoot: configuration.projectPath).report(summary)
+            }
+        }
+
+        if let sarifOutput = reporting.sarifOutput {
+            writeReport(label: "SARIF", to: sarifOutput) {
+                try SarifReporter(outputPath: sarifOutput, projectRoot: configuration.projectPath).report(summary)
+            }
+        }
+
+        if let markdownOutput = reporting.markdownOutput {
+            writeReport(label: "Markdown", to: markdownOutput) {
+                try MarkdownReporter(outputPath: markdownOutput, projectRoot: configuration.projectPath)
+                    .report(summary, gate: gate)
             }
         }
     }

@@ -1,0 +1,126 @@
+import Foundation
+
+struct SarifReporter: Sendable {
+    static let resultLimit = 25_000
+    static let fingerprintKey = "swiftMutationTesting/v1"
+    static let sourceRootBaseId = "%SRCROOT%"
+
+    let outputPath: String
+    let projectRoot: String
+    var resultLimit = SarifReporter.resultLimit
+
+    func report(_ summary: RunnerSummary) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(buildLog(summary))
+        try data.write(to: URL(fileURLWithPath: outputPath))
+    }
+
+    func buildLog(_ summary: RunnerSummary) -> SarifLog {
+        let undetected = summary.undetected.sorted {
+            ($0.descriptor.filePath, $0.descriptor.line, $0.descriptor.column)
+                < ($1.descriptor.filePath, $1.descriptor.line, $1.descriptor.column)
+        }
+
+        if undetected.count > resultLimit {
+            fputs(
+                "Warning: the SARIF report lists the first \(resultLimit) of \(undetected.count) undetected mutants, "
+                    + "the most GitHub code scanning accepts\n",
+                stderr
+            )
+        }
+
+        let reported = Array(undetected.prefix(resultLimit))
+        let operators = Array(Set(reported.map(\.descriptor.operatorIdentifier))).sorted()
+        let ruleIndex = Dictionary(uniqueKeysWithValues: operators.enumerated().map { ($1, $0) })
+        var lines = SourceLines()
+
+        let results = reported.map { result in
+            sarifResult(for: result, ruleIndex: ruleIndex[result.descriptor.operatorIdentifier] ?? 0, lines: &lines)
+        }
+
+        return SarifLog(
+            runs: [
+                SarifRun(
+                    tool: SarifTool(
+                        driver: SarifDriver(
+                            name: Version.name,
+                            version: Version.number,
+                            informationUri: "https://github.com/ericodx/swift-mutation-testing",
+                            rules: operators.map(SarifRuleCatalog.rule(for:))
+                        )
+                    ),
+                    originalUriBaseIds: [
+                        Self.sourceRootBaseId: SarifArtifactLocation(uri: URL(fileURLWithPath: rootPath).absoluteString)
+                    ],
+                    results: results
+                )
+            ]
+        )
+    }
+
+    // MARK: - Private
+
+    private var rootPath: String {
+        let canonical = CanonicalPath.make(for: projectRoot)
+        return canonical.hasSuffix("/") ? canonical : canonical + "/"
+    }
+
+    private func sarifResult(for result: ExecutionResult, ruleIndex: Int, lines: inout SourceLines) -> SarifResult {
+        let descriptor = result.descriptor
+        let covered = result.status != .noCoverage
+        let line = lines.line(descriptor.line, of: descriptor.filePath)
+        let startColumn = utf16Column(utf8Column: descriptor.column, in: line)
+
+        return SarifResult(
+            ruleId: descriptor.operatorIdentifier,
+            ruleIndex: ruleIndex,
+            level: "warning",
+            message: SarifMessage(
+                text: "Mutant survived: \(descriptor.description). "
+                    + (covered ? "No test failed when this code was changed." : "No test executed this code.")
+            ),
+            locations: [
+                SarifLocation(
+                    physicalLocation: SarifPhysicalLocation(
+                        artifactLocation: SarifArtifactLocation(
+                            uri: ProjectRelativePath.make(for: descriptor.filePath, in: projectRoot),
+                            uriBaseId: Self.sourceRootBaseId
+                        ),
+                        region: SarifRegion(
+                            startLine: descriptor.line,
+                            startColumn: startColumn,
+                            endColumn: startColumn + descriptor.originalText.utf16.count
+                        )
+                    )
+                )
+            ],
+            partialFingerprints: [Self.fingerprintKey: descriptor.fingerprint],
+            properties: SarifResultProperties(
+                mutationStatus: covered ? "survived" : "noCoverage",
+                replacement: descriptor.mutatedText
+            )
+        )
+    }
+
+    private func utf16Column(utf8Column: Int, in line: String?) -> Int {
+        guard
+            let line,
+            let prefix = String(bytes: Array(line.utf8.prefix(max(0, utf8Column - 1))), encoding: .utf8)
+        else { return utf8Column }
+        return prefix.utf16.count + 1
+    }
+
+    private struct SourceLines {
+        private var cache: [String: [Substring]] = [:]
+
+        mutating func line(_ number: Int, of path: String) -> String? {
+            if cache[path] == nil {
+                let content = try? String(contentsOfFile: path, encoding: .utf8)
+                cache[path] = content?.split(separator: "\n", omittingEmptySubsequences: false) ?? []
+            }
+            guard let lines = cache[path], number >= 1, number <= lines.count else { return nil }
+            return String(lines[number - 1])
+        }
+    }
+}

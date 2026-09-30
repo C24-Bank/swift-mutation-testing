@@ -134,6 +134,8 @@ struct ConfigurationFileWriter: Sendable {
         lines.append("output: mutation-report.json")
         lines.append("# html-output: mutation-report.html")
         lines.append("# sonar-output: sonar-mutation-report.json")
+        lines.append("# sarif-output: mutation-report.sarif")
+        lines.append("# markdown-output: mutation-summary.md")
         lines.append("")
         lines.append("# Source file glob patterns to exclude from mutation")
         if let testTarget {

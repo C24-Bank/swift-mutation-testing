@@ -25,7 +25,8 @@ Mutation testing introduces controlled changes to your code to verify that your 
 - Schematization — builds once, tests all mutants via runtime switch
 - Parallel test execution with configurable concurrency
 - SHA256-based result caching across runs
-- Multiple report formats: text, JSON (Stryker-compatible), HTML, SonarQube
+- Multiple report formats: text, JSON (Stryker-compatible), HTML, SonarQube, SARIF (GitHub code scanning), Markdown
+- Pull request annotations through GitHub code scanning, and a job summary, from the SARIF and Markdown reports
 - Simulator pool management for iOS/tvOS/watchOS targets
 - Per-scope mutation suppression via `@SwiftMutationTestingDisabled`
 - Quality gate for CI: minimum score, maximum drop, and no new survivors against a committed baseline

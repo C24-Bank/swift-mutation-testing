@@ -82,6 +82,8 @@ struct CommandLineParserTests {
             "--output", "out.json",
             "--html-output", "report.html",
             "--sonar-output", "sonar.json",
+            "--sarif-output", "report.sarif",
+            "--markdown-output", "summary.md",
             "--keep-logs", "logs",
         ])
 
@@ -89,6 +91,8 @@ struct CommandLineParserTests {
         #expect(result.reporting.output == "out.json")
         #expect(result.reporting.htmlOutput == "report.html")
         #expect(result.reporting.sonarOutput == "sonar.json")
+        #expect(result.reporting.sarifOutput == "report.sarif")
+        #expect(result.reporting.markdownOutput == "summary.md")
         #expect(result.reporting.keepLogsPath == "logs")
     }
 

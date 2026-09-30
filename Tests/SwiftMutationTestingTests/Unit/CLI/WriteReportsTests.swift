@@ -106,4 +106,51 @@ struct WriteReportsTests {
         #expect(FileManager.default.fileExists(atPath: sonarPath))
     }
 
+    @Test("Given SARIF and Markdown output paths, when writeReports called, then both files are written")
+    func sarifAndMarkdownOutputPathsWriteFiles() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sarifPath = dir.appendingPathComponent("report.sarif").path
+        let markdownPath = dir.appendingPathComponent("summary.md").path
+        let configuration = makeRunnerConfiguration(
+            projectPath: dir.path, sarifOutput: sarifPath, markdownOutput: markdownPath
+        )
+
+        let output = captureOutputSync {
+            SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        }
+
+        #expect(FileManager.default.fileExists(atPath: sarifPath))
+        #expect(FileManager.default.fileExists(atPath: markdownPath))
+        #expect(output.contains("  ✓ SARIF report: \(sarifPath)"))
+        #expect(output.contains("  ✓ Markdown report: \(markdownPath)"))
+    }
+
+    @Test("Given a gate result, when writeReports called, then the Markdown summary includes the gate")
+    func markdownIncludesTheGate() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let markdownPath = dir.appendingPathComponent("summary.md").path
+        let configuration = makeRunnerConfiguration(projectPath: dir.path, markdownOutput: markdownPath)
+        let gate = GateResult(checks: [.minScore(score: 100, minimum: 80)], newUndetected: [], fixedCount: nil)
+
+        _ = captureOutputSync {
+            SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration, gate: gate)
+        }
+
+        let markdown = try String(contentsOfFile: markdownPath, encoding: .utf8)
+        #expect(markdown.contains("### Quality gate: passed ✅"))
+        #expect(markdown.contains("- ✓ score 100.0% ≥ 80.0%"))
+    }
+
+    @Test("Given no gate settings, when the gate is evaluated, then there is no result")
+    func inactiveGateHasNoResult() {
+        let result = SwiftMutationTesting.evaluateGate(
+            makeEmptySummary(), configuration: makeRunnerConfiguration(), baseline: nil
+        )
+
+        #expect(result == nil)
+    }
 }

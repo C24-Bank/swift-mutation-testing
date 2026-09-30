@@ -11,6 +11,8 @@ func makeRunnerConfiguration(
     output: String? = nil,
     htmlOutput: String? = nil,
     sonarOutput: String? = nil,
+    sarifOutput: String? = nil,
+    markdownOutput: String? = nil,
     keepLogsPath: String? = nil,
     quiet: Bool = true,
     excludePatterns: [String] = [],
@@ -30,6 +32,8 @@ func makeRunnerConfiguration(
             output: output,
             htmlOutput: htmlOutput,
             sonarOutput: sonarOutput,
+            sarifOutput: sarifOutput,
+            markdownOutput: markdownOutput,
             keepLogsPath: keepLogsPath,
             quiet: quiet
         ),
