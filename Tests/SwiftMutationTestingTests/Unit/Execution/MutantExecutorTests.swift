@@ -464,6 +464,45 @@ struct MutantExecutorTests {
         #expect(barResult?.status == .survived)
     }
 
+    @Test("Given SPM build fails on one file, when the schema is retried, then the console says which mutants left it")
+    func spmRetryIsReported() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let fooFile = dir.appendingPathComponent("Foo.swift")
+        let barFile = dir.appendingPathComponent("Bar.swift")
+        try "let x = true".write(to: fooFile, atomically: true, encoding: .utf8)
+        try "let y = true".write(to: barFile, atomically: true, encoding: .utf8)
+
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, quiet: false),
+            launcher: SPMRetryExcludingErrorsMock()
+        )
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [
+                SchematizedFile(originalPath: fooFile.path, schematizedContent: "let x = false"),
+                SchematizedFile(originalPath: barFile.path, schematizedContent: "let y = false"),
+            ],
+            mutants: [
+                makeMutantDescriptor(
+                    id: "m0", filePath: fooFile.path, isSchematizable: true, mutatedSourceContent: "let x = false"
+                ),
+                makeMutantDescriptor(
+                    id: "m1", filePath: barFile.path, isSchematizable: true, mutatedSourceContent: "let y = false"
+                ),
+            ]
+        )
+
+        let output = await captureOutput {
+            _ = try? await executor.execute(input)
+        }
+
+        #expect(output.contains("  ⚠ Schema did not build: retrying without 1 mutant, to be built on its own"))
+        #expect(output.contains("  ✓ Built in"))
+    }
+
     @Test("Given SPM build error on line inside first case block, when retry, then only that mutant is excluded")
     func spmNarrowExclusionOnSpecificCase() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
