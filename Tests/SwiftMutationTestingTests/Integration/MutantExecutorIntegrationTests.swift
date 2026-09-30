@@ -77,7 +77,6 @@ private func makeInput(fixtureURL: URL) -> RunnerInput {
         concurrency: 1,
         noCache: true,
         schematizedFiles: makeSchematizedFiles(fixtureURL: fixtureURL),
-        supportFileContent: activatingSupportFileContent,
         mutants: makeMutants(fixtureURL: fixtureURL)
     )
 }
@@ -101,7 +100,7 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
                         (__swiftMutationTestingID == "m3") ? n >= 0 : n > 0
                     }
                 }
-                """
+                """ + "\n\n" + SupportDeclarations.perFile + "\n"
         ),
         SchematizedFile(
             originalPath: validatorPath,
@@ -112,7 +111,7 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
                             && ((__swiftMutationTestingID == "m5") ? value < 100 : value <= 100)
                     }
                 }
-                """
+                """ + "\n\n" + SupportDeclarations.perFile + "\n"
         ),
     ]
 }
@@ -201,8 +200,3 @@ private func incompatibleMutants(path: String) -> [MutantDescriptor] {
         )
     ]
 }
-
-private let activatingSupportFileContent =
-    "import Foundation\n"
-    + "var __swiftMutationTestingID: String"
-    + #" { ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? "" }"#

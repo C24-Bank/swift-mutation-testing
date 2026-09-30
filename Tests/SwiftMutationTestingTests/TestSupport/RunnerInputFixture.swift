@@ -7,7 +7,6 @@ func makeRunnerInput(
     concurrency: Int = 1,
     noCache: Bool = false,
     schematizedFiles: [SchematizedFile] = [],
-    supportFileContent: String = "",
     mutants: [MutantDescriptor] = []
 ) -> RunnerInput {
     RunnerInput(
@@ -17,7 +16,6 @@ func makeRunnerInput(
         concurrency: concurrency,
         noCache: noCache,
         schematizedFiles: schematizedFiles,
-        supportFileContent: supportFileContent,
         mutants: mutants
     )
 }

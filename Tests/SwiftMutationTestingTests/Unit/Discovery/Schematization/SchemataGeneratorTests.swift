@@ -51,12 +51,13 @@ struct SchemataGeneratorTests {
         #expect(switchCount == 2)
     }
 
-    @Test("Given generated content, when checked, then does not declare __swiftMutationTestingID")
-    func schematizedContentDoesNotDeclareIDVariable() {
+    @Test("Given generated content, when checked, then it ends with its own private __swiftMutationTestingID")
+    func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
         let result = generator.generate(source: source, mutations: mutations)
-        #expect(!result.contains("var __swiftMutationTestingID"))
+        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile + "\n"))
+        #expect(result.components(separatedBy: "private var __swiftMutationTestingID").count == 2)
     }
 
     @Test("Given no mutations in function, when generated, then returns original content unchanged")
