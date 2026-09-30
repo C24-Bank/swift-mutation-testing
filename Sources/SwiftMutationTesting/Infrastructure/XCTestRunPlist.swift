@@ -13,6 +13,7 @@ struct XCTestRunPlist: Sendable, Equatable {
 
     func activating(
         _ mutantID: String,
+        activationFile: String? = nil,
         serialize: PlistSerializer = {
             try PropertyListSerialization.data(fromPropertyList: $0, format: .xml, options: 0)
         }
@@ -22,12 +23,14 @@ struct XCTestRunPlist: Sendable, Equatable {
                 as? [String: Any]
         else { return data }
 
+        let activation = TestBundleInvocation.environment(mutantID: mutantID, activationFile: activationFile)
+
         if var configurations = dict["TestConfigurations"] as? [[String: Any]] {
             for index in configurations.indices {
                 if var targets = configurations[index]["TestTargets"] as? [[String: Any]] {
                     for targetIndex in targets.indices {
                         var envVars = targets[targetIndex]["EnvironmentVariables"] as? [String: String] ?? [:]
-                        envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] = mutantID
+                        envVars.merge(activation) { _, new in new }
                         targets[targetIndex]["EnvironmentVariables"] = envVars
                     }
                     configurations[index]["TestTargets"] = targets
@@ -38,7 +41,7 @@ struct XCTestRunPlist: Sendable, Equatable {
             for key in dict.keys where !key.hasPrefix("__") {
                 if var targetDict = dict[key] as? [String: Any] {
                     var envVars = targetDict["EnvironmentVariables"] as? [String: String] ?? [:]
-                    envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] = mutantID
+                    envVars.merge(activation) { _, new in new }
                     targetDict["EnvironmentVariables"] = envVars
                     dict[key] = targetDict
                 }
