@@ -70,6 +70,7 @@ public struct SwiftMutationTesting {
 
         let executionLauncher: any ProcessLaunching = launcher ?? defaultLauncher(for: configuration.build.projectType)
 
+        OrphanedProcessReaper().reap()
         SandboxCleaner.removeOrphaned()
 
         let start = Date()
