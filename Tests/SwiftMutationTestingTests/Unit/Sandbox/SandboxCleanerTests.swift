@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import SwiftMutationTesting
@@ -251,24 +252,52 @@ struct SandboxCleanerTests {
         #expect(exitCode == 1)
     }
 
-    @Test("Given signal handlers installed, when SIGINT and SIGTERM are inspected, then neither is the default")
-    func installSignalHandlersReplacesTheDefaults() {
-        SandboxCleaner.installSignalHandlers()
-        defer {
-            signal(SIGINT, SIG_DFL)
-            signal(SIGTERM, SIG_DFL)
-        }
+    @Test("Given signal handlers installed, when SIGINT arrives, then the sandbox is removed and it exits with 1")
+    func installedHandlerCleansSandboxAndExits() throws {
+        let baseDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(baseDir) }
 
+        let sandboxDir = baseDir.appendingPathComponent("xmr-signal-test")
+        try FileManager.default.createDirectory(at: sandboxDir, withIntermediateDirectories: true)
+
+        let registry = SandboxRegistry()
+        registry.register(Sandbox(rootURL: sandboxDir))
+        let recorder = ExitRecorder()
+
+        SandboxCleaner.installSignalHandlers()
         let interrupt = signal(SIGINT, SIG_DFL)
         let terminate = signal(SIGTERM, SIG_DFL)
 
         let address = { (handler: sig_t?) in unsafeBitCast(handler, to: Int.self) }
         #expect(address(interrupt) != address(SIG_DFL))
-        #expect(address(terminate) != address(SIG_DFL))
+        #expect(address(terminate) == address(interrupt))
+
+        let handler = try #require(interrupt)
+        SandboxCleaner.withSignalTarget(.init(registry: registry, exit: recorder.record)) {
+            handler(SIGINT)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: sandboxDir.path))
+        #expect(recorder.code == 1)
     }
 
     @Test("Given a directory that cannot be listed, when removeOrphaned called, then it returns without complaint")
     func aDirectoryThatCannotBeListedIsLeftAlone() {
         SandboxCleaner.removeOrphaned(in: URL(fileURLWithPath: "/does/not/exist/\(UUID().uuidString)"))
     }
+}
+
+private final class ExitRecorder: Sendable {
+
+    var code: Int32? {
+        recorded.withLock { $0 }
+    }
+
+    func record(_ code: Int32) {
+        recorded.withLock { $0 = code }
+    }
+
+    // MARK: - Private
+
+    private let recorded = Mutex<Int32?>(nil)
 }
