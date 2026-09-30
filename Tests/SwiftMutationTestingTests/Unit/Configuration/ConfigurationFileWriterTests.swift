@@ -62,6 +62,18 @@ struct ConfigurationFileWriterTests {
         #expect(content.contains("# max-new-survivors: 0"))
     }
 
+    @Test("Given any project, when write called, then the SARIF and Markdown outputs are offered as comments")
+    func sarifAndMarkdownOutputsAreOffered() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try writer.write(to: dir.path, project: .empty)
+
+        let content = try String(contentsOf: dir.appendingPathComponent(".swift-mutation-testing.yml"), encoding: .utf8)
+        #expect(content.contains("# sarif-output: mutation-report.sarif"))
+        #expect(content.contains("# markdown-output: mutation-summary.md"))
+    }
+
     @Test("Given no detected scheme, when write called, then scheme line is commented")
     func schemeLineIsCommentedWhenNotDetected() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
