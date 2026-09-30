@@ -18,7 +18,7 @@ flowchart TD
     REG --> BS[BuildStage\nbuild-for-testing]
     BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
     RETRY -- gave up --> FBP[FallbackExecutor\none build per schematized file]
-    BS -- success --> PROBE[probe each testing library once\nbaseline + which libraries have tests]
+    BS -- success --> PROBE[probe each test bundle and library once\nbaseline + which have tests]
     RETRY -- rebuilt --> PROBE
     PROBE -- fails --> ABORT[throw BaselineError]
     PROBE -- passes --> TES[TestExecutionStage\ntwo passes, see below]
@@ -111,7 +111,7 @@ Before the first mutant runs, the suite is run once with no mutant selected. `__
 
 The run continues only if that suite passes. A suite that already fails without a mutation kills every mutant it reaches, so every verdict it produces is worthless — and nothing in the report would reveal it. `MutantExecutor` throws `BaselineError` instead, naming the failing tests, the timeout that stopped the suite, or the output it failed with.
 
-**The baseline and the library probe are the same run.** When the package built to a test bundle, each testing library is invoked once against the unmutated sandbox, and that single invocation answers both questions: a library reporting no tests — exit 69 from SwiftPM's helper, `Executed 0 tests` from `xctest` — is dropped from every mutant's run, and a library that does have tests must pass them. Only when no bundle was produced does the baseline fall back to a separate `swift test --skip-build`. The probe runs the suite to the end; mutants stop at their first failing test.
+**The baseline and the library probe are the same run.** A package builds one test bundle per test target. Each bundle is invoked once with each testing library against the unmutated sandbox, and that single invocation answers both questions: a bundle and library reporting no tests — exit 69 from SwiftPM's helper, `Executed 0 tests` from `xctest` — is dropped from every mutant's run, and one that does have tests must pass them. A bundle with tests in neither library is dropped altogether. Only when no bundle was produced does the baseline fall back to a separate `swift test --skip-build`. The probe runs the suite to the end; mutants stop at their first failing test.
 
 The Xcode path does not validate a baseline yet and has the same exposure.
 
@@ -145,8 +145,8 @@ flowchart TD
 
 **Per-mutant execution, SPM path:** the mutant id travels in the environment rather than in a plist, and the bundle is invoked directly instead of through `swift test`. Two things happen before the whole suite is asked:
 
-1. If a suite is named after the mutated file — `FooTests` for `Foo.swift`, and it declares a type of that name — it runs alone first. A failure there settles the verdict, and the rest of the suite is not run.
-2. Otherwise, or if that run let the mutant live, the whole suite runs, invoking only the libraries the probe found tests in.
+1. If a suite is named after the mutated file — `FooTests` for `Foo.swift`, and it declares a type of that name — it runs alone first, in the bundle of the test target that declares it. A failure there settles the verdict, and the rest of the suite is not run.
+2. Otherwise, or if that run let the mutant live, the whole suite runs: every bundle in name order, each with only the libraries the probe found tests in, stopping at the first failing test.
 
 Either run stops at its first failing test: a mutant is killed by one test, and `TestOutputParser` reports that one. See `ProcessRunner` in [09 — Reporting & Infrastructure](../CodeBase/09-reporting-infrastructure.md) for the mechanism.
 
