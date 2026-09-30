@@ -43,7 +43,7 @@ struct SchemataGenerator: Sendable {
                 cases.append((id: mutantID(entry.index), statements: mutated))
             }
 
-            let switchBody = buildSwitchBody(cases: cases, defaultStatements: originalStatements)
+            let switchBody = buildSwitchBody(cases: cases, defaultStatements: originalStatements, shape: scope.shape)
             content = replaceRange(
                 in: content,
                 start: scope.bodyStartOffset,
@@ -85,19 +85,38 @@ struct SchemataGenerator: Sendable {
 
     private func buildSwitchBody(
         cases: [(id: String, statements: String)],
-        defaultStatements: String
+        defaultStatements: String,
+        shape: FunctionBodyShape
     ) -> String {
         var result = "{\n"
         result += "switch __swiftMutationTestingID {\n"
 
         for (id, statements) in cases {
-            result += "case \"\(id)\":\n\(statements)\n"
+            result += "case \"\(id)\":\n\(caseBody(statements, shape: shape))\n"
         }
 
-        result += "default:\n\(defaultStatements)\n"
+        result += "default:\n\(defaultBody(defaultStatements, shape: shape))\n"
         result += "}\n}"
 
         return result
+    }
+
+    private func caseBody(_ statements: String, shape: FunctionBodyShape) -> String {
+        let activation = SupportDeclarations.activationCall
+        let isBlank = statements.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        switch shape {
+        case .expression where !isBlank:
+            return "(\(activation), \(statements)).1"
+        case .conditional(returnsValue: true):
+            return "let _ = \(activation)\nreturn \(statements)"
+        case .expression, .conditional, .statements:
+            return "let _ = \(activation)\n\(statements)"
+        }
+    }
+
+    private func defaultBody(_ statements: String, shape: FunctionBodyShape) -> String {
+        shape == .conditional(returnsValue: true) ? "return \(statements)" : statements
     }
 
     private func replaceRange(
