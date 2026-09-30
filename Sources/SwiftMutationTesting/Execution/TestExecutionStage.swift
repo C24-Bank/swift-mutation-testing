@@ -75,7 +75,8 @@ struct TestExecutionStage: Sendable {
         if let cached = await deps.cacheStore.result(for: key) {
             let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
             let result = ExecutionResult(
-                descriptor: mutant, status: cached, testDuration: 0, killerTestFile: killerTestFile
+                descriptor: mutant, status: cached, testDuration: 0, killerTestFile: killerTestFile,
+                activated: await deps.cacheStore.activated(for: key)
             )
             let index = await deps.counter.increment()
             await deps.reporter.report(
@@ -207,7 +208,9 @@ struct TestExecutionStage: Sendable {
             descriptor: mutant, status: status, testDuration: duration,
             killerTestFile: killerTestFile, activated: launched.activated
         )
-        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
+        await deps.cacheStore.store(
+            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated
+        )
         let index = await deps.counter.increment()
         await deps.reporter.report(
             .mutantFinished(

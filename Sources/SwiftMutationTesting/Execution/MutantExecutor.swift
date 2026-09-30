@@ -204,7 +204,8 @@ struct MutantExecutor: Sendable {
             let killerTestFile = await cacheStore.killerTestFile(for: key)
             results.append(
                 ExecutionResult(
-                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile
+                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
+                    activated: await cacheStore.activated(for: key)
                 ))
         }
 

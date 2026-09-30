@@ -91,7 +91,8 @@ struct FallbackExecutor: Sendable {
             let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
             results.append(
                 ExecutionResult(
-                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile
+                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
+                    activated: await deps.cacheStore.activated(for: key)
                 ))
         }
 
