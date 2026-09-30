@@ -85,6 +85,57 @@ struct ProcessRunnerTests {
         #expect(result.exitCode == -1)
     }
 
+    @Test("Given a capturing run in flight, when its process groups are killed, then the run ends at once")
+    func aCapturingRunInFlightIsTracked() async throws {
+        let processGroups = ProcessGroupRegistry()
+        let runner = ProcessRunner(onTimeout: { _ in }, processGroups: processGroups)
+        let start = ContinuousClock.now
+
+        async let result = runner.launchCapturing(shell("sleep 30", timeout: 60))
+        try await Task.sleep(for: .milliseconds(500))
+        processGroups.killAll()
+
+        #expect(try await result.exitCode == SIGKILL)
+        #expect(ContinuousClock.now - start < .seconds(10))
+    }
+
+    @Test("Given a run in flight, when its process groups are killed, then the run ends at once")
+    func aRunInFlightIsTracked() async throws {
+        let processGroups = ProcessGroupRegistry()
+        let runner = ProcessRunner(onTimeout: { _ in }, processGroups: processGroups)
+        let start = ContinuousClock.now
+
+        async let exitCode = runner.launch(
+            executableURL: URL(fileURLWithPath: "/bin/sleep"),
+            arguments: ["30"],
+            workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+            timeout: 60
+        )
+        try await Task.sleep(for: .milliseconds(500))
+        processGroups.killAll()
+
+        #expect(try await exitCode == SIGKILL)
+        #expect(ContinuousClock.now - start < .seconds(10))
+    }
+
+    @Test("Given a run that has ended, when process groups are killed, then its pid is no longer signalled")
+    func aFinishedRunIsNoLongerTracked() async throws {
+        let processGroups = ProcessGroupRegistry()
+        let recorder = RecordingKill()
+        let runner = ProcessRunner(onTimeout: { _ in }, processGroups: processGroups)
+
+        _ = try await runner.launchCapturing(echo("done"))
+        _ = try await runner.launch(
+            executableURL: URL(fileURLWithPath: "/usr/bin/true"),
+            arguments: [],
+            workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+            timeout: 10
+        )
+        processGroups.killAll(kill: recorder.asKill)
+
+        #expect(recorder.recorded.isEmpty)
+    }
+
     private func shell(_ script: String, timeout: Double) -> ProcessRequest {
         ProcessRequest(
             executableURL: URL(fileURLWithPath: "/bin/sh"),
