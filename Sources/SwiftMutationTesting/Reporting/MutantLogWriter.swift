@@ -13,11 +13,13 @@ struct MutantLogWriter: Sendable {
         mutant: MutantDescriptor,
         status: ExecutionStatus,
         duration: Double,
-        output: String
+        output: String,
+        activated: Bool? = nil
     ) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        let contents = header(mutant: mutant, status: status, duration: duration) + "\n" + output
+        let header = header(mutant: mutant, status: status, duration: duration, activated: activated)
+        let contents = header + "\n" + output
 
         try? contents.write(
             to: directory.appendingPathComponent("\(mutant.id).log"),
@@ -28,16 +30,30 @@ struct MutantLogWriter: Sendable {
 
     // MARK: - Private
 
-    private func header(mutant: MutantDescriptor, status: ExecutionStatus, duration: Double) -> String {
+    private func header(
+        mutant: MutantDescriptor,
+        status: ExecutionStatus,
+        duration: Double,
+        activated: Bool?
+    ) -> String {
         """
-        mutant:   \(mutant.id)
-        location: \(mutant.filePath):\(mutant.line):\(mutant.column)
-        operator: \(mutant.operatorIdentifier)
-        mutation: \(mutant.originalText) → \(mutant.mutatedText)
-        status:   \(statusLine(status))
-        duration: \(String(format: "%.2f", duration))s
+        mutant:    \(mutant.id)
+        location:  \(mutant.filePath):\(mutant.line):\(mutant.column)
+        operator:  \(mutant.operatorIdentifier)
+        mutation:  \(mutant.originalText) → \(mutant.mutatedText)
+        status:    \(statusLine(status))
+        activated: \(activationLine(activated))
+        duration:  \(String(format: "%.2f", duration))s
         ---
         """
+    }
+
+    private func activationLine(_ activated: Bool?) -> String {
+        switch activated {
+        case .some(true): "yes, the mutated code ran"
+        case .some(false): "no, the mutated code never ran"
+        case .none: "not measured"
+        }
     }
 
     private func statusLine(_ status: ExecutionStatus) -> String {

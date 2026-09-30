@@ -194,15 +194,18 @@ struct TestExecutionStage: Sendable {
         launched: TestLaunchResult,
         in context: TestExecutionContext
     ) async -> ExecutionResult {
-        let status = outcome.asExecutionStatus
+        let status = Self.classify(outcome.asExecutionStatus, activated: launched.activated)
         let duration = launched.duration
 
         MutantLogWriter(directory: context.configuration.reporting.keepLogsPath)?
-            .write(mutant: mutant, status: status, duration: duration, output: launched.output)
+            .write(
+                mutant: mutant, status: status, duration: duration, output: launched.output,
+                activated: launched.activated
+            )
         let killerTestFile = resolveKillerTestFile(status: status)
         let result = ExecutionResult(
             descriptor: mutant, status: status, testDuration: duration,
-            killerTestFile: killerTestFile
+            killerTestFile: killerTestFile, activated: launched.activated
         )
         await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
         let index = await deps.counter.increment()
@@ -213,6 +216,10 @@ struct TestExecutionStage: Sendable {
             )
         )
         return result
+    }
+
+    static func classify(_ status: ExecutionStatus, activated: Bool) -> ExecutionStatus {
+        status == .survived && !activated ? .noCoverage : status
     }
 
     private func resolveKillerTestFile(status: ExecutionStatus) -> String? {
