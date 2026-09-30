@@ -13,4 +13,5 @@ struct MutantDescriptor: Sendable, Codable {
     var mutatedSourceContent: String?
 
     let sourceContentHash: String
+    let fingerprint: String
 }

@@ -2,6 +2,7 @@ struct IndexedMutationPoint: Sendable {
     let index: Int
     let mutation: MutationPoint
     let isSchematizable: Bool
+    let fingerprint: String
 
     var mutantID: String {
         "swift-mutation-testing_\(index)"
@@ -21,7 +22,8 @@ struct IndexedMutationPoint: Sendable {
             description: mutation.description,
             isSchematizable: isSchematizable,
             mutatedSourceContent: mutatedContent,
-            sourceContentHash: sourceContentHash
+            sourceContentHash: sourceContentHash,
+            fingerprint: fingerprint
         )
     }
 }
