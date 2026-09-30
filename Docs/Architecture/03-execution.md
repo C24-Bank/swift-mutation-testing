@@ -60,7 +60,7 @@ Handles cleanup of orphaned sandbox directories and signal-based cleanup of the 
 
 **Orphaned processes (`OrphanedProcessReaper`):** Runs right before the directory sweep. Lists the processes of the current user, reads each one's arguments (`sysctl(KERN_PROCARGS2)`), and kills — with its descendants — any process whose arguments point into an `xmr-<pid>-<UUID>` sandbox whose owner is gone. This is what cleans up after a run that could not clean up itself: killed with `SIGKILL`, or crashed, while a mutant was stuck in a loop. It works from the arguments rather than the directory because the sandbox may already have been deleted while the test binary kept running.
 
-**Signal cleanup (`installSignalHandlers`):** Installs `SIGINT` and `SIGTERM` handlers at startup. When a signal is received, the handler removes the active sandbox directory (if registered) and calls `_exit(1)`. The active path lives in `SandboxRegistry` as a C string behind an `Atomic` — C signal handlers cannot capture Swift context, and a single atomic exchange per operation means no path is ever freed twice.
+**Signal cleanup (`installSignalHandlers`):** Installs `SIGINT`, `SIGTERM` and `SIGHUP` handlers at startup. When a signal is received, the handler kills every test process group still in flight (`ProcessGroupRegistry`), removes the active sandbox directory (if registered) and calls `_exit(1)`. Test processes lead their own process groups, so without this a terminal's Ctrl-C would end the tool and leave a looping mutant running. The active path lives in `SandboxRegistry` as a C string behind an `Atomic` — C signal handlers cannot capture Swift context, and a single atomic exchange per operation means no path is ever freed twice.
 
 **Lifecycle:** `MutantExecutor` calls `register(sandbox)` after creating the sandbox and `deregister()` after cleanup (both on the success and error paths). This ensures the signal handler always has the correct path.
 
@@ -288,6 +288,7 @@ score = killed / (killed + survived + timedOut + noCoverage) × 100
 | `ProcessRunner` | `withTaskCancellationHandler` + `withCheckedThrowingContinuation` — kills process on cancel |
 | `SPMProcessLauncher` | `ProcessLaunching` conformance backed by `ProcessRunner`; on timeout it kills the process group and the descendants `ProcessTree` snapshotted before the first signal |
 | `SandboxRegistry` | `Atomic` holding a C string for signal handler access; each operation takes the pointer out with one `exchange` |
+| `ProcessGroupRegistry` | Fixed array of `Atomic<pid_t>` slots holding the test process groups in flight; the signal handler kills them with no lock taken |
 | All data types | `Sendable` value types — safe to cross actor boundaries |
 
 ---

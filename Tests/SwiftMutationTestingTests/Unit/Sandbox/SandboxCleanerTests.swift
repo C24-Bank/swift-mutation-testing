@@ -238,7 +238,7 @@ struct SandboxCleanerTests {
         SandboxCleaner.register(Sandbox(rootURL: sandboxDir), in: registry)
 
         var exitCode: Int32?
-        SandboxCleaner.terminate(registry: registry) { exitCode = $0 }
+        SandboxCleaner.terminate(registry: registry, processGroups: ProcessGroupRegistry()) { exitCode = $0 }
 
         #expect(!FileManager.default.fileExists(atPath: sandboxDir.path))
         #expect(exitCode == 1)
@@ -247,12 +247,37 @@ struct SandboxCleanerTests {
     @Test("Given no registered sandbox, when terminated, then the exit code is still 1")
     func terminateWithNoSandboxStillExits() {
         var exitCode: Int32?
-        SandboxCleaner.terminate(registry: SandboxRegistry()) { exitCode = $0 }
+        SandboxCleaner.terminate(registry: SandboxRegistry(), processGroups: ProcessGroupRegistry()) { exitCode = $0 }
 
         #expect(exitCode == 1)
     }
 
-    @Test("Given signal handlers installed, when SIGINT arrives, then the sandbox is removed and it exits with 1")
+    @Test("Given a test run in flight, when terminated, then its process group is killed before the exit")
+    func terminateKillsTrackedProcessGroups() async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["30"]
+        try process.run()
+        setpgid(process.processIdentifier, process.processIdentifier)
+        defer { if process.isRunning { process.terminate() } }
+
+        let processGroups = ProcessGroupRegistry()
+        processGroups.register(process.processIdentifier)
+
+        var exitCode: Int32?
+        SandboxCleaner.terminate(registry: SandboxRegistry(), processGroups: processGroups) { exitCode = $0 }
+
+        let deadline = ContinuousClock.now + .seconds(5)
+        while process.isRunning, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+
+        #expect(!process.isRunning, "the tracked test process outlived the tool")
+        #expect(process.terminationReason == .uncaughtSignal)
+        #expect(exitCode == 1)
+    }
+
+    @Test("Given signal handlers installed, when a handled signal arrives, then the sandbox goes and it exits with 1")
     func installedHandlerCleansSandboxAndExits() throws {
         let baseDir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(baseDir) }
@@ -267,13 +292,17 @@ struct SandboxCleanerTests {
         SandboxCleaner.installSignalHandlers()
         let interrupt = signal(SIGINT, SIG_DFL)
         let terminate = signal(SIGTERM, SIG_DFL)
+        let hangUp = signal(SIGHUP, SIG_DFL)
 
         let address = { (handler: sig_t?) in unsafeBitCast(handler, to: Int.self) }
         #expect(address(interrupt) != address(SIG_DFL))
         #expect(address(terminate) == address(interrupt))
+        #expect(address(hangUp) == address(interrupt))
 
         let handler = try #require(interrupt)
-        SandboxCleaner.withSignalTarget(.init(registry: registry, exit: recorder.record)) {
+        SandboxCleaner.withSignalTarget(
+            .init(registry: registry, processGroups: ProcessGroupRegistry(), exit: recorder.record)
+        ) {
             handler(SIGINT)
         }
 
