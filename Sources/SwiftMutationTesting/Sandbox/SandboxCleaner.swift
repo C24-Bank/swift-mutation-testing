@@ -67,5 +67,6 @@ enum SandboxCleaner {
     static func installSignalHandlers() {
         signal(SIGINT, handleSignal)
         signal(SIGTERM, handleSignal)
+        signal(SIGHUP, handleSignal)
     }
 }
