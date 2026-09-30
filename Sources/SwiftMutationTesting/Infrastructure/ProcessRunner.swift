@@ -4,6 +4,7 @@ struct ProcessRunner: Sendable {
     var postTerminationCleanup: (@Sendable (Int32) -> Void)?
     let onTimeout: @Sendable (Int32) -> Void
     var readCapturedOutput: @Sendable (URL) throws -> String = { try String(contentsOf: $0, encoding: .utf8) }
+    var processGroups: ProcessGroupRegistry = .shared
 
     private struct CaptureTarget {
         let fileHandle: FileHandle
@@ -114,7 +115,8 @@ struct ProcessRunner: Sendable {
             onTimeout(process.processIdentifier)
         }
 
-        process.terminationHandler = { proc in
+        process.terminationHandler = { [processGroups] proc in
+            processGroups.deregister(proc.processIdentifier)
             timeoutTask.cancel()
             postTerminationCleanup?(proc.processIdentifier)
             let exitCode: Int32 = killedByUs.value ? -1 : proc.terminationStatus
@@ -124,6 +126,7 @@ struct ProcessRunner: Sendable {
         do {
             try process.run()
             setpgid(process.processIdentifier, process.processIdentifier)
+            track(process)
         } catch {
             timeoutTask.cancel()
             continuation.resume(throwing: error)
@@ -162,7 +165,8 @@ struct ProcessRunner: Sendable {
             onTimeout(process.processIdentifier)
         }
 
-        process.terminationHandler = { terminated in
+        process.terminationHandler = { [processGroups] terminated in
+            processGroups.deregister(terminated.processIdentifier)
             timeoutTask.cancel()
             postTerminationCleanup?(terminated.processIdentifier)
             capture.fileHandle.closeFile()
@@ -180,6 +184,7 @@ struct ProcessRunner: Sendable {
         do {
             try process.run()
             setpgid(process.processIdentifier, process.processIdentifier)
+            track(process)
         } catch {
             timeoutTask.cancel()
             capture.fileHandle.closeFile()
@@ -188,4 +193,10 @@ struct ProcessRunner: Sendable {
         }
     }
 
+    private func track(_ process: Process) {
+        processGroups.register(process.processIdentifier)
+        if !process.isRunning {
+            processGroups.deregister(process.processIdentifier)
+        }
+    }
 }
