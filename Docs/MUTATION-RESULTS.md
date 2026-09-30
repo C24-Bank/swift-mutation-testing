@@ -13,6 +13,7 @@ This document explains every possible outcome for a mutant, what causes it, and 
    - [Unviable](#unviable-)
    - [Timeout](#timeout-)
    - [No coverage](#no-coverage--)
+   - [Integrity warnings](#integrity-warnings)
 2. [Mutation score](#mutation-score)
 3. [Schematizable vs incompatible mutants](#schematizable-vs-incompatible-mutants)
    - [Why the distinction exists](#why-the-distinction-exists)
@@ -87,7 +88,7 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 - Removing a statement that is the sole expression in a single-expression function body can change the implicit return type
 - Negating a condition that expects a non-optional `Bool` when the expression type is more complex
 
-**What it tells you:** unviable mutants are a limitation of the mutation operators, not a gap in your tests. They do not count toward the mutation score. A high unviable rate for a particular operator in your codebase is a signal that the operator generates many syntactically valid but semantically invalid mutations in your context; this is expected and harmless.
+**What it tells you:** unviable mutants are a limitation of the mutation operators, not a gap in your tests. They do not count toward the mutation score, and their activation is not measured, since they never ran. A high unviable rate for a particular operator in your codebase is a signal that the operator generates many syntactically valid but semantically invalid mutations in your context; this is expected and harmless.
 
 **Effect on performance:** unviable mutants are discovered during the build step, not the test step, so they are cheap to discard.
 
@@ -111,13 +112,34 @@ Mutants that loop forever are largely prevented at discovery rather than timing 
 
 ### No coverage –
 
-**What it means:** no test in the suite exercised the mutated code. The mutation was never active during any test execution.
+**What it means:** no test executed the mutated code. The tests all passed with the mutant active, and the mutant's own branch of the schema never ran.
+
+**How it is measured:** every `case` of the schema begins by recording that it ran — a marker file, named after the mutant, that the test process creates the first time the mutated code executes. After the run, a passing suite whose marker was never written is reported as no coverage instead of survived. The marker is checked after the targeted run and after the full run, and either one counts. For mutants that cannot be schematized (see below) there is no `case` to instrument, so their activation is not measured and a passing suite is reported as survived; the summary counts them under "Activation not measured".
 
 **What causes it:** the mutated line is dead code for the test suite — no test triggers the code path that reaches it.
 
 **What it tells you:** the code is untested by execution. This is worse than a survivor: a survivor at least means a test ran the code, just without asserting the right thing. No-coverage means the code is invisible to the test suite entirely. This is the highest-priority result to address: write a test that exercises the code path before worrying about what the mutation asserts.
 
 No-coverage mutants count in the score denominator and not in the numerator, like survivors: the code was mutated and nothing noticed.
+
+---
+
+### Integrity warnings
+
+A verdict is only worth something if the mutated code ran. The same marker that tells a survivor from no coverage also exposes the opposite case: a mutant that was **killed** — or timed out — although its code never ran. The test that failed did not fail because of the mutation; it is flaky, broken for another reason, or the environment is at fault. Those verdicts keep their status, since a rerun would say the same thing, but the run lists them:
+
+```
+Integrity warnings (2): killed or timed out without the mutated code running
+  Sources/Parser.swift:88:12   RelationalOperatorReplacement   killed without activation
+  Sources/Cache.swift:12:5     RemoveSideEffects               timed out without activation
+```
+
+The JSON report carries the same fact as `statusReason`: `killed without activation`, `crash without activation` or `timed out without activation`. Treat a warning as a test suite problem, not a mutant to fix.
+
+Two situations stop the run altogether, with exit code `1`, because no verdict could be trusted:
+
+- **A mutant that did not reach the sandbox.** Before the build, every schematized file is checked to differ from its original, to declare its support, and to hold a `case` for every schematizable mutant; every incompatible mutant is checked to have content that differs from the original. A mutant the check cannot find is named in the error. This catches a generator that silently dropped a mutation.
+- **Kills without any activation.** When mutants were killed but no mutant's code was ever seen running, either the marker cannot be written in this environment or the suite fails on its own. Reporting those kills would produce a flattering score built on nothing.
 
 ---
 

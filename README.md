@@ -23,6 +23,7 @@ Mutation testing introduces controlled changes to your code to verify that your 
 - Supports both XCTest and Swift Testing frameworks
 - 7 mutation operators (relational, boolean, logical, arithmetic, negate conditional, swap ternary, remove side effects)
 - Schematization — builds once, tests all mutants via runtime switch
+- Activation verification — every verdict records whether the mutated code actually ran; a passing suite that never reached it is reported as no coverage, and a mutant missing from the build stops the run
 - Parallel test execution with configurable concurrency
 - SHA256-based result caching across runs
 - Multiple report formats: text, JSON (Stryker-compatible), HTML, SonarQube, SARIF (GitHub code scanning), Markdown

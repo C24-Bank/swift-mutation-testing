@@ -347,15 +347,18 @@ Raising it for SPM would not help as things stand: every worker runs `swift test
 `--keep-logs <directory>` writes what each mutant's tests printed, one file per mutant, named after the mutant id. Without it that output is parsed into a verdict and discarded, which leaves an unexpected verdict with nothing behind it to read.
 
 ```
-mutant:   swift-mutation-testing_42
-location: Sources/Validator.swift:18:9
-operator: RelationalOperatorReplacement
-mutation: > → >=
-status:   Crash
-duration: 2.25s
+mutant:    swift-mutation-testing_42
+location:  Sources/Validator.swift:18:9
+operator:  RelationalOperatorReplacement
+mutation:  > → >=
+status:    Crash
+activated: yes, the mutated code ran
+duration:  2.25s
 ---
 <everything the test run printed>
 ```
+
+`activated` says whether the mutant's own code ran during that test run: `yes`, `no` (a passing suite is then reported as no coverage; a failing one is an [integrity warning](MUTATION-RESULTS.md#integrity-warnings)), or `not measured` for an incompatible mutant.
 
 `Crash` is the verdict worth reaching for this first: it is reachable three separate ways — a fatal error, a bad instruction, or test output naming no failing test — and the verdict alone does not say which.
 
@@ -397,7 +400,7 @@ Those mutants are not lost: each gets a build of its own, like an incompatible m
 | `✗` | Survived — tests passed with the mutation active |
 | `⚠` | Unviable — mutant did not compile |
 | `⏱` | Timeout — test process exceeded the timeout |
-| `–` | No coverage — no test reached the mutated code |
+| `–` | No coverage — the tests passed and none of them ran the mutated code |
 
 ### Text summary (always printed)
 
@@ -411,10 +414,13 @@ Survived mutants:
   Sources/Validator.swift:67:12  NegateConditional
 
 Overall mutation score: 85.3%
-Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 21, no coverage 0)
-Killed: 122 / Survived: 21 / Timeouts: 0 / Unviable: 4 / NoCoverage: 0
+Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 18, no coverage 3)
+Killed: 122 / Survived: 18 / Timeouts: 0 / Unviable: 4 / NoCoverage: 3
+Activation not measured: 4 incompatible mutants
 Total duration: 312.7s
 ```
+
+Between the survived mutants and the score, a run that killed or timed out mutants whose code never ran lists them under `Integrity warnings` — see [Mutation Results](MUTATION-RESULTS.md#integrity-warnings). `Activation not measured` appears when incompatible mutants ran: their code has no instrumentation, so a passing suite is reported as survived rather than no coverage.
 
 **Mutation score formula:**
 
@@ -481,7 +487,9 @@ cat mutation-summary.md >> "$GITHUB_STEP_SUMMARY"
 
 ### Caching
 
-Results are cached at `<project>/.swift-mutation-testing-cache/results.json`, keyed by SHA256 of the source and test file contents. On subsequent runs, cached mutants skip the build and test cycle entirely.
+Results are cached at `<project>/.swift-mutation-testing-cache/results.json`, keyed by SHA256 of the source and test file contents, together with whether the mutated code ran. On subsequent runs, cached mutants skip the build and test cycle entirely.
+
+The cache format is versioned. A cache written by an older version is discarded once, with a warning, and the run tests every mutant again; the next run writes a cache in the current format.
 
 ```
   ✓ Loaded 147 mutants from cache
