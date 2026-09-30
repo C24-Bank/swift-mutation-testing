@@ -32,4 +32,31 @@ struct TargetedSuitesTests {
         #expect(TargetedSuites.suite(for: "/proj/Sources/Foo.swift", among: suites)?.name == "FooTests")
         #expect(TargetedSuites.suite(for: "/proj/Sources/Bar.swift", among: suites) == nil)
     }
+
+    @Test("Given a test file under Tests/<Target>/, when its suite is read, then it knows its test target")
+    func aDeclaredSuiteKnowsItsTestTarget() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let file = dir.appendingPathComponent("Tests/CoreATests/FooTests.swift")
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "@Suite struct FooTests {}".write(to: file, atomically: true, encoding: .utf8)
+
+        let suites = TargetedSuites.declared(in: [file.path])
+
+        #expect(suites["FooTests"] == TargetedSuite(name: "FooTests", testTarget: "CoreATests"))
+    }
+
+    @Test(
+        "Given a test file path, when its test target is read, then it is the directory right under Tests",
+        arguments: [
+            ("/p/Tests/CoreATests/AdderTests.swift", "CoreATests"),
+            ("/p/Tests/CoreATests/Nested/AdderTests.swift", "CoreATests"),
+            ("/p/Tests/Outer/Tests/Inner/AdderTests.swift", "Inner"),
+            ("/p/Tests/AdderTests.swift", nil),
+            ("/p/Sources/AppTests/AdderTests.swift", nil),
+        ]
+    )
+    func testTargetIsTheDirectoryUnderTests(path: String, expected: String?) {
+        #expect(TargetedSuites.testTarget(of: path) == expected)
+    }
 }

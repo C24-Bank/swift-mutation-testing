@@ -30,6 +30,23 @@ struct TestBundleInvocationTests {
         #expect(found.map(\.lastPathComponent) == ["PkgTests.xctest"])
     }
 
+    @Test("Given several built bundles, when looked up, then they are listed in name order and nothing else is")
+    func listsEveryBundleInNameOrder() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let products = dir.appendingPathComponent(".build/out/Products/Debug")
+        for name in ["ZTests.xctest", "ATests.xctest", "libCore.dylib", "MTests.xctest"] {
+            try FileManager.default.createDirectory(
+                at: products.appendingPathComponent(name), withIntermediateDirectories: true
+            )
+        }
+
+        let found = TestBundleInvocation.bundleURLs(in: Sandbox(rootURL: dir))
+
+        #expect(found.map(\.lastPathComponent) == ["ATests.xctest", "MTests.xctest", "ZTests.xctest"])
+    }
+
     @Test("Given XCTest, when a request is built, then xctest runs the bundle with the mutant selected")
     func xctestRunsTheBundle() throws {
         let invocation = TestBundleInvocation(
