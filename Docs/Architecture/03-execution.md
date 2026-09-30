@@ -35,7 +35,7 @@ flowchart TD
 
 ## SandboxFactory
 
-Creates an isolated copy of the project in `$TMPDIR/xmr-<UUID>/` before every build. Supports both Xcode and SPM projects.
+Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<pid>-<UUID>/` before every build. Supports both Xcode and SPM projects.
 
 **Factory methods:**
 - `create(projectPath:schematizedFiles:supportFileContent:)` — full sandbox with schematized files and support file injection (normal path)
@@ -57,7 +57,7 @@ The original project is never touched. Cleanup removes the entire `xmr-*` direct
 
 Handles cleanup of orphaned sandbox directories and signal-based cleanup of the active sandbox.
 
-**Orphaned cleanup (`removeOrphaned`):** Called once at startup via `main()`. Scans `$TMPDIR` (or a provided directory) for directories prefixed with `xmr-` and removes them. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
+**Orphaned cleanup (`removeOrphaned`):** Called by `MutantExecutor` just before it creates a sandbox — never on the `--version`, `--help` or `init` paths, and not when every result comes from the cache. Scans `$TMPDIR/swift-mutation-testing/` (or a provided directory) for directories prefixed with `xmr-` and removes the ones whose owning process is gone. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
 
 **Signal cleanup (`installSignalHandlers`):** Installs `SIGINT` and `SIGTERM` handlers at startup. When a signal is received, the handler removes the active sandbox directory (if registered) and calls `_exit(1)`. Uses a `nonisolated(unsafe)` C pointer for the active path — necessary because signal handlers are C function pointers that cannot capture Swift context.
 

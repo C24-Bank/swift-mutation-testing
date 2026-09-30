@@ -20,7 +20,8 @@ flowchart TD
     IN[RunnerInput] --> PREP[prepareCacheStore\ngranular invalidation]
     PREP --> CACHE{all results cached?}
     CACHE -- yes --> RETURN[return cached results]
-    CACHE -- no --> SANDBOX[SandboxFactory.create\nschematized sandbox]
+    CACHE -- no --> SWEEP[SandboxCleaner.removeOrphaned]
+    SWEEP --> SANDBOX[SandboxFactory.create\nschematized sandbox]
     SANDBOX --> REG[SandboxCleaner.register]
     REG --> BUILD[BuildStage.build / buildSPM]
     BUILD -- success --> POOL[SimulatorPool.setUp]
