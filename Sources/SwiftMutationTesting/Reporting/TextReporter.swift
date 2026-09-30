@@ -49,6 +49,7 @@ struct TextReporter: Sendable {
 
         lines.append("")
         lines.append("Overall mutation score: \(String(format: "%.1f", summary.score))%")
+        lines.append(summary.detectionLine)
         lines.append(
             "Killed: \(summary.killed.count)"
                 + " / Survived: \(summary.survived.count)"
