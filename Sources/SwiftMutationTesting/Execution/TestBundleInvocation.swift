@@ -8,12 +8,19 @@ struct TestBundleInvocation: Sendable {
         exitCode == noTestsExitCode || output.contains("Executed 0 tests")
     }
 
-    static func bundleURL(in sandbox: Sandbox) -> URL? {
+    static func bundleURLs(in sandbox: Sandbox) -> [URL] {
         let products = sandbox.rootURL.appendingPathComponent(".build/out/Products/Debug")
         let candidates =
             (try? FileManager.default.contentsOfDirectory(at: products, includingPropertiesForKeys: nil)) ?? []
 
-        return candidates.first { $0.pathExtension == "xctest" }
+        return
+            candidates
+            .filter { $0.pathExtension == "xctest" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    static func bundleURL(in sandbox: Sandbox) -> URL? {
+        bundleURLs(in: sandbox).first
     }
 
     let bundleURL: URL
