@@ -11,6 +11,8 @@ struct CommandLineParser: Sendable {
         var output: String?
         var htmlOutput: String?
         var sonarOutput: String?
+        var sarifOutput: String?
+        var markdownOutput: String?
         var keepLogsPath: String?
         var quiet = false
         var sourcesPath: String?
@@ -78,6 +80,8 @@ struct CommandLineParser: Sendable {
                 output: flags.output,
                 htmlOutput: flags.htmlOutput,
                 sonarOutput: flags.sonarOutput,
+                sarifOutput: flags.sarifOutput,
+                markdownOutput: flags.markdownOutput,
                 keepLogsPath: flags.keepLogsPath,
                 quiet: flags.quiet
             ),
@@ -169,6 +173,12 @@ struct CommandLineParser: Sendable {
 
         case "--sonar-output":
             values.sonarOutput = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--sarif-output":
+            values.sarifOutput = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--markdown-output":
+            values.markdownOutput = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--keep-logs":
             values.keepLogsPath = try nextValue(for: flag, at: &index, in: arguments)

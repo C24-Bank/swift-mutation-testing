@@ -43,6 +43,8 @@ struct ConfigurationResolver: Sendable {
                 output: cliArguments.reporting.output ?? fileValues["output"],
                 htmlOutput: cliArguments.reporting.htmlOutput ?? fileValues["html-output"],
                 sonarOutput: cliArguments.reporting.sonarOutput ?? fileValues["sonar-output"],
+                sarifOutput: cliArguments.reporting.sarifOutput ?? fileValues["sarif-output"],
+                markdownOutput: cliArguments.reporting.markdownOutput ?? fileValues["markdown-output"],
                 keepLogsPath: cliArguments.reporting.keepLogsPath ?? fileValues["keep-logs"],
                 quiet: cliArguments.reporting.quiet || fileValues["quiet"]?.lowercased() == "true"
             ),
