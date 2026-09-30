@@ -49,8 +49,7 @@ struct MutantExecutor: Sendable {
 
         let sandbox = try await SandboxFactory().create(
             projectPath: input.projectPath,
-            schematizedFiles: input.schematizedFiles,
-            supportFileContent: input.supportFileContent
+            schematizedFiles: input.schematizedFiles
         )
         SandboxCleaner.register(sandbox)
 

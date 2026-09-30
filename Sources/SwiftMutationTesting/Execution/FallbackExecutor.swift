@@ -27,8 +27,7 @@ struct FallbackExecutor: Sendable {
 
         let sandbox = try await SandboxFactory().create(
             projectPath: input.projectPath,
-            schematizedFiles: [file],
-            supportFileContent: input.supportFileContent
+            schematizedFiles: [file]
         )
 
         await deps.reporter.report(.fallbackBuildStarted(filePath: file.originalPath))

@@ -1,12 +1,4 @@
 struct SchematizationStage: Sendable {
-    static let supportFileContent = """
-        import Foundation
-
-        var __swiftMutationTestingID: String {
-            ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
-        }
-        """
-
     func run(indexed: [IndexedMutationPoint], sources: [ParsedSource]) -> ([SchematizedFile], [MutantDescriptor]) {
         let schematizable = indexed.filter { $0.isSchematizable }
         let sourceByPath = Dictionary(uniqueKeysWithValues: sources.map { ($0.file.path, $0) })

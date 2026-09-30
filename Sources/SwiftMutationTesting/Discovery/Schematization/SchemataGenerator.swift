@@ -52,7 +52,9 @@ struct SchemataGenerator: Sendable {
             )
         }
 
-        return content
+        guard content != source.file.content else { return content }
+
+        return content + "\n\n" + SupportDeclarations.perFile + "\n"
     }
 
     private func mutantID(_ index: Int) -> String {
