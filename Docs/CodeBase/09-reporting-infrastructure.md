@@ -188,6 +188,83 @@ Writes a SonarQube Generic Issue Import Format JSON file to `outputPath`. Report
 
 ---
 
+## Reporting/SarifReporter.swift
+
+```swift
+struct SarifReporter: Sendable {
+    static let resultLimit: Int           // 25_000
+    static let fingerprintKey: String     // "swiftMutationTesting/v1"
+    static let sourceRootBaseId: String   // "%SRCROOT%"
+    let outputPath: String
+    let projectRoot: String
+    var resultLimit: Int
+    func report(_ summary: RunnerSummary) throws
+    func buildLog(_ summary: RunnerSummary) -> SarifLog
+}
+```
+
+Writes a SARIF 2.1.0 log, the format GitHub code scanning reads, with one `run` whose results are the undetected mutants — survived and no coverage, the same set `SonarReporter` reports — sorted by file, line and column.
+
+| Part | Content |
+|---|---|
+| `tool.driver` | `Version.name`, `Version.number`, the repository URL, and one rule per operator present (`SarifRuleCatalog`) |
+| `originalUriBaseIds` | `%SRCROOT%` → the canonical project root as a `file://` URI, so code scanning maps the paths even when the project is a subdirectory of the repository |
+| `columnKind` | `utf16CodeUnits` |
+| result `level` | `warning` for both statuses |
+| result `message` | `Mutant survived: <description>.` and either `No test failed when this code was changed.` or `No test executed this code.` |
+| result location | the project-relative path under `%SRCROOT%`; `startLine`, and `startColumn`/`endColumn` in UTF-16 code units |
+| `partialFingerprints` | `swiftMutationTesting/v1` → the mutant's `MutantFingerprint`, so an alert survives unrelated edits and closes once the mutant is killed |
+| `properties` | `mutationStatus` (`survived` or `noCoverage`) and `replacement` |
+
+SwiftSyntax reports columns in UTF-8 bytes. The reporter reads each mutant's line from its file, once per file, and converts the column so an annotation after a non-ASCII character is not shifted; when the file cannot be read it keeps the recorded column. Beyond `resultLimit` results — code scanning's limit per upload — it keeps the first ones and prints a warning to stderr.
+
+### Reporting/Sarif/
+
+`SarifLog`, `SarifRun`, `SarifTool`, `SarifDriver`, `SarifRule`, `SarifConfiguration`, `SarifMessage`, `SarifResult`, `SarifResultProperties`, `SarifLocation`, `SarifPhysicalLocation`, `SarifArtifactLocation` and `SarifRegion` are `Encodable` mirrors of the SARIF 2.1.0 objects of the same name. `SarifRuleCatalog.rule(for:)` gives each operator a short and a full description, with a `helpUri` to the operator reference in `Docs/USAGE.MD`; an unknown operator gets a generic description.
+
+---
+
+## Reporting/MarkdownReporter.swift
+
+```swift
+struct MarkdownReporter: Sendable {
+    static let listedLimit: Int  // 20
+    let outputPath: String
+    let projectRoot: String
+    func report(_ summary: RunnerSummary, gate: GateResult? = nil) throws
+    func format(_ summary: RunnerSummary, gate: GateResult? = nil) -> String
+}
+```
+
+Writes a Markdown summary for CI job summaries and merge request notes:
+
+1. The score, the detection line (`RunnerSummary.detectionLine`) and the totals
+2. The quality gate, when a result is given: its checks, the informational lines, and a table of its new undetected mutants
+3. A table per file, as in `TextReporter` — omitted for an empty run
+4. The first `listedLimit` undetected mutants, sorted by location, with a count of the rest
+
+Table cells escape `|`, and the mutation is written as code with backticks replaced, so a `||` mutation cannot break the table.
+
+---
+
+## Reporting/GateResult+Summary.swift
+
+```swift
+extension GateResult {
+    var checksNewUndetected: Bool
+    var newUndetectedSummary: String
+    static func count(_ value: Int, _ noun: String) -> String
+}
+
+extension GateResult.Check {
+    var summary: String  // "score 90.4% ≥ 85.0%", "score drop 0.7 pts ≤ 2.0 pts", "1 new undetected mutant (max 0)"
+}
+```
+
+The wording of the gate, shared by `GateReporter` and `MarkdownReporter` so the console and the job summary say the same thing.
+
+---
+
 ## ExecutionStatus Extensions
 
 ### Reporting/ExecutionStatus+MutationReportStatus.swift

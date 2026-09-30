@@ -20,7 +20,7 @@ graph TD
     CONFIG["Configuration\n(ConfigurationResolver · ProjectDetector)"]
     DISCOVERY["Discovery\n(DiscoveryPipeline · Operators · Schematization)"]
     EXECUTION["Execution\n(MutantExecutor · FallbackExecutor · IncompatibleMutantExecutor\nBuildStage · TestExecutionStage · TestResultResolver)"]
-    REPORTING["Reporting\n(TextReporter · JsonReporter · HtmlReporter · SonarReporter)"]
+    REPORTING["Reporting\n(TextReporter · JsonReporter · HtmlReporter\nSonarReporter · SarifReporter · MarkdownReporter)"]
     INFRA["Infrastructure\n(ProcessRunner · ProcessRequest · OutputStopRule\nSPMProcessLauncher · XcodeProcessLauncher · ProcessTree\nTimeoutEscalation · SleepInhibitor · XCTestRunPlist · TestFilesHasher)"]
     CACHE["Cache\n(CacheStore · MutantCacheKey · TestFileDiff\nKillerTestFileResolver)"]
     SANDBOX["Sandbox\n(SandboxFactory · SandboxName · SandboxCleaner)"]
@@ -46,7 +46,7 @@ graph TD
 | **Execution** | Build, simulator management, parallel test execution, result parsing (Xcode and SPM), fallback per-file builds |
 | **Sandbox** | Sandbox creation (`SandboxFactory`), orphaned sandbox cleanup and signal-based cleanup (`SandboxCleaner`) |
 | **Cache** | Granular per-file cache invalidation (`CacheStore`, `TestFileDiff`), killer test file resolution (`KillerTestFileResolver`), cache key computation (`MutantCacheKey`) |
-| **Reporting** | Progress output, mutation report generation (text, JSON, HTML, Sonar) |
+| **Reporting** | Progress output, mutation report generation (text, JSON, HTML, Sonar, SARIF, Markdown) |
 | **Gate** | Quality gate policies, baselines of undetected mutants matched by fingerprint, gate exit code |
 | **Infrastructure** | Process lifecycle management (`ProcessRunner`, `ProcessRequest`, `SPMProcessLauncher`), xctestrun plist manipulation, test file hashing |
 
@@ -65,7 +65,7 @@ flowchart TD
     F --> G[DiscoveryPipeline\nfinds all mutants]
     G --> H[MutantExecutor\nbuilds and tests each mutant]
     H --> I[TextReporter prints summary]
-    I --> J[JsonReporter · HtmlReporter\n· SonarReporter write files]
+    I --> J[JsonReporter · HtmlReporter · SonarReporter\n· SarifReporter · MarkdownReporter write files]
     J --> GT{Quality gate\nconfigured?}
     GT -- no --> EXIT0
     GT -- passed --> EXIT0

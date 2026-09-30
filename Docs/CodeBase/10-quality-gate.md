@@ -12,10 +12,11 @@ flowchart TD
     LOAD -- yes --> READ[BaselineStore.read]
     READ --> SCOPE{BaselineScope\ndifferences?}
     SCOPE -- yes --> ERR[GateError.scopeMismatch → exit 1]
-    SCOPE -- no --> RUN[run mutants, write reports]
+    SCOPE -- no --> RUN[run mutants, text summary]
     LOAD -- no --> RUN
     RUN --> EVAL[QualityGate.evaluate]
-    EVAL --> REP[GateReporter.report]
+    EVAL --> REPORTS[write reports\nMarkdown includes the gate]
+    REPORTS --> REP[GateReporter.report]
     REP --> WRITE{writeBaselinePath?}
     WRITE -- yes --> STORE[BaselineStore.write]
     WRITE -- no --> CODE
@@ -175,7 +176,7 @@ Quality gate: FAILED
   ℹ 3 mutants detected now that were undetected in the baseline
 ```
 
-New undetected mutants are listed under their check, at most `listedLimit` of them, followed by `and N more — see the report`. With a baseline but no `maxNewSurvivors`, they are reported as an `ℹ` count instead.
+The wording of each check comes from `GateResult+Summary`, which `MarkdownReporter` shares. New undetected mutants are listed under their check, at most `listedLimit` of them, followed by `and N more — see the report`. With a baseline but no `maxNewSurvivors`, they are reported as an `ℹ` count instead.
 
 ---
 

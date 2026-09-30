@@ -29,7 +29,7 @@ flowchart TD
     IME --> CACHE
     CACHE --> DEREG[SandboxCleaner.deregister\nsandbox.cleanup]
     DEREG --> SUM[RunnerSummary]
-    SUM --> REPORTERS[TextReporter · JsonReporter\nHtmlReporter · SonarReporter]
+    SUM --> REPORTERS[TextReporter · JsonReporter · HtmlReporter\nSonarReporter · SarifReporter · MarkdownReporter]
 ```
 
 ## SandboxFactory
@@ -277,6 +277,8 @@ score      = detected / (detected + undetected) × 100
 | `JsonReporter` | Stryker JSON schema | `--output <path>` |
 | `HtmlReporter` | Interactive HTML dashboard | `--html-output <path>` |
 | `SonarReporter` | SonarQube generic issue import format | `--sonar-output <path>` |
+| `SarifReporter` | SARIF 2.1.0, for GitHub code scanning | `--sarif-output <path>` |
+| `MarkdownReporter` | Markdown summary, with the quality gate | `--markdown-output <path>` |
 
 ## Concurrency Model
 
