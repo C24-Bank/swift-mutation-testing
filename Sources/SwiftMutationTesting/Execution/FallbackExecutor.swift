@@ -66,7 +66,8 @@ struct FallbackExecutor: Sendable {
 
         let context = TestExecutionContext(
             artifact: artifact, sandbox: sandbox, pool: pool,
-            configuration: configuration
+            configuration: configuration,
+            bundles: TestBundle.all(in: sandbox)
         )
 
         let stageResults = try await TestExecutionStage(deps: deps).execute(mutants: fileMutants, in: context)

@@ -19,10 +19,6 @@ struct TestBundleInvocation: Sendable {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
-    static func bundleURL(in sandbox: Sandbox) -> URL? {
-        bundleURLs(in: sandbox).first
-    }
-
     let bundleURL: URL
     let framework: TestingFramework
 

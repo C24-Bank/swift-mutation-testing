@@ -159,14 +159,18 @@ struct TestExecutionStage: Sendable {
         timeout: Double
     ) async throws -> (TestRunOutcome, TestLaunchResult) {
         if let suite = TargetedSuites.suite(for: mutant.filePath, among: context.targetedSuites) {
-            let targeted = try await launchSPM(mutant: mutant, in: context, timeout: timeout, filter: suite)
+            let targeted = try await launchSPM(
+                mutant: mutant, in: context, timeout: timeout,
+                filter: suite.name, bundles: context.bundles(declaring: suite)
+            )
             let outcome = SPMResultParser().parse(exitCode: targeted.exitCode, output: targeted.output)
 
             if outcome.isKill { return (outcome, targeted) }
         }
 
         let launched = try await launchSPM(
-            mutant: mutant, in: context, timeout: timeout, filter: context.configuration.build.testTarget
+            mutant: mutant, in: context, timeout: timeout,
+            filter: context.configuration.build.testTarget, bundles: context.bundles
         )
         let outcome = SPMResultParser().parse(exitCode: launched.exitCode, output: launched.output)
         return (outcome, launched)
@@ -209,11 +213,12 @@ struct TestExecutionStage: Sendable {
         mutant: MutantDescriptor,
         in context: TestExecutionContext,
         timeout: Double,
-        filter: String?
+        filter: String?,
+        bundles: [TestBundle]
     ) async throws -> TestLaunchResult {
         let start = Date()
         let captured = try await run(
-            spmRequests(mutant: mutant, in: context, timeout: timeout, filter: filter),
+            spmRequests(mutant: mutant, in: context, timeout: timeout, filter: filter, bundles: bundles),
             deadline: start.addingTimeInterval(timeout)
         )
 
@@ -254,19 +259,22 @@ struct TestExecutionStage: Sendable {
         mutant: MutantDescriptor,
         in context: TestExecutionContext,
         timeout: Double,
-        filter: String?
+        filter: String?,
+        bundles: [TestBundle]
     ) -> [ProcessRequest] {
         let configuration = context.configuration
 
-        if let bundleURL = TestBundleInvocation.bundleURL(in: context.sandbox) {
-            return TestBundleInvocation(bundleURL: bundleURL, framework: configuration.build.testingFramework)
-                .requests(
-                    filter: filter,
-                    mutantID: mutant.id,
-                    workingDirectory: context.sandbox.rootURL,
-                    timeout: timeout,
-                    libraries: context.libraries
-                )
+        guard bundles.isEmpty else {
+            return bundles.flatMap { bundle in
+                TestBundleInvocation(bundleURL: bundle.url, framework: configuration.build.testingFramework)
+                    .requests(
+                        filter: filter,
+                        mutantID: mutant.id,
+                        workingDirectory: context.sandbox.rootURL,
+                        timeout: timeout,
+                        libraries: bundle.libraries
+                    )
+            }
         }
 
         var arguments = ["test", "--skip-build"]

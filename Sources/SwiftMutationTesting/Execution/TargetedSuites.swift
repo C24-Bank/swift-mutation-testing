@@ -5,22 +5,26 @@ enum TargetedSuites {
     static let suffix = "Tests"
     static let testsDirectory = "Tests"
 
-    static func declared(in testFilePaths: [String]) -> Set<String> {
-        Set(
-            testFilePaths.compactMap { path in
-                let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+    static func declared(in testFilePaths: [String]) -> [String: TargetedSuite] {
+        var suites: [String: TargetedSuite] = [:]
 
-                guard name.hasSuffix(suffix), let content = try? String(contentsOfFile: path, encoding: .utf8)
-                else { return nil }
+        for path in testFilePaths {
+            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
 
-                return declares(name, in: content) ? name : nil
-            }
-        )
+            guard
+                name.hasSuffix(suffix),
+                let content = try? String(contentsOfFile: path, encoding: .utf8),
+                declares(name, in: content)
+            else { continue }
+
+            suites[name] = TargetedSuite(name: name, testTarget: testTarget(of: path))
+        }
+
+        return suites
     }
 
-    static func suite(for sourcePath: String, among suites: Set<String>) -> String? {
-        let candidate = URL(fileURLWithPath: sourcePath).deletingPathExtension().lastPathComponent + suffix
-        return suites.contains(candidate) ? candidate : nil
+    static func suite(for sourcePath: String, among suites: [String: TargetedSuite]) -> TargetedSuite? {
+        suites[URL(fileURLWithPath: sourcePath).deletingPathExtension().lastPathComponent + suffix]
     }
 
     static func testTarget(of testFilePath: String) -> String? {

@@ -157,14 +157,14 @@ struct MutantExecutor: Sendable {
         let testableSchematizable = schematizable.filter { !excludedIDs.contains($0.id) }
 
         if let artifact {
-            var libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
+            var bundles: [TestBundle] = []
             if case .spm = configuration.build.projectType {
-                libraries = try await probeTestingLibraries(sandbox: sandbox, deps: deps)
+                bundles = try await probeTestBundles(sandbox: sandbox, deps: deps)
             }
             let context = TestExecutionContext(
                 artifact: artifact, sandbox: sandbox, pool: pool,
                 configuration: configuration,
-                libraries: libraries,
+                bundles: bundles,
                 targetedSuites: TargetedSuites.declared(
                     in: TestFilesHasher().testFilePaths(projectPath: input.projectPath)
                 )
@@ -355,18 +355,35 @@ struct MutantExecutor: Sendable {
             .execute(mutants, configuration: configuration, pool: pool)
     }
 
-    private func probeTestingLibraries(sandbox: Sandbox, deps: ExecutionDeps) async throws -> Set<TestingFramework> {
-        let all: Set<TestingFramework> = [.xctest, .swiftTesting]
+    private func probeTestBundles(sandbox: Sandbox, deps: ExecutionDeps) async throws -> [TestBundle] {
+        let urls = TestBundleInvocation.bundleURLs(in: sandbox)
 
-        guard let bundleURL = TestBundleInvocation.bundleURL(in: sandbox) else {
+        guard !urls.isEmpty else {
             try await validateBaseline(running: swiftTestRequest(in: sandbox), deps: deps)
-            return all
+            return []
         }
 
+        var bundles: [TestBundle] = []
+
+        for url in urls {
+            let libraries = try await probeLibraries(of: url, in: sandbox, deps: deps)
+            if !libraries.isEmpty {
+                bundles.append(TestBundle(url: url, libraries: libraries))
+            }
+        }
+
+        return bundles.isEmpty ? urls.map { TestBundle(url: $0, libraries: TestBundle.allLibraries) } : bundles
+    }
+
+    private func probeLibraries(
+        of bundleURL: URL,
+        in sandbox: Sandbox,
+        deps: ExecutionDeps
+    ) async throws -> Set<TestingFramework> {
         let invocation = TestBundleInvocation(bundleURL: bundleURL, framework: configuration.build.testingFramework)
         var present: Set<TestingFramework> = []
 
-        for library in all {
+        for library in TestBundle.allLibraries {
             let requests = invocation.requests(
                 filter: configuration.build.testTarget,
                 mutantID: "",
@@ -387,7 +404,7 @@ struct MutantExecutor: Sendable {
             }
         }
 
-        return present.isEmpty ? all : present
+        return present
     }
 
     private func swiftTestRequest(in sandbox: Sandbox) -> ProcessRequest {
