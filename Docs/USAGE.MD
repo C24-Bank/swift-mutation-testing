@@ -138,6 +138,8 @@ timeout: 60
 # output: mutation-report.json
 # html-output: mutation-report.html
 # sonar-output: sonar-report.json
+# sarif-output: mutation-report.sarif
+# markdown-output: mutation-summary.md
 
 # Write each mutant's captured test output to <dir>/<mutant-id>.log
 # keep-logs: .mutation-logs
@@ -187,6 +189,8 @@ mutators:
 | `output` | String | — | Path for Stryker-compatible JSON report |
 | `html-output` | String | — | Path for interactive HTML report |
 | `sonar-output` | String | — | Path for SonarQube generic coverage report |
+| `sarif-output` | String | — | Path for the SARIF 2.1.0 report of undetected mutants |
+| `markdown-output` | String | — | Path for a Markdown summary, for CI job summaries |
 | `keep-logs` | String | — | Directory for per-mutant test output logs |
 | `sources-path` | String | project root | Root directory for Swift source file discovery |
 | `exclude` | List | `[]` | Glob patterns for source files to skip |
@@ -266,6 +270,8 @@ swift-mutation-testing [project-path] [options]
 | `--output <path>` | Write Stryker-compatible JSON report |
 | `--html-output <path>` | Write interactive HTML report |
 | `--sonar-output <path>` | Write SonarQube generic coverage report |
+| `--sarif-output <path>` | Write a SARIF 2.1.0 report of undetected mutants |
+| `--markdown-output <path>` | Write a Markdown summary of the run and the quality gate |
 | `--sources-path <path>` | Root directory for source discovery |
 | `--exclude <pattern>` | Exclude files matching glob pattern (repeatable) |
 | `--operator <id>` | Activate only this operator (repeatable) |
@@ -304,7 +310,9 @@ swift-mutation-testing --exclude "Sources/Generated/**"
 swift-mutation-testing \
   --output mutation-report.json \
   --html-output mutation-report.html \
-  --sonar-output sonar.json
+  --sonar-output sonar.json \
+  --sarif-output mutation-report.sarif \
+  --markdown-output mutation-summary.md
 
 # Suppress progress output (useful in CI)
 swift-mutation-testing --quiet
@@ -438,6 +446,31 @@ SonarQube Generic Issue Import Format. Survived mutants are reported as `MAJOR C
 swift-mutation-testing --sonar-output sonar.json
 ```
 
+### SARIF report (`--sarif-output`)
+
+[SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format GitHub code scanning reads. Each undetected mutant is one result, so it appears as an annotation on the line in a pull request and as an alert in the repository's Security tab.
+
+- Only survived and no-coverage mutants are results, both at level `warning` — code scanning has no higher level for a quality finding, and `note` is hidden by default.
+- There is one rule per operator present, with a description and a link to the [operator reference](#operator-identifiers).
+- Locations are relative to the project, under the `%SRCROOT%` base, and columns are counted in UTF-16 code units, as SARIF expects.
+- Each result carries the mutant's fingerprint as a partial fingerprint (`swiftMutationTesting/v1`), so code scanning keeps tracking the same alert across commits and closes it once the mutant is killed.
+- Code scanning accepts at most 25,000 results per upload. Beyond that, the first 25,000 by file and line are written and a warning is printed.
+
+```bash
+swift-mutation-testing --sarif-output mutation-report.sarif
+```
+
+Upload it with `github/codeql-action/upload-sarif`, as in [the workflow below](#github-actions--annotations-job-summary-and-quality-gate).
+
+### Markdown summary (`--markdown-output`)
+
+A short summary for places that render Markdown, such as a GitHub Actions job summary or a GitLab merge request note: the score, the detection line and the totals, the quality gate's checks when a gate is configured, a table per file, and the first 20 undetected mutants.
+
+```bash
+swift-mutation-testing --markdown-output mutation-summary.md
+cat mutation-summary.md >> "$GITHUB_STEP_SUMMARY"
+```
+
 ### Caching
 
 Results are cached at `<project>/.swift-mutation-testing-cache/results.json`, keyed by SHA256 of the source and test file contents. On subsequent runs, cached mutants skip the build and test cycle entirely.
@@ -525,6 +558,81 @@ The fingerprint is also written to each mutant in the JSON report (`--output`).
 ## CI/CD Integration
 
 An AI coding agent can run the tool and act on its report with the [Claude Code plugin](../README.md#using-with-ai-coding-agents), whose skill covers the same flow as this section.
+
+### GitHub Actions — annotations, job summary and quality gate
+
+A complete workflow: each undetected mutant becomes an annotation on its line in the pull request (SARIF through code scanning), the summary goes to the job summary, the reports are kept as an artifact, and a failed quality gate fails the job — after everything has been published.
+
+```yaml
+name: Mutation testing
+
+on: pull_request
+
+permissions:
+  contents: read
+  security-events: write   # needed to upload the SARIF report
+
+jobs:
+  mutation-testing:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install swift-mutation-testing
+        run: |
+          brew tap ericodx/homebrew-tools
+          brew install swift-mutation-testing
+
+      - name: Restore the result cache
+        uses: actions/cache@v5
+        with:
+          path: .swift-mutation-testing-cache
+          key: mutation-cache-${{ github.ref_name }}-${{ hashFiles('**/*.swift') }}
+          restore-keys: mutation-cache-
+
+      - name: Mutation testing
+        id: mutation
+        run: |
+          set +e
+          swift-mutation-testing --quiet \
+            --sarif-output mutation-report.sarif \
+            --markdown-output mutation-summary.md \
+            --html-output mutation-report.html \
+            --baseline .swift-mutation-testing-baseline.json --max-new-survivors 0
+          echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Annotate the pull request
+        if: always() && hashFiles('mutation-report.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: mutation-report.sarif
+          category: swift-mutation-testing
+
+      - name: Write the job summary
+        if: always() && hashFiles('mutation-summary.md') != ''
+        run: cat mutation-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: mutation-report.html
+          if-no-files-found: ignore
+
+      - name: Fail on errors and on a failed quality gate
+        env:
+          EXIT_CODE: ${{ steps.mutation.outputs.exit-code }}
+        run: exit "$EXIT_CODE"
+```
+
+The mutation testing step records the exit code instead of failing, so the steps after it publish the reports first; the last step then fails the job with that code — `2` for a failed quality gate, `1` for an error.
+
+- It needs a macOS runner.
+- Uploading SARIF needs `security-events: write`. Pull requests from forks get a read-only token, so skip the upload step there.
+- Drop the `--baseline` flags, or use `--min-score`, if the project has no baseline yet — see [Quality Gate](#quality-gate).
+
+The shorter recipes below cover one piece each.
 
 ### GitHub Actions — run on every push
 
