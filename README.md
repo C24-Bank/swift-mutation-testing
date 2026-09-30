@@ -74,7 +74,8 @@ Results by file:
 Survived mutants:
   Sources/Validator.swift:34:5   NegateConditional
 
-Overall mutation score: 83.2%
+Overall mutation score: 85.3%
+Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 21, no coverage 0)
 Killed: 122 / Survived: 21 / Timeouts: 0 / Unviable: 4 / NoCoverage: 0
 Total duration: 312.7s
 ```

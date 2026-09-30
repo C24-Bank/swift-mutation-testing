@@ -85,22 +85,36 @@ struct RunnerSummary: Sendable {
     var unviable: [ExecutionResult]
     var timeouts: [ExecutionResult]
     var noCoverage: [ExecutionResult]
+    var detected: [ExecutionResult]
+    var undetected: [ExecutionResult]
     var score: Double
     var resultsByFile: [String: [ExecutionResult]]
 }
 ```
 
-Aggregates all `ExecutionResult` values and computes the mutation score.
+Aggregates all `ExecutionResult` values and computes the mutation score. `killed` includes `.killedByCrash`.
 
 **Score formula:**
 
 ```
-score = killed / (killed + survived + timeouts + noCoverage) × 100
+detected   = killed + timeouts
+undetected = survived + noCoverage
+score      = detected / (detected + undetected) × 100
 ```
 
-`unviable` mutants are excluded from the denominator. When `denominator == 0` the score is `100.0`.
+`unviable` mutants are on neither side. When no mutant is detected or undetected the score is `100.0`. This is the formula the Stryker report schema applies to the statuses `JsonReporter` emits, so the JSON report scores the same in any Stryker-compatible viewer — see [Stryker Compatibility](../STRYKER-COMPATIBILITY.md). It is the only score formula: `TextReporter` and `HtmlReporter` build a `RunnerSummary` per file for their per-file scores.
 
 `resultsByFile` groups results by `descriptor.filePath`, used by all reporters to produce per-file breakdowns.
+
+### Reporting/RunnerSummary+DetectionLine.swift
+
+```swift
+extension RunnerSummary {
+    var detectionLine: String
+}
+```
+
+`Detected: <n> (killed <k>, timeout <t>) / Undetected: <n> (survived <s>, no coverage <c>)` — the two sides of the score, printed under it by `TextReporter` and `HtmlReporter` so that a score earned by timeouts is visible as such.
 
 ---
 
@@ -120,8 +134,9 @@ Output sections:
 1. Per-file table: relative path, score %, killed/survived/timeout/unviable counts
 2. Survived mutants list: `<file>:<line>:<col>  <operator>` sorted by file then line
 3. Overall score line
-4. Total killed / survived / timeouts / unviable / noCoverage counts
-5. Total duration
+4. Detection line (`RunnerSummary.detectionLine`)
+5. Total killed / survived / timeouts / unviable / noCoverage counts
+6. Total duration
 
 `format(_:)` is exposed separately for testing.
 
@@ -153,7 +168,7 @@ struct HtmlReporter: Sendable {
 }
 ```
 
-Writes a self-contained HTML dashboard to `outputPath`. Includes a per-file score table with `<details>` elements listing survived mutants inline. Score cells are colour-coded: green (100%), yellow (≥ 50%), red (< 50%).
+Writes a self-contained HTML dashboard to `outputPath`. Shows the overall score, the detection line and the totals, then a per-file score table with `<details>` elements listing survived mutants inline. Score cells are colour-coded: green (100%), yellow (≥ 50%), red (< 50%).
 
 ---
 
@@ -180,19 +195,22 @@ Writes a SonarQube Generic Issue Import Format JSON file to `outputPath`. Report
 ```swift
 extension ExecutionStatus {
     var mutationReportStatus: String
+    var mutationReportStatusReason: String?
 }
 ```
 
-Maps `ExecutionStatus` to the string value used in `MutationReportMutant.status`.
+Maps `ExecutionStatus` to the Stryker schema values used in `MutationReportMutant.status` and `MutationReportMutant.statusReason`.
 
-| Case | String |
-|---|---|
-| `.killed` | `"Killed"` |
-| `.killedByCrash` | `"Crash"` |
-| `.survived` | `"Survived"` |
-| `.unviable` | `"Unviable"` |
-| `.timeout` | `"Timeout"` |
-| `.noCoverage` | `"NoCoverage"` |
+| Case | `status` | `statusReason` |
+|---|---|---|
+| `.killed` | `"Killed"` | `nil` |
+| `.killedByCrash` | `"Killed"` | `"crash"` |
+| `.survived` | `"Survived"` | `nil` |
+| `.unviable` | `"CompileError"` | `nil` |
+| `.timeout` | `"Timeout"` | `nil` |
+| `.noCoverage` | `"NoCoverage"` | `nil` |
+
+Every value is one the schema defines, and each lands on the side of the schema's score that `RunnerSummary` puts it on.
 
 ---
 
@@ -257,12 +275,13 @@ struct MutationReportMutant: Sendable, Encodable {
     let replacement: String
     let location: MutationReportLocation
     let status: String
+    let statusReason: String?
     let description: String
-    let killedBy: String?
+    let killedBy: [String]?
 }
 ```
 
-`killedBy` is populated only for `.killed(by:)` status.
+`killedBy` is populated only for `.killed(by:)` status, as a one-element array: the schema types it `string[]`, and a mutant's run stops at its first failing test. `statusReason` is populated only for `.killedByCrash`. Both are omitted from the JSON when `nil`.
 
 ---
 
@@ -378,6 +397,8 @@ struct MutantLogWriter: Sendable {
 ```
 
 Writes one `<mutant id>.log` per mutant into the directory given by `--keep-logs`, holding a header — id, operator, file and line, verdict, duration — followed by the whole test output that produced it. The initialiser fails when no directory was configured, so the call site is `MutantLogWriter(directory:)?.write(…)` and the feature costs nothing when it is off.
+
+The verdict in the header uses the tool's own labels (`Killed by <test>`, `Crash`, `Survived`, `Unviable`, `Timeout`, `NoCoverage`), not the Stryker values of `mutationReportStatus`: the log is read by someone chasing one mutant, and `Crash` says more there than `Killed`.
 
 Every verdict is logged, including `unviable`: a mutant that did not compile is exactly the one whose build output someone will want to read.
 

@@ -95,7 +95,7 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 
 ### Timeout ⏱
 
-**What it means:** the test process was still running when the per-mutant timeout expired — and it was still running when the mutant was run again on its own. A mutant that times out while the other workers are busy is not given this verdict straight away. The parallel pass allows twice the configured `--timeout`, and once it is over every mutant still unsettled is run once more with at most a quarter of the workers, under the configured `--timeout`; only that second timeout is reported. That second run has no contention to blame, so the verdict describes the mutation rather than the machine. The process was killed and the mutant is treated as having survived for scoring purposes.
+**What it means:** the test process was still running when the per-mutant timeout expired — and it was still running when the mutant was run again on its own. A mutant that times out while the other workers are busy is not given this verdict straight away. The parallel pass allows twice the configured `--timeout`, and once it is over every mutant still unsettled is run once more with at most a quarter of the workers, under the configured `--timeout`; only that second timeout is reported. That second run has no contention to blame, so the verdict describes the mutation rather than the machine. The process was killed and the mutant counts as detected in the score.
 
 **What causes it:** the mutation introduced an infinite loop or a significantly longer execution path. Common sources:
 
@@ -103,7 +103,7 @@ To address a survivor, add or strengthen a test that is sensitive to the origina
 - A negated conditional that sends execution down a much heavier path
 - An arithmetic change that produces a much larger iteration count
 
-**What it tells you:** a timeout almost certainly means the mutation altered the control flow in a way that a test would catch — it just ran out of time to do so. It is **not** treated as a kill: a timeout counts in the score denominator and not in the numerator, exactly like a survivor, because nothing observed the mutation. If timeouts are frequent, consider raising `--timeout` or investigating whether your tests have sufficiently low execution time for the affected code paths.
+**What it tells you:** a timeout means the mutation changed the control flow enough that the suite could no longer finish — and the isolated rerun rules out a busy machine as the cause. It is treated as **detected**, like a kill: the tests did not let the mutant pass. Stryker, Muter and PIT count timeouts the same way, which keeps our score identical to the one any Stryker-compatible tool computes from the JSON report. Timeouts are still reported on their own line — `Detected: N (killed K, timeout T)` — so a high score earned by timeouts is visible. If timeouts are frequent, consider raising `--timeout` or investigating whether your tests have sufficiently low execution time for the affected code paths.
 
 Mutants that loop forever are largely prevented at discovery rather than timing out here — see **Infinite-loop prevention** in the [mutation operators reference](CodeBase/04-mutation-operators.md).
 
@@ -123,24 +123,35 @@ No-coverage mutants count in the score denominator and not in the numerator, lik
 
 ## Mutation score
 
-The score is a percentage of mutants that were detected by the test suite:
+The score is the percentage of mutants the test suite detected:
 
 ```
-score = killed / (killed + survived + timeouts + noCoverage) × 100
+detected   = killed + killed by crash + timeouts
+undetected = survived + noCoverage
+score      = detected / (detected + undetected) × 100
 ```
 
-| Status | Counted in denominator | Counted in numerator |
-|---|---|---|
-| Killed | yes | yes |
-| Killed by crash | yes | yes |
-| Survived | yes | no |
-| Timeout | yes | no |
-| No coverage | yes | no |
-| Unviable | **no** | no |
+| Status | Side | Counted in denominator | Counted in numerator |
+|---|---|---|---|
+| Killed | detected | yes | yes |
+| Killed by crash | detected | yes | yes |
+| Timeout | detected | yes | yes |
+| Survived | undetected | yes | no |
+| No coverage | undetected | yes | no |
+| Unviable | — | **no** | no |
 
-Unviable mutants are excluded entirely — they are a property of the operators, not of the tests.
+Unviable mutants are excluded entirely — they are a property of the operators, not of the tests. When no mutant is detected or undetected the score is 100%.
 
-A score of 100% means every mutant that could be executed was detected by at least one test.
+The console and the HTML report print both sides under the score:
+
+```
+Overall mutation score: 90.0%
+Detected: 9 (killed 8, timeout 1) / Undetected: 1 (survived 1, no coverage 0)
+```
+
+This is the formula the [Stryker report schema](STRYKER-COMPATIBILITY.md) applies, so the score in the console, in the HTML report and in any Stryker-compatible viewer of the JSON report is the same number.
+
+A score of 100% means every mutant that could be executed was detected by at least one test or by the suite failing to finish.
 
 ---
 

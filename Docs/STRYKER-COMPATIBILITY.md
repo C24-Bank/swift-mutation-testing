@@ -1,6 +1,6 @@
 # Stryker JSON Report Compatibility
 
-The `--output` flag writes a JSON file intended to be compatible with the [Stryker mutation testing report schema](https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema) (version 1). This document records what is compatible, what deviates, and the practical impact of each deviation.
+The `--output` flag writes a JSON file compatible with the [Stryker mutation testing report schema](https://github.com/stryker-mutator/mutation-testing-elements/tree/master/packages/report-schema) (version 1). This document records what is compatible, what deviates, and the practical impact of each deviation.
 
 ---
 
@@ -11,7 +11,8 @@ The `--output` flag writes a JSON file intended to be compatible with the [Stryk
 3. [File-level fields](#file-level-fields)
 4. [Mutant-level fields](#mutant-level-fields)
 5. [Status mapping](#status-mapping)
-6. [Known deviations](#known-deviations)
+6. [Mutation score](#mutation-score)
+7. [Summary](#summary)
 
 ---
 
@@ -72,75 +73,51 @@ Each object in the `mutants` array describes one mutation point and its outcome.
 | `originalText` | `string?` | original token(s) (e.g., `">="`) | ✓ |
 | `replacement` | `string?` | mutated token(s) (e.g., `">"`) | ✓ |
 | `location.start.line` | `integer >= 1` | 1-based line number | ✓ |
-| `location.start.column` | `integer >= 0` | 1-based column number | ✗ — see [deviation 1](#deviation-1-column-numbers-are-1-based) |
+| `location.start.column` | `integer >= 1` | 1-based column number | ✓ |
 | `location.end.line` | `integer >= 1` | same as start line | ✓ |
-| `location.end.column` | `integer >= 0` | `start.column + originalText.count` | ✗ — see [deviation 1](#deviation-1-column-numbers-are-1-based) |
-| `status` | enum (see below) | string | partial — see [status mapping](#status-mapping) |
-| `killedBy` | `string[]?` | `string?` (single value or null) | ✗ — see [deviation 2](#deviation-2-killedby-is-a-string-not-an-array) |
+| `location.end.column` | `integer >= 1` | `start.column + originalText.count` | ✓ |
+| `status` | enum (see below) | one of the schema's values | ✓ — see [status mapping](#status-mapping) |
+| `statusReason` | `string?` | `"crash"` for a mutant killed by a crash, omitted otherwise | ✓ |
+| `killedBy` | `string[]?` | the name of the test that killed the mutant, omitted when no test is named | ✓ |
 | `description` | `string?` | `"<original> → <mutated>"` | ✓ |
+
+Both lines and columns are 1-based, as the schema defines them and as SwiftSyntax's `SourceLocation` reports them.
+
+`killedBy` holds a single test: a mutant's run stops at the first failing test, so there is never more than one to name.
 
 ---
 
 ## Status mapping
 
-The Stryker schema defines a fixed set of valid status values. The table below maps each of our internal statuses to the closest Stryker equivalent and records whether the emitted string matches exactly.
+Every status we emit is a value the schema defines.
 
-| Our `ExecutionStatus` | Emitted string | Stryker schema value | Compatible |
-|---|---|---|---|
-| `killed(by:)` | `"Killed"` | `"Killed"` | ✓ |
-| `killedByCrash` | `"Crash"` | `"RuntimeError"` | ✗ — see [deviation 3](#deviation-3-crash-and-unviable-are-not-stryker-status-values) |
-| `survived` | `"Survived"` | `"Survived"` | ✓ |
-| `timeout` | `"Timeout"` | `"Timeout"` | ✓ |
-| `noCoverage` | `"NoCoverage"` | `"NoCoverage"` | ✓ |
-| `unviable` | `"Unviable"` | `"CompileError"` | ✗ — see [deviation 3](#deviation-3-crash-and-unviable-are-not-stryker-status-values) |
+| Our `ExecutionStatus` | Emitted `status` | `statusReason` |
+|---|---|---|
+| `killed(by:)` | `"Killed"` | — |
+| `killedByCrash` | `"Killed"` | `"crash"` |
+| `survived` | `"Survived"` | — |
+| `timeout` | `"Timeout"` | — |
+| `noCoverage` | `"NoCoverage"` | — |
+| `unviable` | `"CompileError"` | — |
 
----
+Two of these are deliberate choices:
 
-## Known deviations
-
-### Deviation 1 — Column numbers are 1-based
-
-**What we emit:** `location.start.column` and `location.end.column` are 1-based, following SwiftSyntax's `SourceLocation` convention. For a token at the very beginning of a line, we emit `column: 1`.
-
-**What Stryker expects:** column values `>= 0`, i.e., 0-based. A token at the beginning of a line should be `column: 0`.
-
-**Impact:** mutant location highlighting in `mutation-testing-elements` and the Stryker Dashboard will appear shifted one character to the right relative to the actual mutation site. The report is still parsed and rendered — it is purely a display shift.
+- **A crash is emitted as `Killed`, not `RuntimeError`.** The schema treats `RuntimeError` as an invalid mutant and leaves it out of the score entirely, while we count a crash as a detection — the suite did not let the mutant pass. Emitting `RuntimeError` would make the score in a Stryker viewer differ from ours. `statusReason: "crash"` keeps the fact that the kill came from a crash rather than from an assertion.
+- **An unviable mutant is emitted as `CompileError`.** That is the schema's status for a mutant that does not compile, and like our own score it is left out of both sides of the fraction.
 
 ---
 
-### Deviation 2 — `killedBy` is a string, not an array
+## Mutation score
 
-**What we emit:**
+A Stryker-compatible viewer computes the score from the statuses in the report:
 
-```json
-"killedBy": "testShouldReturnFalseWhenAgeIsBelow18"
+```
+detected   = Killed + Timeout
+undetected = Survived + NoCoverage
+score      = detected / (detected + undetected) × 100
 ```
 
-Or `null` when the mutant was not killed by name.
-
-**What Stryker expects:**
-
-```json
-"killedBy": ["testShouldReturnFalseWhenAgeIsBelow18"]
-```
-
-The schema defines `killedBy` as `string[]` — an array even when there is a single killer.
-
-**Impact:** strict schema validators will reject the field. The `mutation-testing-elements` web component may silently ignore `killedBy` or fail to render the killing test name in the mutant detail panel. The rest of the report (score, file breakdown, status) is unaffected.
-
----
-
-### Deviation 3 — `Crash` and `Unviable` are not Stryker status values
-
-**What we emit:** `"Crash"` for mutants that killed the process via a runtime crash, and `"Unviable"` for mutants that did not compile.
-
-**What Stryker expects:** `"RuntimeError"` is the closest equivalent to `"Crash"`. `"CompileError"` is the closest equivalent to `"Unviable"`. Neither `"Crash"` nor `"Unviable"` appear in the Stryker v1 schema.
-
-**Impact:** mutants with these statuses are treated as unknown by `mutation-testing-elements` and the Stryker Dashboard. They may be omitted from the rendered report or displayed without a recognised status label. They do not affect the score shown in the report, because the Stryker schema computes score from `Killed` and `Survived` counts — unrecognised statuses are ignored in that calculation.
-
-In practice:
-- `"Crash"` mutants are killed (the mutation was detected). Their contribution to the kill count is lost in Stryker-rendered views.
-- `"Unviable"` mutants should not count toward the score at all — consistent with how our own score excludes them — so their omission from Stryker's rendering is acceptable.
+`CompileError` and `RuntimeError` are invalid and count on neither side. With the mapping above this is exactly the formula `RunnerSummary` uses — see [Mutation score](MUTATION-RESULTS.md#mutation-score) — so the score in a Stryker viewer, in the console and in the HTML report is the same number, overall and per file. A test recomputes the score from the JSON with the schema's rules and compares it with ours.
 
 ---
 
@@ -149,9 +126,9 @@ In practice:
 | Concern | Status |
 |---|---|
 | Report can be parsed by Stryker-compatible tools | ✓ |
-| Score and per-file breakdown render correctly | ✓ |
-| Survived / Killed / Timeout / NoCoverage render correctly | ✓ |
-| Column locations are accurate | ✗ off by 1 |
-| `killedBy` test name renders in detail panel | ✗ wrong type |
-| Crash mutants appear in rendered report as killed | ✗ unknown status |
-| Unviable mutants are excluded from score | ✓ (by omission) |
+| Every `status` is a schema value | ✓ |
+| Score and per-file breakdown match ours | ✓ |
+| Column locations are accurate | ✓ |
+| `killedBy` test name renders in detail panel | ✓ |
+| Crash mutants render as killed | ✓ |
+| Unviable mutants are excluded from score | ✓ |

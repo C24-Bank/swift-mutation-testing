@@ -266,7 +266,9 @@ Source changes are handled separately, by the key rather than by the diff: `Muta
 **Score formula:**
 
 ```
-score = killed / (killed + survived + timedOut + noCoverage) × 100
+detected   = killed + killedByCrash + timedOut
+undetected = survived + noCoverage
+score      = detected / (detected + undetected) × 100
 ```
 
 | Reporter | Format | Activated by |
@@ -274,7 +276,7 @@ score = killed / (killed + survived + timedOut + noCoverage) × 100
 | `TextReporter` | Human-readable console summary | Always |
 | `JsonReporter` | Stryker JSON schema | `--output <path>` |
 | `HtmlReporter` | Interactive HTML dashboard | `--html-output <path>` |
-| `SonarReporter` | SonarQube generic coverage format | `--sonar-output <path>` |
+| `SonarReporter` | SonarQube generic issue import format | `--sonar-output <path>` |
 
 ## Concurrency Model
 
