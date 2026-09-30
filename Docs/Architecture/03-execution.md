@@ -15,7 +15,9 @@ flowchart TD
     ALLCACHED -- yes --> RETURN[return cached results]
     ALLCACHED -- no --> SF[SandboxFactory\ncreate sandbox]
     SF --> REG[SandboxCleaner.register]
-    REG --> BS[BuildStage\nbuild-for-testing]
+    REG --> VERIFY[ApplicationVerifier\nevery mutant in the sandbox?]
+    VERIFY -- no --> INTEGRITY[throw IntegrityError]
+    VERIFY -- yes --> BS[BuildStage\nbuild-for-testing]
     BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
     RETRY -- gave up --> FBP[FallbackExecutor\none build per schematized file]
     BS -- success --> PROBE[probe each test bundle and library once\nbaseline + which have tests]
@@ -23,7 +25,8 @@ flowchart TD
     PROBE -- fails --> ABORT[throw BaselineError]
     PROBE -- passes --> TES[TestExecutionStage\ntwo passes, see below]
     TES --> TR[TestResultResolver]
-    TR --> CACHE[CacheStore]
+    TR --> CLASSIFY[marker not written?\nsurvived → noCoverage]
+    CLASSIFY --> CACHE[CacheStore]
     FBP --> CACHE
     IN -- incompatible mutants --> IME[IncompatibleMutantExecutor\nwarm sandboxes, incremental rebuild per mutant]
     IME --> CACHE
@@ -50,6 +53,8 @@ Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<
 - Inserts `break` statements into empty `switch case` bodies to prevent compiler errors in schematized code
 
 The original project is never touched. Cleanup removes the entire `xmr-*` directory when execution completes.
+
+Right after the sandbox is created, and before anything is built, `ApplicationVerifier` checks that it holds every mutant: each schematized copy differs from its original and ends with the per-file support declarations, each schematizable mutant has its `case` in the copy, and each incompatible mutant has content that differs from the original. A mutant that did not make it ends the run with `IntegrityError` — a verdict on a mutation that is not in the build says nothing. See [Application Check](05-schematization.md#application-check).
 
 ## SandboxCleaner
 
@@ -149,6 +154,8 @@ flowchart TD
 
 Either run stops at its first failing test: a mutant is killed by one test, and `TestOutputParser` reports that one. See `ProcessRunner` in [09 — Reporting & Infrastructure](../CodeBase/09-reporting-infrastructure.md) for the mechanism.
 
+Both paths hand each test process an activation marker path. A passing suite whose marker was never written is reported as `noCoverage` rather than `survived`; a kill or a timeout without the marker keeps its verdict and becomes an integrity warning. See [Activation Marker](05-schematization.md#activation-marker).
+
 **Two passes.** The first runs every mutant with `concurrency` workers and a limit of twice `--timeout`; a mutant still running at that point is not recorded, it is set aside. Once the group drains, the stragglers run again with a quarter of the workers and the configured `--timeout`, and that second outcome is the one reported. A verdict that settles under load is the verdict the mutant gets alone, so the wider limit only spares the second run — and the second pass has no contention to blame for a timeout.
 
 **Dynamic concurrency:** each pass seeds its workers, then adds one new task for each completed task, keeping exactly that many active at all times.
@@ -247,6 +254,8 @@ Cache is stored at `<project>/.swift-mutation-testing-cache/results.json`. A cac
 | Test file **removed** | invalidated if killer matches | invalidated | kept (permanent) |
 
 `.unviable` is permanent because it is a property of the mutant: a mutant that does not compile stays uncompilable however the tests change. Everything else is a statement about what happened when the tests ran, and is re-measured — including `.killedByCrash`, which used to be grouped with `.unviable` and so could never be cleared once recorded.
+
+Each entry also remembers whether the mutated code ran, so a cached `noCoverage` stays `noCoverage` and a cached kill without activation is still reported as a warning. The format is versioned (`formatVersion` 2 since activation was added); a cache in an older format is discarded once, with a warning.
 
 Source changes are handled separately, by the key rather than by the diff: `MutantCacheKey.fileContentHash` is the hash of the unmutated file, so editing the code under test produces different keys and the old verdicts are simply not found.
 

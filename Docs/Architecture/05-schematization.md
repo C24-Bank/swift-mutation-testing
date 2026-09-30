@@ -94,22 +94,49 @@ The block is part of `SchematizedFile.schematizedContent`. That is what makes th
 
 ## Runtime Activation
 
-At test execution time, `XCTestRunPlist.activating(_:)` injects the mutant ID into the `.xctestrun` plist under `EnvironmentVariables.__SWIFT_MUTATION_TESTING_ACTIVE` for every test target in the run. A fresh copy of the `.xctestrun` is written for each mutant.
+At test execution time, `XCTestRunPlist.activating(_:activationFile:)` injects the mutant ID into the `.xctestrun` plist under `EnvironmentVariables.__SWIFT_MUTATION_TESTING_ACTIVE` for every test target in the run, and the SPM path puts the same variable in the test process's environment. A fresh copy of the `.xctestrun` is written for each mutant.
 
 ```mermaid
 flowchart TD
-    PLIST[BuildArtifact.plist] --> ACT[XCTestRunPlist.activating\nmutantID]
-    ACT --> XCTESTRUN[Temporary .xctestrun\nwith env var set]
+    PLIST[BuildArtifact.plist] --> ACT[XCTestRunPlist.activating\nmutantID + marker path]
+    ACT --> XCTESTRUN[Temporary .xctestrun\nwith env vars set]
     XCTESTRUN --> XCB[xcodebuild test-without-building\n-xctestrun <path>]
     XCB --> BINARY[Test binary reads\n__SWIFT_MUTATION_TESTING_ACTIVE\nat startup]
     BINARY --> SWITCH[switch __swiftMutationTestingID\nroutes to active mutant]
+    SWITCH --> MARK[the case writes the marker file\nonce per file]
 ```
 
 When no environment variable is set (baseline run or passive execution), `__swiftMutationTestingID` returns `""`, which matches no `case` and the `default` branch executes — the original code runs unmodified.
 
-## Empty Case Body Fix
+## Activation Marker
 
-Swift requires `case` blocks in `switch` statements to contain at least one statement. When a mutated statement set is empty (e.g. `RemoveSideEffects` removes the only statement in a function body), the generated `case` block would be empty and fail to compile. `SandboxFactory.fixEmptySwitchCaseBodies` post-processes schematized files and inserts a `break` statement into any empty `case "..."` block before the build runs.
+A verdict is only meaningful if the mutated code ran, so every `case` records that it did. The runner names a marker file for each test run, `<sandbox>/.xmr-activation/<mutant id>-<UUID>`, and passes it in `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE`. The first time a file's `case` runs, `__SwiftMutationTesting.activated()` creates that file; a flag in the same private enum makes every later call a bool read. After the run, `ActivationMarker.wasWritten()` reads and removes it. The targeted run and the full run get markers of their own, and either counts.
+
+How the call sits in the `case` depends on the body's shape, recorded by `TypeScopeVisitor` as `FunctionBodyShape`:
+
+| Body | Case | Why |
+|---|---|---|
+| Statements | `let _ = __SwiftMutationTesting.activated()` then the statements | A second statement is harmless; `let _ =` keeps result builders (`@ViewBuilder`) from rejecting a bare call |
+| One expression, `func add(_ a: Int, _ b: Int) -> Int { a + b }` | `(__SwiftMutationTesting.activated(), a - b).1` | The body is an implicit return, so the whole `switch` is an expression and each branch must stay one expression. The tuple evaluates the activation first and has the expression's type, `try`, `await`, closures and `Never` included |
+| One `if` or `switch` expression in a value-returning body | `let _ = …` then `return if …`, and `return` in `default` too | An `if` expression cannot sit in a tuple; an explicit `return` makes the outer `switch` a statement again |
+| One `if` or `switch` in a `Void` body, `init` or setter | `let _ = …` then the statement | Nothing to return |
+
+What the marker decides:
+
+| Verdict | Marker | Reported as |
+|---|---|---|
+| tests passed | written | `survived` |
+| tests passed | not written | `noCoverage` |
+| a test failed, or the process crashed | written | `killed` / `killedByCrash` |
+| a test failed, or the process crashed | not written | unchanged, plus an integrity warning |
+| timed out | not written | unchanged, plus an integrity warning |
+| incompatible mutant | no `case` to instrument | unchanged; counted as "activation not measured" |
+
+The warning keeps the verdict because a rerun would say the same thing; the report just makes the anomaly visible. When mutants were killed and no mutant's code was ever seen running, the run stops instead (`IntegrityError.activationNeverObserved`): either the marker cannot be written here or the suite fails on its own, and every verdict is suspect.
+
+## Application Check
+
+Before the first build, `ApplicationVerifier` proves that the sandbox holds what discovery produced: every schematized file differs from its original and ends with the support declarations, every schematizable mutant has its `case` in the sandbox copy, and every incompatible mutant's content differs from the original. Anything missing ends the run with an `IntegrityError` naming it, before a build is paid for. The check runs again for each per-file sandbox of the fallback path.
 
 ---
 
