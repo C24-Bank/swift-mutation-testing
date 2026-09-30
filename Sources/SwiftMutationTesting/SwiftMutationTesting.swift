@@ -70,6 +70,8 @@ public struct SwiftMutationTesting {
 
         let executionLauncher: any ProcessLaunching = launcher ?? defaultLauncher(for: configuration.build.projectType)
 
+        SandboxCleaner.removeOrphaned()
+
         let start = Date()
         let results = try await MutantExecutor(configuration: configuration, launcher: executionLauncher).execute(input)
         let duration = Date().timeIntervalSince(start)
