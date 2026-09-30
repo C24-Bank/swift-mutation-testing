@@ -4,6 +4,10 @@ enum SandboxName {
 
     static let prefix = "xmr-"
 
+    static var directory: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("swift-mutation-testing")
+    }
+
     static func make(pid: pid_t = getpid()) -> String {
         "\(prefix)\(pid)-\(UUID().uuidString)"
     }

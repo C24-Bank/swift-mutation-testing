@@ -47,6 +47,8 @@ struct MutantExecutor: Sendable {
             input: input, hasher: hasher, cacheStore: cacheStore, reporter: reporter
         )
 
+        SandboxCleaner.removeOrphaned()
+
         let sandbox = try await SandboxFactory().create(
             projectPath: input.projectPath,
             schematizedFiles: input.schematizedFiles,

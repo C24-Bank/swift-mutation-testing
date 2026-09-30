@@ -19,7 +19,7 @@ enum SandboxCleaner {
         }
     }
 
-    static func removeOrphaned(in directory: URL = FileManager.default.temporaryDirectory) {
+    static func removeOrphaned(in directory: URL = SandboxName.directory) {
         guard
             let contents = try? FileManager.default.contentsOfDirectory(
                 at: directory,
