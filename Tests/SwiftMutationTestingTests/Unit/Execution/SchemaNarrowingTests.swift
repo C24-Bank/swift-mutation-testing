@@ -31,7 +31,9 @@ struct SchemaNarrowingTests {
             syntax: Parser.parse(source: code)
         )
         return ArithmeticOperatorReplacement().mutations(in: parsed).enumerated().map {
-            IndexedMutationPoint(index: $0.offset, mutation: $0.element, isSchematizable: true)
+            IndexedMutationPoint(
+                index: $0.offset, mutation: $0.element, isSchematizable: true, fingerprint: "fingerprint-\($0.offset)"
+            )
         }
     }
 

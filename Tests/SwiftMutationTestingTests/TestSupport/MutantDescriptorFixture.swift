@@ -13,7 +13,8 @@ func makeMutantDescriptor(
     description: String = "+ → -",
     isSchematizable: Bool = false,
     mutatedSourceContent: String? = nil,
-    sourceContentHash: String = "source-hash"
+    sourceContentHash: String = "source-hash",
+    fingerprint: String = "fingerprint"
 ) -> MutantDescriptor {
     MutantDescriptor(
         id: id,
@@ -28,6 +29,7 @@ func makeMutantDescriptor(
         description: description,
         isSchematizable: isSchematizable,
         mutatedSourceContent: mutatedSourceContent,
-        sourceContentHash: sourceContentHash
+        sourceContentHash: sourceContentHash,
+        fingerprint: fingerprint
     )
 }

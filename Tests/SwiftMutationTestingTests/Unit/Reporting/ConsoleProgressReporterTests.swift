@@ -86,7 +86,8 @@ struct ConsoleProgressReporterTests {
             operatorIdentifier: "BooleanLiteralReplacement",
             replacementKind: .booleanLiteral, description: "",
             isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let output = await captureOutput {
@@ -108,7 +109,8 @@ struct ConsoleProgressReporterTests {
             operatorIdentifier: "NegateConditional",
             replacementKind: .binaryOperator, description: "",
             isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let output = await captureOutput {
@@ -131,7 +133,8 @@ struct ConsoleProgressReporterTests {
             operatorIdentifier: "NegateConditional",
             replacementKind: .binaryOperator, description: "",
             isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let beta = MutantDescriptor(
             id: "2", filePath: "/project/Sources/Beta.swift",
@@ -140,7 +143,8 @@ struct ConsoleProgressReporterTests {
             operatorIdentifier: "RemoveSideEffects",
             replacementKind: .removeStatement, description: "",
             isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let output = await captureOutput {
@@ -189,7 +193,8 @@ struct ConsoleProgressReporterTests {
             operatorIdentifier: "NegateConditional",
             replacementKind: .binaryOperator, description: "",
             isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let output = await captureOutput {

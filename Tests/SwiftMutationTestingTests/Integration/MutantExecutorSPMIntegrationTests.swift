@@ -133,7 +133,8 @@ private func calculatorMutants(path: String) -> [MutantDescriptor] {
             originalText: "+", mutatedText: "-",
             operatorIdentifier: "binaryOperator", replacementKind: .binaryOperator,
             description: "Replace + with -", isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         ),
         MutantDescriptor(
             id: "m2", filePath: path,
@@ -141,7 +142,8 @@ private func calculatorMutants(path: String) -> [MutantDescriptor] {
             originalText: "-", mutatedText: "+",
             operatorIdentifier: "binaryOperator", replacementKind: .binaryOperator,
             description: "Replace - with +", isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         ),
         MutantDescriptor(
             id: "m3", filePath: path,
@@ -149,7 +151,8 @@ private func calculatorMutants(path: String) -> [MutantDescriptor] {
             originalText: ">", mutatedText: ">=",
             operatorIdentifier: "binaryOperator", replacementKind: .binaryOperator,
             description: "Replace > with >=", isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         ),
     ]
 }
@@ -162,7 +165,8 @@ private func validatorMutants(path: String) -> [MutantDescriptor] {
             originalText: ">=", mutatedText: ">",
             operatorIdentifier: "binaryOperator", replacementKind: .binaryOperator,
             description: "Replace >= with >", isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         ),
         MutantDescriptor(
             id: "m5", filePath: path,
@@ -170,7 +174,8 @@ private func validatorMutants(path: String) -> [MutantDescriptor] {
             originalText: "<=", mutatedText: "<",
             operatorIdentifier: "binaryOperator", replacementKind: .binaryOperator,
             description: "Replace <= with <", isSchematizable: true, mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         ),
     ]
 }
@@ -189,7 +194,8 @@ private func incompatibleMutants(path: String) -> [MutantDescriptor] {
                     func isNonNegative(_ n: Int) -> Bool { n > 0 }
                 }
                 """,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
     ]
 }

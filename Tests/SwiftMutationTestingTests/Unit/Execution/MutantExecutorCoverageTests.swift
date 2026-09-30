@@ -27,7 +27,8 @@ struct MutantExecutorCoverageTests {
             description: "true → false",
             isSchematizable: true,
             mutatedSourceContent: "let x = false",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let input = makeRunnerInput(
             projectPath: dir.path,
@@ -63,7 +64,8 @@ struct MutantExecutorCoverageTests {
             description: "true → false",
             isSchematizable: true,
             mutatedSourceContent: "let x = false",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let input = makeRunnerInput(
             projectPath: dir.path,
@@ -109,7 +111,8 @@ struct MutantExecutorCoverageTests {
             description: "true → false",
             isSchematizable: true,
             mutatedSourceContent: "let x = false",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let input = makeRunnerInput(
             projectPath: dir.path,

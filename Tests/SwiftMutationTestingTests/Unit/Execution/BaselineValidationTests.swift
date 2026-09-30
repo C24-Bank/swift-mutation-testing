@@ -124,7 +124,8 @@ struct BaselineValidationTests {
             description: "true → false",
             isSchematizable: true,
             mutatedSourceContent: "let x = false",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         return makeRunnerInput(
