@@ -109,7 +109,7 @@ struct JsonReporterTests {
         let file = files?["/Sources/Calc.swift"] as? [String: Any]
         let mutants = file?["mutants"] as? [[String: Any]]
 
-        #expect(mutants?.first?["killedBy"] as? String == "MySuite.myTest")
+        #expect(mutants?.first?["killedBy"] as? [String] == ["MySuite.myTest"])
     }
 
     @Test("Given a survived mutant, when report called, then killedBy is nil")

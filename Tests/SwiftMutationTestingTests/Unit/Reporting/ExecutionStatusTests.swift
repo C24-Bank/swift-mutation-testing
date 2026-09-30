@@ -10,9 +10,9 @@ struct ExecutionStatusTests {
         #expect(ExecutionStatus.killed(by: "t").mutationReportStatus == "Killed")
     }
 
-    @Test("Given killedByCrash status, when mutationReportStatus called, then returns Crash")
-    func killedByCrashReturnsCrash() {
-        #expect(ExecutionStatus.killedByCrash.mutationReportStatus == "Crash")
+    @Test("Given killedByCrash status, when mutationReportStatus called, then returns Killed")
+    func killedByCrashReturnsKilled() {
+        #expect(ExecutionStatus.killedByCrash.mutationReportStatus == "Killed")
     }
 
     @Test("Given survived status, when mutationReportStatus called, then returns Survived")
@@ -20,9 +20,9 @@ struct ExecutionStatusTests {
         #expect(ExecutionStatus.survived.mutationReportStatus == "Survived")
     }
 
-    @Test("Given unviable status, when mutationReportStatus called, then returns Unviable")
-    func unviableReturnsUnviable() {
-        #expect(ExecutionStatus.unviable.mutationReportStatus == "Unviable")
+    @Test("Given unviable status, when mutationReportStatus called, then returns CompileError")
+    func unviableReturnsCompileError() {
+        #expect(ExecutionStatus.unviable.mutationReportStatus == "CompileError")
     }
 
     @Test("Given timeout status, when mutationReportStatus called, then returns Timeout")

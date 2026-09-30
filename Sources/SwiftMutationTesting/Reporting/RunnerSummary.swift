@@ -27,13 +27,20 @@ struct RunnerSummary: Sendable {
         results.filter { $0.status == .noCoverage }
     }
 
+    var detected: [ExecutionResult] {
+        killed + timeouts
+    }
+
+    var undetected: [ExecutionResult] {
+        survived + noCoverage
+    }
+
     var score: Double {
-        let numerator = killed.count
-        let denominator = killed.count + survived.count + timeouts.count + noCoverage.count
+        let valid = detected.count + undetected.count
 
-        guard denominator > 0 else { return 100.0 }
+        guard valid > 0 else { return 100.0 }
 
-        return Double(numerator) / Double(denominator) * 100.0
+        return Double(detected.count) / Double(valid) * 100.0
     }
 
     var resultsByFile: [String: [ExecutionResult]] {
