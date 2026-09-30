@@ -40,14 +40,15 @@ flowchart TD
     D -- no --> E[ConfigurationFileParser.parse\nConfigurationResolver.resolve]
     E --> S[SleepInhibitor.preventingIdleSleep]
     S --> F[discover → RunnerInput]
-    F --> SW[SandboxCleaner.removeOrphaned]
+    F --> RP[OrphanedProcessReaper.reap]
+    RP --> SW[SandboxCleaner.removeOrphaned]
     SW --> G[MutantExecutor.execute → results]
     G --> H[RunnerSummary]
     H --> I[TextReporter.report]
     I --> J[writeReports → .success]
 ```
 
-`runPipeline` holds a `SleepInhibitor` assertion from discovery to the last report, so an unattended run does not stop while the machine sleeps. Before handing the mutants to `MutantExecutor` it sweeps sandboxes left by interrupted runs (`SandboxCleaner.removeOrphaned()`); doing it here rather than in `main()` keeps `--help`, `--version` and `init` from paying for a directory listing they do not need.
+`runPipeline` holds a `SleepInhibitor` assertion from discovery to the last report, so an unattended run does not stop while the machine sleeps. Before handing the mutants to `MutantExecutor` it kills test processes still running from the sandboxes of dead runs (`OrphanedProcessReaper().reap()`) and then sweeps those sandboxes (`SandboxCleaner.removeOrphaned()`); doing it here rather than in `main()` keeps `--help`, `--version` and `init` from paying for a directory listing they do not need.
 
 `discover` runs `DiscoveryPipeline` and, when `quiet` is false, emits `.discoveryFinished` to a `ConsoleProgressReporter`.
 

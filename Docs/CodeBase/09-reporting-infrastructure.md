@@ -599,10 +599,24 @@ Resolves symlinks with `realpath`, returning the input unchanged when it cannot.
 ```swift
 enum ProcessTree {
     static func descendants(of pid: Int32, sysctl: SystemCalls.Sysctl = Darwin.sysctl) -> [Int32]
+    static func all(sysctl: SystemCalls.Sysctl = Darwin.sysctl) -> [Int32]
 }
 ```
 
-Walks the process table from `sysctl(KERN_PROC_ALL)` and returns every descendant of a pid, at any depth. `SPMProcessLauncher.terminate` snapshots them while the group is frozen, so a test process that spawns children cannot leave one behind.
+Walks the process table from `sysctl(KERN_PROC_ALL)` and returns every descendant of a pid, at any depth. `SPMProcessLauncher.terminate` snapshots them while the group is frozen, so a test process that spawns children cannot leave one behind. `all()` returns every pid above 1, for `OrphanedProcessReaper` to inspect.
+
+---
+
+## Infrastructure/ProcessArguments.swift
+
+```swift
+enum ProcessArguments {
+    static func read(pid: pid_t, sysctl: SystemCalls.Sysctl = Darwin.sysctl) -> [String]?
+    static func parse(_ buffer: [UInt8]) -> [String]?
+}
+```
+
+Reads another process's `argv` through `sysctl(KERN_PROCARGS2)`. The buffer holds `argc` as an `Int32`, the executable path, NUL padding, the `argc` arguments and then the environment. `parse` returns only the arguments. `read` returns `nil` when the kernel refuses, which is the case for other users' processes.
 
 ---
 

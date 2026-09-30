@@ -143,6 +143,34 @@ The one case this does not cover is a crashed run whose pid has since been reuse
 
 ---
 
+## Sandbox/OrphanedProcessReaper.swift
+
+```swift
+struct OrphanedProcessReaper: Sendable {
+    var processes: @Sendable () -> [pid_t]
+    var arguments: @Sendable (pid_t) -> [String]?
+    var descendants: @Sendable (pid_t) -> [pid_t]
+    var isOwnerAlive: @Sendable (String) -> Bool
+    var kill: SystemCalls.Kill
+
+    @discardableResult func reap() -> [pid_t]
+    static func sandboxName(in arguments: [String]) -> String?
+}
+```
+
+Kills test processes left running by a run that is gone. `runPipeline` calls `reap()` right before `SandboxCleaner.removeOrphaned()`.
+
+A run that is killed with `SIGKILL` or crashes never reaches the signal handler, so a mutant stuck in a loop at that moment keeps running forever, reparented to `launchd` (#105). The directory sweep does not help: it removes the sandbox and leaves the process, which keeps running from its unlinked bundle. The reaper therefore looks at processes rather than directories. It reads each process's `argv` (`ProcessArguments`), looks for a path component that `SandboxName.ownerPID(of:)` accepts — `swiftpm-testing-helper` always carries one in `--test-bundle-path` — and kills the process and its descendants when that owner is no longer alive.
+
+Two rules keep it from killing anything that is not ours:
+
+- **Only strict sandbox names are matched.** `xmr-<pid>-<UUID>` must parse, and the owner must be dead by the same test the directory sweep uses. A legacy `xmr-<UUID>` name has no owner to check, so it is left alone.
+- **Only the current user's processes are visible.** `KERN_PROCARGS2` refuses to read another user's arguments. The current process, and anything in a sandbox it owns, is skipped.
+
+Every dependency is injectable, so the tests exercise each rule with a recording `kill` and one real orphan, a `tail -f` inside a dead run's sandbox.
+
+---
+
 ## Sandbox/SandboxRegistry.swift
 
 ```swift
