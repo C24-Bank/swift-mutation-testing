@@ -74,7 +74,9 @@ private func makeInput(fixtureURL: URL) -> RunnerInput {
         timeout: 60.0,
         concurrency: 1,
         noCache: true,
-        schematizedFiles: makeSchematizedFiles(fixtureURL: fixtureURL),
+        schematizedFiles: applied(
+            makeSchematizedFiles(fixtureURL: fixtureURL), for: makeMutants(fixtureURL: fixtureURL)
+        ),
         mutants: makeMutants(fixtureURL: fixtureURL)
     )
 }
@@ -98,7 +100,7 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
                         (__swiftMutationTestingID == "m3") ? n >= 0 : n > 0
                     }
                 }
-                """ + "\n\n" + SupportDeclarations.perFile + "\n"
+                """
         ),
         SchematizedFile(
             originalPath: validatorPath,
@@ -109,7 +111,7 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
                             && ((__swiftMutationTestingID == "m5") ? value < 100 : value <= 100)
                     }
                 }
-                """ + "\n\n" + SupportDeclarations.perFile + "\n"
+                """
         ),
     ]
 }

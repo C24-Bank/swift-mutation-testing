@@ -59,14 +59,15 @@ struct MutantExecutorTests {
         #expect(results[0].status == .unviable)
     }
 
-    @Test("Given incompatible mutant with nil content, when execute called, then returns unviable")
-    func incompatibleMutantWithNilContentIsUnviable() async throws {
+    @Test("Given incompatible mutant with nil content, when execute called, then the run stops before any build")
+    func incompatibleMutantWithNilContentStopsTheRun() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
         let executor = MutantExecutor(
             configuration: makeRunnerConfiguration(projectPath: dir.path),
-            launcher: MockProcessLauncher(exitCode: 1)
+            launcher: launcher
         )
         let mutant = makeMutantDescriptor(
             id: "m0",
@@ -82,10 +83,10 @@ struct MutantExecutorTests {
         )
         let input = makeRunnerInput(projectPath: dir.path, mutants: [mutant])
 
-        let results = try await executor.execute(input)
-
-        #expect(results.count == 1)
-        #expect(results[0].status == .unviable)
+        await #expect(throws: IntegrityError.mutantsNotApplied(ids: ["m0"])) {
+            try await executor.execute(input)
+        }
+        #expect(await launcher.requests.isEmpty)
     }
 
     @Test("Given noCache is false and all mutants cached, when execute called, then returns from cache")
@@ -300,7 +301,7 @@ struct MutantExecutorTests {
             replacementKind: .booleanLiteral,
             description: "true → false",
             isSchematizable: false,
-            mutatedSourceContent: nil,
+            mutatedSourceContent: "let y = false",
             sourceContentHash: "test-hash",
             fingerprint: "fingerprint"
         )
@@ -969,7 +970,11 @@ struct MutantExecutorTests {
         )
 
         _ = try? await executor.execute(
-            makeRunnerInput(projectPath: dir.path, mutants: [makeMutantDescriptor(id: "m0")])
+            makeRunnerInput(
+                projectPath: dir.path,
+                schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+                mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+            )
         )
 
         #expect(await launcher.timeouts(forCommandStartingWith: "build-for-testing") == [240])

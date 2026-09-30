@@ -15,7 +15,24 @@ func makeRunnerInput(
         timeout: timeout,
         concurrency: concurrency,
         noCache: noCache,
-        schematizedFiles: schematizedFiles,
+        schematizedFiles: applied(schematizedFiles, for: mutants),
         mutants: mutants
     )
+}
+
+func applied(_ files: [SchematizedFile], for mutants: [MutantDescriptor]) -> [SchematizedFile] {
+    files.map { file in
+        var content = file.schematizedContent
+        let ids = mutants.filter { $0.isSchematizable && $0.filePath == file.originalPath }.map(\.id)
+        let unlabeled = ids.filter { !content.contains("case \"\($0)\":") }
+
+        if !unlabeled.isEmpty {
+            content += "\n" + unlabeled.map { "// case \"\($0)\":" }.joined(separator: "\n")
+        }
+        if !content.contains(SupportDeclarations.perFile) {
+            content += "\n\n" + SupportDeclarations.perFile + "\n"
+        }
+
+        return SchematizedFile(originalPath: file.originalPath, schematizedContent: content)
+    }
 }
