@@ -22,14 +22,14 @@ struct TargetedSuitesTests {
 
         let suites = TargetedSuites.declared(in: [declared, renamed, helper, notText].map(\.path))
 
-        #expect(suites == ["FooTests"])
+        #expect(Set(suites.keys) == ["FooTests"])
     }
 
     @Test("Given a source file, when its suite is looked up, then it is the file's name plus Tests when declared")
     func aSourceMapsToItsSuiteWhenDeclared() {
-        let suites: Set<String> = ["FooTests"]
+        let suites = ["FooTests": TargetedSuite(name: "FooTests", testTarget: "PkgTests")]
 
-        #expect(TargetedSuites.suite(for: "/proj/Sources/Foo.swift", among: suites) == "FooTests")
+        #expect(TargetedSuites.suite(for: "/proj/Sources/Foo.swift", among: suites)?.name == "FooTests")
         #expect(TargetedSuites.suite(for: "/proj/Sources/Bar.swift", among: suites) == nil)
     }
 }

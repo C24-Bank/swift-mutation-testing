@@ -11,7 +11,7 @@ struct TestBundleInvocationTests {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
-        #expect(TestBundleInvocation.bundleURL(in: Sandbox(rootURL: dir)) == nil)
+        #expect(TestBundleInvocation.bundleURLs(in: Sandbox(rootURL: dir)).isEmpty)
     }
 
     @Test("Given a built bundle, when looked up, then it is found")
@@ -25,9 +25,9 @@ struct TestBundleInvocationTests {
             withIntermediateDirectories: true
         )
 
-        let found = TestBundleInvocation.bundleURL(in: Sandbox(rootURL: dir))
+        let found = TestBundleInvocation.bundleURLs(in: Sandbox(rootURL: dir))
 
-        #expect(found?.lastPathComponent == "PkgTests.xctest")
+        #expect(found.map(\.lastPathComponent) == ["PkgTests.xctest"])
     }
 
     @Test("Given XCTest, when a request is built, then xctest runs the bundle with the mutant selected")
