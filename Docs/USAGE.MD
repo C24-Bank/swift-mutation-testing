@@ -461,6 +461,8 @@ Suppressed mutations never appear in the report — they are filtered out before
 
 ## CI/CD Integration
 
+An AI coding agent can run the tool and act on its report with the [Claude Code plugin](../README.md#using-with-ai-coding-agents), whose skill covers the same flow as this section.
+
 ### GitHub Actions — run on every push
 
 ```yaml

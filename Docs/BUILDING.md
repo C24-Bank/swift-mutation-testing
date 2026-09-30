@@ -81,6 +81,27 @@ swift run swift-mutation-testing Fixtures/CalcApp \
   --destination "platform=macOS"
 ```
 
+## Claude Code Plugin
+
+`.claude-plugin/` and `skills/` make the repository a Claude Code plugin
+marketplace. After changing either, validate them with the Claude Code CLI:
+
+```bash
+claude plugin validate .
+```
+
+The only expected warning is the missing `version`. It is left out on purpose:
+without it, Claude Code versions the plugin by commit, so users receive a new
+skill as soon as it reaches `main`, instead of staying on a pinned copy.
+`PluginManifestTests` checks the manifests and the skill's frontmatter in
+`swift test`.
+
+To try the skill before merging, load the checkout for one session:
+
+```bash
+claude --plugin-dir .
+```
+
 ## Repository Hooks
 
 Install the configured hooks before preparing commits:
