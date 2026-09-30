@@ -66,7 +66,7 @@ undetected = survived + noCoverage
 score      = detected / (detected + undetected) × 100
 ```
 
-Each mutant in the JSON report (`files["/Sources/Foo.swift"].mutants[]`) carries `mutatorName`, `originalText`, `replacement`, `location.start.line` and `.column` (both 1-based), `status`, and `killedBy` when a test killed it. Its `status` is one of:
+Each mutant in the JSON report (`files["/Sources/Foo.swift"].mutants[]`) carries `mutatorName`, `originalText`, `replacement`, `location.start.line` and `.column` (both 1-based), `status`, `killedBy` when a test killed it, and a `fingerprint` that identifies the mutant across runs. Its `status` is one of:
 
 | `status` | Meaning | Action |
 |---|---|---|
@@ -121,12 +121,23 @@ To keep code out of the run, prefer `--exclude` (or `exclude:` in the config fil
 
 - Commit `.swift-mutation-testing.yml` so CI runs with no extra flags: `swift-mutation-testing --quiet --output mutation-report.json`.
 - Cache `.swift-mutation-testing-cache/` between runs (`actions/cache`), keyed on the Swift sources and tests.
-- The exit code is `0` when the run completed and `1` on an error (bad arguments, a build that failed, a failing baseline). It does not fail on a low score; check the score from the JSON report in a later step if the user wants a threshold.
+- Exit codes: `0` the run completed (and the quality gate passed, if set); `1` an error (bad arguments, a build that failed, a suite that fails without mutations, an unusable baseline); `2` the quality gate failed. On `2` the reports were still written.
+- **Quality gate.** Suggest one when the user wants CI to fail on weak tests:
+  - `--min-score 80` (or `min-score: 80` in the config file): fail below a score.
+  - For a project that already has survivors, record them once and fail only on new ones:
+    ```bash
+    swift-mutation-testing --write-baseline .swift-mutation-testing-baseline.json   # commit this file
+    swift-mutation-testing --baseline .swift-mutation-testing-baseline.json --max-new-survivors 0
+    ```
+  - `--max-score-drop 2` with `--baseline`: fail when the score falls more than 2 points below the baseline's.
+  - Mutants are matched by fingerprint (file, enclosing declaration, operator, change), so edits elsewhere do not make old survivors look new. Renaming the function or editing the mutated expression does.
+  - After killing survivors, write the baseline again so the fixed ones leave it. Never write a new baseline just to make a failing gate pass without telling the user which survivors it accepts.
 - `--sonar-output` writes survivors as SonarQube external issues; `--html-output` writes a report for people.
 
 ## 8. Pitfalls
 
 - **Do not compare scores across scopes.** A run with `--operator`, `--sources-path` or `--exclude` scores a different set of mutants than a full run.
+- **A baseline only compares with the same scope.** A run whose operators, `--sources-path` or `--exclude` differ from the baseline's stops with exit code `1` and lists the differences. Run with the baseline's scope, or write a new baseline on purpose.
 - **One run per project at a time.** Two runs on the same project write the same cache.
 - **Xcode needs a destination that exists.** An iOS simulator destination must name an installed simulator; for code that runs on macOS, `platform=macOS` is faster and needs no simulator.
 - **Timeouts cost time.** Each one waits for `--timeout` (30 s for packages, 120 s for Xcode by default), and it is rerun once alone before it is reported.
