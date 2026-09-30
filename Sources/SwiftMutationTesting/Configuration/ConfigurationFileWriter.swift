@@ -87,6 +87,7 @@ struct ConfigurationFileWriter: Sendable {
             lines.append("concurrency: 4")
         }
         lines.append(contentsOf: reportSection(testTarget: testTarget, excludeExample: "**/Generated/**"))
+        lines.append(contentsOf: gateSection())
         lines.append(contentsOf: mutatorsSection())
         return lines
     }
@@ -117,6 +118,7 @@ struct ConfigurationFileWriter: Sendable {
         lines.append("# Build timeout in seconds (default: 120)")
         lines.append("# build-timeout: 240")
         lines.append(contentsOf: reportSection(testTarget: testTarget, excludeExample: "**/Tests/**"))
+        lines.append(contentsOf: gateSection())
         lines.append(contentsOf: mutatorsSection())
 
         return lines.joined(separator: "\n") + "\n"
@@ -142,6 +144,18 @@ struct ConfigurationFileWriter: Sendable {
             lines.append("#   - \"\(excludeExample)\"")
         }
         return lines
+    }
+
+    private func gateSection() -> [String] {
+        [
+            "",
+            "# Quality gate — a failed gate exits with code 2",
+            "# min-score: 80",
+            "# Baseline written by --write-baseline, relative to the project",
+            "# baseline: .swift-mutation-testing-baseline.json",
+            "# max-score-drop: 2",
+            "# max-new-survivors: 0",
+        ]
     }
 
     private func mutatorsSection() -> [String] {
