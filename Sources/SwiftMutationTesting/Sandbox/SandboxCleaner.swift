@@ -4,15 +4,18 @@ import Synchronization
 private let signalTarget = Mutex(SandboxCleaner.SignalTarget.process)
 
 private func handleSignal(_: Int32) {
-    signalTarget.withLock { SandboxCleaner.terminate(registry: $0.registry, exit: $0.exit) }
+    signalTarget.withLock {
+        SandboxCleaner.terminate(registry: $0.registry, processGroups: $0.processGroups, exit: $0.exit)
+    }
 }
 
 enum SandboxCleaner {
 
     struct SignalTarget: Sendable {
-        static let process = SignalTarget(registry: .shared, exit: { _exit($0) })
+        static let process = SignalTarget(registry: .shared, processGroups: .shared, exit: { _exit($0) })
 
         let registry: SandboxRegistry
+        let processGroups: ProcessGroupRegistry
         let exit: @Sendable (Int32) -> Void
     }
 
@@ -31,8 +34,10 @@ enum SandboxCleaner {
 
     static func terminate(
         registry: SandboxRegistry = .shared,
+        processGroups: ProcessGroupRegistry = .shared,
         exit: (Int32) -> Void = SignalTarget.process.exit
     ) {
+        processGroups.killAll()
         registry.cleanup()
         exit(1)
     }
