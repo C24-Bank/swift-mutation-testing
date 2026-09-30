@@ -94,6 +94,6 @@ Three regions used to sit here: `guard pid > 0` in both launchers' timeout handl
 
 | file | line | why |
 |---|---|---|
-| `Sandbox/SandboxCleaner.swift` | 4, 13 | the installed handler and the default `exit` call `_exit`, which would end the test process |
+| `Sandbox/SandboxCleaner.swift` | 13 | `SignalTarget.process` exits through `_exit`, which would end the test process |
 
 Covering that one means running the binary as a child process, sending it `SIGINT` and asserting on the exit code and the sandbox it left behind — an integration test, not a unit test.

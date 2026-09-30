@@ -105,8 +105,15 @@ enum SandboxCleaner {
     static func register(_ sandbox: Sandbox, in registry: SandboxRegistry = .shared)
     static func deregister(in registry: SandboxRegistry = .shared)
     static func cleanupActiveSandbox(in registry: SandboxRegistry = .shared)
-    static func terminate(registry: SandboxRegistry = .shared, exit: (Int32) -> Void = { _exit($0) })
+    static func terminate(registry: SandboxRegistry = .shared, exit: (Int32) -> Void = SignalTarget.process.exit)
     static func installSignalHandlers()
+    static func withSignalTarget<T>(_ target: SignalTarget, _ body: () throws -> T) rethrows -> T
+
+    struct SignalTarget: Sendable {
+        static let process: SignalTarget
+        let registry: SandboxRegistry
+        let exit: @Sendable (Int32) -> Void
+    }
 }
 ```
 
@@ -119,7 +126,10 @@ Handles cleanup of orphaned and active sandbox directories.
 | `deregister(in:)` | Forgets the active sandbox without touching the directory |
 | `cleanupActiveSandbox(in:)` | Removes the active sandbox directory, if one is registered |
 | `terminate(registry:exit:)` | What a signal does: removes the active sandbox, then calls `exit(1)` |
-| `installSignalHandlers()` | Installs `SIGINT` and `SIGTERM` handlers that call `terminate()` |
+| `installSignalHandlers()` | Installs `SIGINT` and `SIGTERM` handlers that call `terminate` with the current `SignalTarget` |
+| `withSignalTarget(_:_:)` | Points the installed handler at another registry and exit for the length of `body`, then restores `SignalTarget.process` |
+
+A C signal handler cannot capture anything, so what it cleans and how it exits come from a module-level `Mutex<SignalTarget>`. In a run it always holds `SignalTarget.process` — the shared registry and `_exit` — and nothing but the handler ever takes the lock. `withSignalTarget` exists so a test can invoke the handler that was really installed without removing another test's sandbox or ending the test process; it replaces the mutable exit-handler global the handler used to read, which tests swapped without any synchronisation.
 
 **Ownership.** The sweep used to run at startup, before arguments were parsed, and it deleted every `xmr-*` directory in `$TMPDIR` on the grounds that a sandbox found at startup must belong to a run that is over. It does not: a second invocation — `--help` included — destroyed the sandbox of a run already in progress, and that run then reported every remaining mutant as unviable, or died without writing a report (#86, reported by @jwp23 with the mechanism pinned to the line).
 
