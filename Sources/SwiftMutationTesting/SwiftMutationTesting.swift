@@ -45,13 +45,16 @@ public struct SwiftMutationTesting {
             fileValues: fileValues
         )
 
+        let baseline = try loadBaseline(for: configuration)
+
         return try await SleepInhibitor.preventingIdleSleep {
-            try await runPipeline(configuration: configuration, launcher: launcher)
+            try await runPipeline(configuration: configuration, baseline: baseline, launcher: launcher)
         }
     }
 
     private static func runPipeline(
         configuration: RunnerConfiguration,
+        baseline: Baseline?,
         launcher: (any ProcessLaunching)?
     ) async throws -> ExitCode {
         let (input, discoveryDuration) = try await discover(configuration: configuration)
@@ -81,7 +84,52 @@ public struct SwiftMutationTesting {
         TextReporter(projectRoot: configuration.projectPath).report(summary)
         writeReports(summary, configuration: configuration)
 
-        return .success
+        return try applyGate(summary, configuration: configuration, baseline: baseline)
+    }
+
+    static func loadBaseline(for configuration: RunnerConfiguration) throws -> Baseline? {
+        guard let path = configuration.gate.baselinePath else { return nil }
+
+        let baseline = try BaselineStore().read(from: path)
+        let differences = BaselineScope(configuration: configuration).differences(from: baseline.scope)
+
+        guard differences.isEmpty else {
+            throw GateError.scopeMismatch(path: path, differences: differences)
+        }
+
+        return baseline
+    }
+
+    static func applyGate(
+        _ summary: RunnerSummary,
+        configuration: RunnerConfiguration,
+        baseline: Baseline?,
+        now: Date = Date()
+    ) throws -> ExitCode {
+        var exitCode = ExitCode.success
+
+        if configuration.gate.isActive {
+            let result = QualityGate().evaluate(summary, policy: configuration.gate.policy, baseline: baseline)
+            GateReporter(projectRoot: configuration.projectPath).report(result)
+            if !result.passed {
+                exitCode = .gateFailed
+            }
+        }
+
+        if let path = configuration.gate.writeBaselinePath {
+            let written = Baseline(
+                summary: summary,
+                scope: BaselineScope(configuration: configuration),
+                projectPath: configuration.projectPath,
+                toolVersion: Version.number,
+                createdAt: now
+            )
+            try BaselineStore().write(written, to: path)
+            StandardOutput.write("")
+            StandardOutput.write("  ✓ Baseline: \(path)")
+        }
+
+        return exitCode
     }
 
     private static func discover(configuration: RunnerConfiguration) async throws -> (RunnerInput, TimeInterval) {
