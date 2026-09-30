@@ -13,7 +13,7 @@ struct HtmlReporter: Sendable {
         let score = String(format: "%.1f", summary.score)
         let rows = buildRows(summary)
         let totals = buildTotals(summary)
-        return htmlTemplate(score: score, totals: totals, rows: rows)
+        return htmlTemplate(score: score, detection: summary.detectionLine, totals: totals, rows: rows)
     }
 
     private func scoreColorClass(_ score: Double) -> String {
@@ -65,7 +65,7 @@ struct HtmlReporter: Sendable {
         return pairs.map { "\($0.0): \($0.1)" }.joined(separator: " / ")
     }
 
-    private func htmlTemplate(score: String, totals: String, rows: String) -> String {
+    private func htmlTemplate(score: String, detection: String, totals: String, rows: String) -> String {
         """
         <!DOCTYPE html>
         <html lang="en">
@@ -93,6 +93,7 @@ struct HtmlReporter: Sendable {
         <body>
             <h1>Mutation Testing Report</h1>
             <p class="score">Score: \(score)%</p>
+            <p>\(detection)</p>
             <p>\(totals)</p>
             <table>
                 <thead>

@@ -1,17 +1,14 @@
 extension ExecutionStatus {
     var mutationReportStatus: String {
         switch self {
-        case .killed:
+        case .killed, .killedByCrash:
             return "Killed"
-
-        case .killedByCrash:
-            return "Crash"
 
         case .survived:
             return "Survived"
 
         case .unviable:
-            return "Unviable"
+            return "CompileError"
 
         case .timeout:
             return "Timeout"
@@ -19,5 +16,10 @@ extension ExecutionStatus {
         case .noCoverage:
             return "NoCoverage"
         }
+    }
+
+    var mutationReportStatusReason: String? {
+        guard case .killedByCrash = self else { return nil }
+        return "crash"
     }
 }

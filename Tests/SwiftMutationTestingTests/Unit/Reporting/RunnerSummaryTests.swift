@@ -75,4 +75,91 @@ struct RunnerSummaryTests {
         #expect(summary.survived.count == 2)
         #expect(summary.score == 50.0)
     }
+
+    @Test("Given results with all statuses, when partitioned, then timeouts are detected and unviable is neither")
+    func detectedAndUndetectedPartition() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(status: .killed(by: "Suite.test")),
+                makeExecutionResult(status: .killedByCrash),
+                makeExecutionResult(status: .timeout),
+                makeExecutionResult(status: .survived),
+                makeExecutionResult(status: .noCoverage),
+                makeExecutionResult(status: .unviable),
+            ],
+            totalDuration: 0
+        )
+
+        #expect(summary.detected.map(\.status) == [.killed(by: "Suite.test"), .killedByCrash, .timeout])
+        #expect(summary.undetected.map(\.status) == [.survived, .noCoverage])
+    }
+
+    @Test(
+        "Given a single mutant of each status, when score computed, then detection scores 100 and the rest 0",
+        arguments: [
+            (ExecutionStatus.killed(by: "t"), 100.0),
+            (.killedByCrash, 100.0),
+            (.timeout, 100.0),
+            (.survived, 0.0),
+            (.noCoverage, 0.0),
+            (.unviable, 100.0),
+        ]
+    )
+    func scoreOfEachStatusAlone(status: ExecutionStatus, expected: Double) {
+        let summary = RunnerSummary(results: [makeExecutionResult(status: status)], totalDuration: 0)
+
+        #expect(summary.score == expected)
+    }
+
+    @Test("Given timeouts and no survivors, when score computed, then score is 100")
+    func timeoutsWithoutSurvivorsScoreHundred() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(status: .killed(by: "t")),
+                makeExecutionResult(status: .timeout),
+                makeExecutionResult(status: .timeout),
+            ],
+            totalDuration: 0
+        )
+
+        #expect(summary.score == 100.0)
+    }
+
+    @Test("Given every status mixed, when score computed, then timeouts count as detected")
+    func scoreCountsTimeoutsAsDetected() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(status: .killed(by: "t")),
+                makeExecutionResult(status: .killedByCrash),
+                makeExecutionResult(status: .timeout),
+                makeExecutionResult(status: .survived),
+                makeExecutionResult(status: .survived),
+                makeExecutionResult(status: .noCoverage),
+                makeExecutionResult(status: .unviable),
+            ],
+            totalDuration: 0
+        )
+
+        #expect(summary.score == 50.0)
+    }
+
+    @Test("Given a mixed summary, when the detection line is built, then it breaks both sides down")
+    func detectionLineBreaksDownBothSides() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(status: .killed(by: "t")),
+                makeExecutionResult(status: .killedByCrash),
+                makeExecutionResult(status: .timeout),
+                makeExecutionResult(status: .survived),
+                makeExecutionResult(status: .noCoverage),
+                makeExecutionResult(status: .unviable),
+            ],
+            totalDuration: 0
+        )
+
+        #expect(
+            summary.detectionLine
+                == "Detected: 3 (killed 2, timeout 1) / Undetected: 2 (survived 1, no coverage 1)"
+        )
+    }
 }

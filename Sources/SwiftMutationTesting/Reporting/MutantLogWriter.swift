@@ -41,7 +41,13 @@ struct MutantLogWriter: Sendable {
     }
 
     private func statusLine(_ status: ExecutionStatus) -> String {
-        guard case .killed(let test) = status else { return status.mutationReportStatus }
-        return "\(status.mutationReportStatus) by \(test)"
+        switch status {
+        case .killed(let test): "Killed by \(test)"
+        case .killedByCrash: "Crash"
+        case .survived: "Survived"
+        case .unviable: "Unviable"
+        case .timeout: "Timeout"
+        case .noCoverage: "NoCoverage"
+        }
     }
 }

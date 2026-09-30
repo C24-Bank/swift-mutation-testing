@@ -81,6 +81,28 @@ struct MutantLogWriterTests {
         #expect(contents.contains("Killed by ValidatorTests.testBoundary"))
     }
 
+    @Test(
+        "Given a verdict, when written, then the header uses the tool's own label rather than the report status",
+        arguments: [
+            (ExecutionStatus.survived, "Survived"),
+            (.unviable, "Unviable"),
+            (.timeout, "Timeout"),
+            (.noCoverage, "NoCoverage"),
+        ]
+    )
+    func headerUsesTheToolsOwnLabel(status: ExecutionStatus, label: String) throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let writer = try #require(MutantLogWriter(directory: dir.path))
+
+        writer.write(mutant: makeMutantDescriptor(id: "m2"), status: status, duration: 0, output: "")
+
+        let contents = try String(contentsOf: dir.appendingPathComponent("m2.log"), encoding: .utf8)
+
+        #expect(contents.contains("status:   \(label)\n"))
+    }
+
     @Test("Given an unwritable directory, when written, then the run is not disturbed")
     func silentlySkipsWhenItCannotWrite() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

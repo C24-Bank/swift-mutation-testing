@@ -81,7 +81,8 @@ Survived mutants:
   Sources/Validator.swift:67:12  NegateConditional
   ...
 
-Overall mutation score: 83.2%
+Overall mutation score: 85.3%
+Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 21, no coverage 0)
 Killed: 122 / Survived: 21 / Timeouts: 0 / Unviable: 4 / NoCoverage: 0
 Total duration: 312.7s
 ```
@@ -376,7 +377,8 @@ Survived mutants:
   Sources/Validator.swift:34:5   RelationalOperatorReplacement
   Sources/Validator.swift:67:12  NegateConditional
 
-Overall mutation score: 83.2%
+Overall mutation score: 85.3%
+Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 21, no coverage 0)
 Killed: 122 / Survived: 21 / Timeouts: 0 / Unviable: 4 / NoCoverage: 0
 Total duration: 312.7s
 ```
@@ -384,10 +386,12 @@ Total duration: 312.7s
 **Mutation score formula:**
 
 ```
-score = killed / (killed + survived + timeouts + noCoverage) × 100
+detected   = killed + timeouts
+undetected = survived + noCoverage
+score      = detected / (detected + undetected) × 100
 ```
 
-Unviable mutants are excluded from both numerator and denominator.
+A mutant killed by a crash counts as killed. Unviable mutants are excluded from both numerator and denominator. The `Detected` line shows both sides of the fraction, so a score earned by timeouts is visible. This is the formula the Stryker schema applies, so the JSON report scores the same in any Stryker-compatible viewer — see [Mutation score](MUTATION-RESULTS.md#mutation-score).
 
 ### Quiet mode (`--quiet`)
 

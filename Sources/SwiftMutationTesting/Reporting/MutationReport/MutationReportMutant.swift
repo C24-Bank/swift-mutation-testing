@@ -5,6 +5,7 @@ struct MutationReportMutant: Sendable, Encodable {
     let replacement: String
     let location: MutationReportLocation
     let status: String
+    let statusReason: String?
     let description: String
-    let killedBy: String?
+    let killedBy: [String]?
 }

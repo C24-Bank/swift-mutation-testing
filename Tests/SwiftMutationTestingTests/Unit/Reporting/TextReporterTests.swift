@@ -118,6 +118,27 @@ struct TextReporterTests {
         #expect(output.contains("Timeouts: 1"))
     }
 
+    @Test("Given killed, timed-out and survived mutants, when format called, then the detection line follows the score")
+    func formatShowsDetectionLineAfterScore() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(line: 3, column: 5, status: .killed(by: "Suite.test")),
+                makeExecutionResult(line: 3, column: 5, status: .timeout),
+                makeExecutionResult(line: 3, column: 5, status: .survived),
+            ],
+            totalDuration: 0
+        )
+
+        let output = TextReporter().format(summary)
+
+        #expect(
+            output.contains(
+                "Overall mutation score: 66.7%\n"
+                    + "Detected: 2 (killed 1, timeout 1) / Undetected: 1 (survived 1, no coverage 0)\n"
+                    + "Killed: 1 / Survived: 1 / Timeouts: 1 / Unviable: 0 / NoCoverage: 0"
+            ))
+    }
+
     @Test("Given killedByCrash mutant, when format called, then killed count includes crash")
     func formatCountsKilledByCrashAsKilled() {
         let summary = RunnerSummary(

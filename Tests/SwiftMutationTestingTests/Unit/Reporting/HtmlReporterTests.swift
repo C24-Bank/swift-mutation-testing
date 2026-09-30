@@ -76,6 +76,31 @@ struct HtmlReporterTests {
         #expect(html.contains("50.0%"))
     }
 
+    @Test("Given a timed-out mutant, when report called, then the detection line counts it as detected")
+    func detectionLinePresentInOutput() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let outputPath = dir.appendingPathComponent("report.html").path
+        let reporter = HtmlReporter(outputPath: outputPath, projectRoot: "/abs/MyApp")
+
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(
+                    id: "1", filePath: "/abs/MyApp/Sources/Calc.swift", line: 3, column: 10, status: .timeout),
+                makeExecutionResult(
+                    id: "2", filePath: "/abs/MyApp/Sources/Calc.swift", line: 4, column: 10, status: .survived),
+            ],
+            totalDuration: 0
+        )
+
+        try reporter.report(summary)
+
+        let html = try String(contentsOfFile: outputPath, encoding: .utf8)
+        #expect(html.contains("<p>Detected: 1 (killed 0, timeout 1) / Undetected: 1 (survived 1, no coverage 0)</p>"))
+        #expect(html.contains("50.0%"))
+    }
+
     @Test("Given score of 100, when report called, then green class is applied to file row score cell")
     func scoreOf100AppliesGreenClassToTableRow() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

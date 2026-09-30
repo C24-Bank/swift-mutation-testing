@@ -43,13 +43,14 @@ struct JsonReporter: Sendable {
                     line: descriptor.line, column: descriptor.column + descriptor.originalText.count)
             ),
             status: result.status.mutationReportStatus,
+            statusReason: result.status.mutationReportStatusReason,
             description: descriptor.description,
             killedBy: killedBy(from: result.status)
         )
     }
 
-    private func killedBy(from status: ExecutionStatus) -> String? {
-        if case .killed(let by) = status { return by }
+    private func killedBy(from status: ExecutionStatus) -> [String]? {
+        if case .killed(let by) = status { return [by] }
         return nil
     }
 }
