@@ -112,6 +112,29 @@ struct JsonReporterTests {
         #expect(mutants?.first?["killedBy"] as? [String] == ["MySuite.myTest"])
     }
 
+    @Test("Given a mutant killed by a crash, when report called, then it is Killed with crash as the reason")
+    func crashedMutantIsKilledWithReason() throws {
+        let mutant = try reportedMutant(status: .killedByCrash)
+
+        #expect(mutant?["status"] as? String == "Killed")
+        #expect(mutant?["statusReason"] as? String == "crash")
+        #expect(mutant?["killedBy"] == nil)
+    }
+
+    @Test("Given a mutant killed by a test, when report called, then it carries no status reason")
+    func killedMutantHasNoReason() throws {
+        let mutant = try reportedMutant(status: .killed(by: "t"))
+
+        #expect(mutant?["statusReason"] == nil)
+    }
+
+    @Test("Given an unviable mutant, when report called, then status string is CompileError")
+    func unviableMutantIsCompileError() throws {
+        let mutant = try reportedMutant(status: .unviable)
+
+        #expect(mutant?["status"] as? String == "CompileError")
+    }
+
     @Test("Given a survived mutant, when report called, then killedBy is nil")
     func survivedMutantHasNilKilledBy() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
@@ -195,5 +218,29 @@ struct JsonReporterTests {
         let endColumn = end?["column"] as? Int ?? 0
 
         #expect(endColumn == startColumn + "+".count)
+    }
+
+    private func reportedMutant(status: ExecutionStatus) throws -> [String: Any]? {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let outputPath = dir.appendingPathComponent("mutation.json").path
+        let reporter = JsonReporter(outputPath: outputPath, projectRoot: "/abs/MyApp")
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(
+                    id: "1", filePath: "/abs/MyApp/Sources/Calc.swift", line: 3, column: 24, status: status)
+            ],
+            totalDuration: 0
+        )
+
+        try reporter.report(summary)
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: outputPath))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let files = json?["files"] as? [String: Any]
+        let file = files?["/Sources/Calc.swift"] as? [String: Any]
+        let mutants = file?["mutants"] as? [[String: Any]]
+        return mutants?.first
     }
 }

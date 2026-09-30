@@ -15,6 +15,18 @@ struct ExecutionStatusTests {
         #expect(ExecutionStatus.killedByCrash.mutationReportStatus == "Killed")
     }
 
+    @Test("Given killedByCrash status, when mutationReportStatusReason called, then returns crash")
+    func killedByCrashReasonIsCrash() {
+        #expect(ExecutionStatus.killedByCrash.mutationReportStatusReason == "crash")
+    }
+
+    @Test("Given any status other than killedByCrash, when mutationReportStatusReason called, then returns nil")
+    func otherStatusesHaveNoReason() {
+        let statuses: [ExecutionStatus] = [.killed(by: "t"), .survived, .unviable, .timeout, .noCoverage]
+
+        #expect(statuses.allSatisfy { $0.mutationReportStatusReason == nil })
+    }
+
     @Test("Given survived status, when mutationReportStatus called, then returns Survived")
     func survivedReturnsSurvived() {
         #expect(ExecutionStatus.survived.mutationReportStatus == "Survived")
