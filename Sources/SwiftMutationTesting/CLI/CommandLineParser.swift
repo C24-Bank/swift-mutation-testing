@@ -107,6 +107,19 @@ struct CommandLineParser: Sendable {
         at index: inout Int,
         in arguments: [String]
     ) throws {
+        if try applyBuildFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyReportingFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyFilterFlag(flag, to: &values, at: &index, in: arguments) { return }
+
+        throw UsageError(message: "unknown option '\(flag)'")
+    }
+
+    private func applyBuildFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
         switch flag {
         case "--scheme":
             values.scheme = try nextValue(for: flag, at: &index, in: arguments)
@@ -132,6 +145,19 @@ struct CommandLineParser: Sendable {
         case "--testing-framework":
             values.testingFramework = try nextValue(for: flag, at: &index, in: arguments)
 
+        default:
+            return false
+        }
+        return true
+    }
+
+    private func applyReportingFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
         case "--output":
             values.output = try nextValue(for: flag, at: &index, in: arguments)
 
@@ -147,6 +173,19 @@ struct CommandLineParser: Sendable {
         case "--quiet":
             values.quiet = true
 
+        default:
+            return false
+        }
+        return true
+    }
+
+    private func applyFilterFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
         case "--sources-path":
             values.sourcesPath = try nextValue(for: flag, at: &index, in: arguments)
 
@@ -160,8 +199,9 @@ struct CommandLineParser: Sendable {
             values.disabledMutators.append(try nextValue(for: flag, at: &index, in: arguments))
 
         default:
-            throw UsageError(message: "unknown option '\(flag)'")
+            return false
         }
+        return true
     }
 
     private func nextValue(for flag: String, at index: inout Int, in arguments: [String]) throws -> String {
