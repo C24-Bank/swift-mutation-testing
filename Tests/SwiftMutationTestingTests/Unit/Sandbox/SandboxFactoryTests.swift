@@ -31,6 +31,21 @@ struct SandboxFactoryTests {
         #expect(content == "schematized content")
     }
 
+    @Test("Given a project, when sandbox created, then it lives in the sandbox directory, not loose in temp")
+    func createsSandboxInsideSandboxDirectory() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+        try FileHelpers.write("let x = 1", named: "Main.swift", in: projectDir)
+
+        let sandbox = try await factory.createClean(projectPath: projectDir.path)
+        defer { try? sandbox.cleanup() }
+
+        #expect(
+            sandbox.rootURL.deletingLastPathComponent().standardizedFileURL
+                == SandboxName.directory.standardizedFileURL
+        )
+    }
+
     @Test("Given support file content and Sources directory, when sandbox created, then __SMTSupport.swift is written")
     func injectsSupportFileIntoSourcesDirectory() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()

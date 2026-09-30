@@ -67,6 +67,22 @@ struct SandboxCleanerTests {
         #expect(!FileManager.default.fileExists(atPath: abandoned.path))
     }
 
+    @Test("Given no directory, when removeOrphaned called, then it sweeps the sandbox directory")
+    func removeOrphanedDefaultsToSandboxDirectory() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try process.run()
+        process.waitUntilExit()
+
+        let abandoned = SandboxName.directory.appendingPathComponent(SandboxName.make(pid: process.processIdentifier))
+        try FileManager.default.createDirectory(at: abandoned, withIntermediateDirectories: true)
+        defer { FileHelpers.cleanup(abandoned) }
+
+        SandboxCleaner.removeOrphaned()
+
+        #expect(!FileManager.default.fileExists(atPath: abandoned.path))
+    }
+
     @Test("Given a sandbox this process created, when another run sweeps, then the sandbox survives")
     func sweepFromAnotherRunSparesASandboxInUse() async throws {
         let baseDir = try FileHelpers.makeTemporaryDirectory()

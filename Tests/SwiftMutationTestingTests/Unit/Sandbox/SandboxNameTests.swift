@@ -15,6 +15,14 @@ struct SandboxNameTests {
         #expect(SandboxName.isOwnerAlive(of: name))
     }
 
+    @Test("Given the sandbox directory, when located, then it is a folder of its own inside the temp directory")
+    func directoryIsItsOwnFolderInTemp() {
+        let temp = FileManager.default.temporaryDirectory.standardizedFileURL
+
+        #expect(SandboxName.directory.deletingLastPathComponent().standardizedFileURL == temp)
+        #expect(SandboxName.directory.standardizedFileURL != temp)
+    }
+
     @Test("Given two names made in a row, when compared, then they differ")
     func namesAreUnique() {
         #expect(SandboxName.make() != SandboxName.make())
