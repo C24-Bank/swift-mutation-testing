@@ -22,6 +22,19 @@ struct MarkdownReporter: Sendable {
                 + " · No coverage: \(summary.noCoverage.count)"
         )
 
+        if !summary.integrityWarnings.isEmpty {
+            let count = summary.integrityWarnings.count
+            lines.append("")
+            lines.append(
+                "⚠️ Integrity warnings: \(count) mutant\(count == 1 ? "" : "s")"
+                    + " killed or timed out without the mutated code running"
+            )
+        }
+        if !summary.activationNotMeasured.isEmpty {
+            lines.append("")
+            lines.append("Activation not measured: \(summary.activationNotMeasured.count) incompatible mutants")
+        }
+
         if let gate {
             lines.append(contentsOf: gateSection(gate))
         }
