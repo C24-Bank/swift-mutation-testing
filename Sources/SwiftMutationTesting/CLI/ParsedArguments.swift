@@ -6,6 +6,7 @@ struct ParsedArguments: Sendable {
     var build: BuildOptions = BuildOptions()
     var reporting: ReportingOptions = ReportingOptions()
     var filter: FilterOptions = FilterOptions()
+    var gate: GateOptions = GateOptions()
 
     struct BuildOptions: Sendable {
         var scheme: String?
@@ -31,5 +32,13 @@ struct ParsedArguments: Sendable {
         var excludePatterns: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
+    }
+
+    struct GateOptions: Sendable {
+        var minScore: Double?
+        var baseline: String?
+        var maxScoreDrop: Double?
+        var maxNewSurvivors: Int?
+        var writeBaseline: String?
     }
 }

@@ -17,6 +17,7 @@ struct CommandLineParser: Sendable {
         var excludePatterns: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
+        var gate = ParsedArguments.GateOptions()
     }
 
     func parse(_ arguments: [String]) throws -> ParsedArguments {
@@ -85,7 +86,8 @@ struct CommandLineParser: Sendable {
                 excludePatterns: flags.excludePatterns,
                 operators: flags.operators,
                 disabledMutators: flags.disabledMutators
-            )
+            ),
+            gate: flags.gate
         )
     }
 
@@ -110,6 +112,7 @@ struct CommandLineParser: Sendable {
         if try applyBuildFlag(flag, to: &values, at: &index, in: arguments) { return }
         if try applyReportingFlag(flag, to: &values, at: &index, in: arguments) { return }
         if try applyFilterFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyGateFlag(flag, to: &values, at: &index, in: arguments) { return }
 
         throw UsageError(message: "unknown option '\(flag)'")
     }
@@ -204,6 +207,34 @@ struct CommandLineParser: Sendable {
         return true
     }
 
+    private func applyGateFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
+        case "--min-score":
+            values.gate.minScore = try nextNonNegativeDouble(for: flag, at: &index, in: arguments)
+
+        case "--baseline":
+            values.gate.baseline = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--max-score-drop":
+            values.gate.maxScoreDrop = try nextNonNegativeDouble(for: flag, at: &index, in: arguments)
+
+        case "--max-new-survivors":
+            values.gate.maxNewSurvivors = try nextInt(for: flag, at: &index, in: arguments)
+
+        case "--write-baseline":
+            values.gate.writeBaseline = try nextValue(for: flag, at: &index, in: arguments)
+
+        default:
+            return false
+        }
+        return true
+    }
+
     private func nextValue(for flag: String, at index: inout Int, in arguments: [String]) throws -> String {
         let next = index + 1
         guard next < arguments.count else {
@@ -217,6 +248,14 @@ struct CommandLineParser: Sendable {
         let raw = try nextValue(for: flag, at: &index, in: arguments)
         guard let value = Double(raw), value > 0 else {
             throw UsageError(message: "\(flag) must be a positive number")
+        }
+        return value
+    }
+
+    private func nextNonNegativeDouble(for flag: String, at index: inout Int, in arguments: [String]) throws -> Double {
+        let raw = try nextValue(for: flag, at: &index, in: arguments)
+        guard let value = Double(raw), value >= 0 else {
+            throw UsageError(message: "\(flag) must be a number >= 0")
         }
         return value
     }
