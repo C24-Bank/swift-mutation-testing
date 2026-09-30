@@ -10,7 +10,7 @@ struct MutantDescriptor: Sendable, Codable {
     let replacementKind: ReplacementKind
     let description: String
     let isSchematizable: Bool
-    let mutatedSourceContent: String?
+    var mutatedSourceContent: String?
 
     let sourceContentHash: String
 }
