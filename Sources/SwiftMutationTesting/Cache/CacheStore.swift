@@ -10,6 +10,7 @@ actor CacheStore {
     }
 
     static let directoryName = ".swift-mutation-testing-cache"
+    static let formatVersion = 1
 
     private let storePath: String
     private let noCache: Bool
@@ -28,6 +29,13 @@ actor CacheStore {
     }
 
     struct CacheMetadata: Codable, Sendable {
+
+        init(testFileHashes: [String: String], formatVersion: Int = CacheStore.formatVersion) {
+            self.formatVersion = formatVersion
+            self.testFileHashes = testFileHashes
+        }
+
+        let formatVersion: Int
         let testFileHashes: [String: String]
     }
 
@@ -52,8 +60,17 @@ actor CacheStore {
     func load() throws {
         guard !noCache else { return }
         guard FileManager.default.fileExists(atPath: storePath) else { return }
+
+        if FileManager.default.fileExists(atPath: metadataPath), try loadMetadata() == nil {
+            discardUnreadable()
+            return
+        }
+
         let data = try Data(contentsOf: URL(fileURLWithPath: storePath))
-        let loaded = try JSONDecoder().decode([CacheEntry].self, from: data)
+        guard let loaded = try? JSONDecoder().decode([CacheEntry].self, from: data) else {
+            discardUnreadable()
+            return
+        }
         entries = [:]
         for entry in loaded {
             entries[entry.key] = entry.status
@@ -87,7 +104,11 @@ actor CacheStore {
         let url = URL(fileURLWithPath: metadataPath)
         guard FileManager.default.fileExists(atPath: metadataPath) else { return nil }
         let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode(CacheMetadata.self, from: data)
+        guard
+            let metadata = try? JSONDecoder().decode(CacheMetadata.self, from: data),
+            metadata.formatVersion == Self.formatVersion
+        else { return nil }
+        return metadata
     }
 
     func persistMetadata(_ metadata: CacheMetadata) throws {
@@ -155,4 +176,16 @@ actor CacheStore {
         return TestFileDiff(added: added, modified: modified, removed: removed)
     }
 
+    // MARK: - Private
+
+    private func discardUnreadable() {
+        entries = [:]
+        killerTestFiles = [:]
+        let directory = URL(fileURLWithPath: storePath).deletingLastPathComponent().path
+        fputs(
+            "Warning: ignoring the cache at '\(directory)', which this version cannot read; "
+                + "every mutant will be tested again.\n",
+            stderr
+        )
+    }
 }
