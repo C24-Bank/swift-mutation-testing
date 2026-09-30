@@ -528,4 +528,29 @@ struct ConfigurationResolverTests {
         #expect(result.build.buildTimeout == 240)
         #expect(result.build.timeout == 30)
     }
+
+    @Test("Given SARIF and Markdown paths in the file, when resolved, then both reports are configured")
+    func readsSarifAndMarkdownOutputsFromTheFile() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "platform=macOS")),
+            fileValues: ["sarif-output": "file.sarif", "markdown-output": "file.md"]
+        )
+
+        #expect(result.reporting.sarifOutput == "file.sarif")
+        #expect(result.reporting.markdownOutput == "file.md")
+    }
+
+    @Test("Given SARIF and Markdown paths in both places, when resolved, then the command line wins")
+    func commandLineSarifAndMarkdownOutputsWin() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(
+                build: .init(scheme: "App", destination: "platform=macOS"),
+                reporting: .init(sarifOutput: "cli.sarif", markdownOutput: "cli.md")
+            ),
+            fileValues: ["sarif-output": "file.sarif", "markdown-output": "file.md"]
+        )
+
+        #expect(result.reporting.sarifOutput == "cli.sarif")
+        #expect(result.reporting.markdownOutput == "cli.md")
+    }
 }
