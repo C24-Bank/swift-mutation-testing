@@ -8,7 +8,9 @@ func makeExecutionResult(
     utf8Offset: Int = 0,
     status: ExecutionStatus,
     testDuration: Double = 0,
-    killerTestFile: String? = nil
+    killerTestFile: String? = nil,
+    operatorIdentifier: String = "ArithmeticOperatorReplacement",
+    fingerprint: String = "fingerprint"
 ) -> ExecutionResult {
     ExecutionResult(
         descriptor: makeMutantDescriptor(
@@ -16,7 +18,9 @@ func makeExecutionResult(
             filePath: filePath,
             line: line,
             column: column,
-            utf8Offset: utf8Offset
+            utf8Offset: utf8Offset,
+            operatorIdentifier: operatorIdentifier,
+            fingerprint: fingerprint
         ),
         status: status,
         testDuration: testDuration,
