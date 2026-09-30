@@ -119,7 +119,8 @@ To keep code out of the run, prefer `--exclude` (or `exclude:` in the config fil
 
 ## 7. Continuous integration
 
-- Commit `.swift-mutation-testing.yml` so CI runs with no extra flags: `swift-mutation-testing --quiet --output mutation-report.json`.
+- **On GitHub**, the usage guide has a complete workflow ("GitHub Actions — annotations, job summary and quality gate"): it installs the tool with Homebrew on a macOS runner, runs it with `--sarif-output` and `--markdown-output`, uploads the SARIF with `github/codeql-action/upload-sarif` so each survivor becomes an annotation on its line in the pull request, writes the Markdown to the job summary, and only then fails the job with the tool's exit code. Uploading SARIF needs `permissions: security-events: write`. Adapt that workflow rather than writing one from scratch.
+- Commit `.swift-mutation-testing.yml` so CI runs with no extra flags: `swift-mutation-testing --quiet --output mutation-report.json`. `--sarif-output` writes a SARIF 2.1.0 report and `--markdown-output` a Markdown summary for CI systems that render it.
 - Cache `.swift-mutation-testing-cache/` between runs (`actions/cache`), keyed on the Swift sources and tests.
 - Exit codes: `0` the run completed (and the quality gate passed, if set); `1` an error (bad arguments, a build that failed, a suite that fails without mutations, an unusable baseline); `2` the quality gate failed. On `2` the reports were still written.
 - **Quality gate.** Suggest one when the user wants CI to fail on weak tests:
