@@ -4,9 +4,16 @@ enum IntegrityError: Error, Equatable, LocalizedError {
     case mutantsNotApplied(ids: [String])
     case schemaNotApplied(path: String)
     case supportMissing(path: String)
+    case activationNeverObserved(killed: Int)
 
     var errorDescription: String? {
         switch self {
+        case .activationNeverObserved(let killed):
+            let count = "\(killed) mutant\(killed == 1 ? " was" : "s were")"
+            return "\(count) killed, but no mutant's code was ever seen running. "
+                + "Either the activation marker cannot be written in this environment or the suite fails on its own, "
+                + "so every verdict is suspect. The run is stopped"
+
         case .mutantsNotApplied(let ids):
             let listed = ids.prefix(10).joined(separator: ", ")
             let more = ids.count > 10 ? " and \(ids.count - 10) more" : ""

@@ -5,6 +5,13 @@ enum ExecutionStatus: Sendable, Equatable {
     case unviable
     case timeout
     case noCoverage
+
+    var isKill: Bool {
+        switch self {
+        case .killed, .killedByCrash: true
+        case .survived, .unviable, .timeout, .noCoverage: false
+        }
+    }
 }
 
 extension ExecutionStatus: Codable {

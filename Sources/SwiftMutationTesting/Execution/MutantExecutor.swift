@@ -81,6 +81,7 @@ struct MutantExecutor: Sendable {
                     schemaBuildExcluded: schemaBuildExcluded
                 )
             )
+            try Self.requireObservedActivation(in: results)
         } catch {
             await pool.tearDown()
             try? sandbox.cleanup()
@@ -189,6 +190,15 @@ struct MutantExecutor: Sendable {
         )
 
         return results
+    }
+
+    static func requireObservedActivation(in results: [ExecutionResult]) throws {
+        let measured = results.filter { $0.activated != nil }
+        let killed = measured.filter { $0.status.isKill }
+
+        guard !killed.isEmpty, !measured.contains(where: { $0.activated == true }) else { return }
+
+        throw IntegrityError.activationNeverObserved(killed: killed.count)
     }
 
     private func allCached(
