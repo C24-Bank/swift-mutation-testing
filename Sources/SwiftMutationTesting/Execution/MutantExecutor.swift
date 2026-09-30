@@ -288,6 +288,7 @@ struct MutantExecutor: Sendable {
         }
 
         let allExcluded = alreadyExcluded + newlyExcluded
+        await context.deps.reporter.report(.schemaNarrowed(excludedCount: newlyExcluded.count))
 
         do {
             let artifact = try await context.stage.buildSPM(
