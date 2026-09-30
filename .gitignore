@@ -9,3 +9,4 @@ Makefile
 .swift-mutation-testing-cache/
 Fixtures/CalcApp/.xmr-cache/
 Fixtures/CalcLibrary/.build/
+Fixtures/CalcModules/.build/
