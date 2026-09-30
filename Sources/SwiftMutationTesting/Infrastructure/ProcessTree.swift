@@ -23,6 +23,10 @@ enum ProcessTree {
         return found
     }
 
+    static func all(sysctl: SystemCalls.Sysctl = Darwin.sysctl) -> [Int32] {
+        snapshot(sysctl: sysctl).map(\.pid).filter { $0 > 1 }
+    }
+
     // MARK: - Private
 
     private static func snapshot(sysctl: SystemCalls.Sysctl) -> [(pid: Int32, parentPID: Int32)] {

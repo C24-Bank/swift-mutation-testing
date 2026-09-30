@@ -136,7 +136,7 @@ Handles cleanup of orphaned and active sandbox directories.
 
 A C signal handler cannot capture anything, so what it cleans and how it exits come from a module-level `Mutex<SignalTarget>`. In a run it always holds `SignalTarget.process` — the shared registry and `_exit` — and nothing but the handler ever takes the lock. `withSignalTarget` exists so a test can invoke the handler that was really installed without removing another test's sandbox or ending the test process; it replaces the mutable exit-handler global the handler used to read, which tests swapped without any synchronisation.
 
-**Test processes die with the run.** Every test process leads a process group of its own (`setpgid` in `ProcessRunner`), which is what lets a timeout kill a whole test tree at once, but it also takes the process out of the terminal's foreground group: Ctrl-C reaches the tool and nothing else. The handler used to remove the sandbox and `_exit`, so a mutant stuck in a loop kept running with no parent and no deadline, from a bundle that no longer existed — one ran at ~900% CPU for ten hours before anyone looked (#105). `terminate` now kills the groups registered in `ProcessGroupRegistry` first, before the sandbox they run from is deleted. `SIGHUP` joins the handled signals because closing the terminal or the IDE that started the run sends it, and its default action ends the tool just as silently. `SIGKILL` and a crash cannot be handled; nothing in this file covers them.
+**Test processes die with the run.** Every test process leads a process group of its own (`setpgid` in `ProcessRunner`), which is what lets a timeout kill a whole test tree at once, but it also takes the process out of the terminal's foreground group: Ctrl-C reaches the tool and nothing else. The handler used to remove the sandbox and `_exit`, so a mutant stuck in a loop kept running with no parent and no deadline, from a bundle that no longer existed — one ran at ~900% CPU for ten hours before anyone looked (#105). `terminate` now kills the groups registered in `ProcessGroupRegistry` first, before the sandbox they run from is deleted. `SIGHUP` joins the handled signals because closing the terminal or the IDE that started the run sends it, and its default action ends the tool just as silently. `SIGKILL` and a crash cannot be handled; the next run's `OrphanedProcessReaper` cleans up after those.
 
 **Ownership.** The sweep used to run at startup, before arguments were parsed, and it deleted every `xmr-*` directory in `$TMPDIR` on the grounds that a sandbox found at startup must belong to a run that is over. It does not: a second invocation — `--help` included — destroyed the sandbox of a run already in progress, and that run then reported every remaining mutant as unviable, or died without writing a report (#86, reported by @jwp23 with the mechanism pinned to the line).
 
@@ -147,6 +147,34 @@ A name that does not parse — anything from a version before this, or a foreign
 The one case this does not cover is a crashed run whose pid has since been reused by an unrelated process: its sandbox is kept rather than swept. That leaks a temp directory until the system purges `$TMPDIR`; it does not lose anyone's data, which is the trade the old behaviour got backwards.
 
 **Where the sweep looks, and when.** Up to 1.5.0 sandboxes were created loose in `$TMPDIR` and the sweep ran in `main()`, before arguments were parsed. Listing a directory costs time in proportion to everything in it, not just our entries, and `$TMPDIR` is shared with every other tool on the machine: with a few hundred thousand leftovers from other test suites, `--version` took twenty seconds, all of it inside `contentsOfDirectory`. Sandboxes now live in a directory of their own, so the sweep lists only what this tool created, and it runs from `runPipeline` right before mutants are executed, so commands that never execute any never pay for it. Sandboxes an older version left loose in `$TMPDIR` are not swept; macOS purges them from `$TMPDIR` on its own.
+
+---
+
+## Sandbox/OrphanedProcessReaper.swift
+
+```swift
+struct OrphanedProcessReaper: Sendable {
+    var processes: @Sendable () -> [pid_t]
+    var arguments: @Sendable (pid_t) -> [String]?
+    var descendants: @Sendable (pid_t) -> [pid_t]
+    var isOwnerAlive: @Sendable (String) -> Bool
+    var kill: SystemCalls.Kill
+
+    @discardableResult func reap() -> [pid_t]
+    static func sandboxName(in arguments: [String]) -> String?
+}
+```
+
+Kills test processes left running by a run that is gone. `runPipeline` calls `reap()` right before `SandboxCleaner.removeOrphaned()`.
+
+A run that is killed with `SIGKILL` or crashes never reaches the signal handler, so a mutant stuck in a loop at that moment keeps running forever, reparented to `launchd` (#105). The directory sweep does not help: it removes the sandbox and leaves the process, which keeps running from its unlinked bundle. The reaper therefore looks at processes rather than directories. It reads each process's `argv` (`ProcessArguments`), looks for a path component that `SandboxName.ownerPID(of:)` accepts — `swiftpm-testing-helper` always carries one in `--test-bundle-path` — and kills the process and its descendants when that owner is no longer alive.
+
+Two rules keep it from killing anything that is not ours:
+
+- **Only strict sandbox names are matched.** `xmr-<pid>-<UUID>` must parse, and the owner must be dead by the same test the directory sweep uses. A legacy `xmr-<UUID>` name has no owner to check, so it is left alone.
+- **Only the current user's processes are visible.** `KERN_PROCARGS2` refuses to read another user's arguments. The current process, and anything in a sandbox it owns, is skipped.
+
+Every dependency is injectable, so the tests exercise each rule with a recording `kill` and one real orphan, a `tail -f` inside a dead run's sandbox.
 
 ---
 
