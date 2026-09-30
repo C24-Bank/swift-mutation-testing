@@ -13,8 +13,7 @@ flowchart TD
     IN[RunnerInput] --> PREP[prepareCacheStore\ngranular invalidation]
     PREP --> ALLCACHED{all cached?}
     ALLCACHED -- yes --> RETURN[return cached results]
-    ALLCACHED -- no --> CLEAN[SandboxCleaner.removeOrphaned\nowned sandboxes are spared]
-    CLEAN --> SF[SandboxFactory\ncreate sandbox]
+    ALLCACHED -- no --> SF[SandboxFactory\ncreate sandbox]
     SF --> REG[SandboxCleaner.register]
     REG --> BS[BuildStage\nbuild-for-testing]
     BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
@@ -57,7 +56,7 @@ The original project is never touched. Cleanup removes the entire `xmr-*` direct
 
 Handles cleanup of orphaned sandbox directories and signal-based cleanup of the active sandbox.
 
-**Orphaned cleanup (`removeOrphaned`):** Called by `MutantExecutor` just before it creates a sandbox — never on the `--version`, `--help` or `init` paths, and not when every result comes from the cache. Scans `$TMPDIR/swift-mutation-testing/` (or a provided directory) for directories prefixed with `xmr-` and removes the ones whose owning process is gone. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
+**Orphaned cleanup (`removeOrphaned`):** Called by `runPipeline` just before `MutantExecutor` runs — never on the `--version`, `--help` or `init` paths. Scans `$TMPDIR/swift-mutation-testing/` (or a provided directory) for directories prefixed with `xmr-` and removes the ones whose owning process is gone. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
 
 **Signal cleanup (`installSignalHandlers`):** Installs `SIGINT` and `SIGTERM` handlers at startup. When a signal is received, the handler removes the active sandbox directory (if registered) and calls `_exit(1)`. Uses a `nonisolated(unsafe)` C pointer for the active path — necessary because signal handlers are C function pointers that cannot capture Swift context.
 
