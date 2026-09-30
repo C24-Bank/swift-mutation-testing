@@ -3,6 +3,7 @@ import Foundation
 enum TargetedSuites {
 
     static let suffix = "Tests"
+    static let testsDirectory = "Tests"
 
     static func declared(in testFilePaths: [String]) -> Set<String> {
         Set(
@@ -20,6 +21,14 @@ enum TargetedSuites {
     static func suite(for sourcePath: String, among suites: Set<String>) -> String? {
         let candidate = URL(fileURLWithPath: sourcePath).deletingPathExtension().lastPathComponent + suffix
         return suites.contains(candidate) ? candidate : nil
+    }
+
+    static func testTarget(of testFilePath: String) -> String? {
+        let components = URL(fileURLWithPath: testFilePath).pathComponents
+
+        guard let index = components.lastIndex(of: testsDirectory), index + 2 < components.count else { return nil }
+
+        return components[index + 1]
     }
 
     // MARK: - Private
