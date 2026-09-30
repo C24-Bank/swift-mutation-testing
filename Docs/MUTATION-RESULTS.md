@@ -184,7 +184,7 @@ func isAdult(age: Int) -> Bool {
 }
 ```
 
-The global `__swiftMutationTestingID` reads from `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]`. Each test run injects a different mutant ID into that environment variable — via the `.xctestrun` plist for Xcode projects, or via the process environment for SPM packages.
+Each schematized file declares its own private `__swiftMutationTestingID`, which reads `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]` once. Each test run injects a different mutant ID into that environment variable — via the `.xctestrun` plist for Xcode projects, or via the process environment for SPM packages.
 
 ### What makes a mutant incompatible
 

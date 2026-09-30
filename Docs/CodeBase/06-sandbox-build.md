@@ -10,8 +10,7 @@
 struct SandboxFactory: Sendable {
     func create(
         projectPath: String,
-        schematizedFiles: [SchematizedFile],
-        supportFileContent: String
+        schematizedFiles: [SchematizedFile]
     ) async throws -> Sandbox
 
     func createClean(
@@ -32,9 +31,9 @@ Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<
 
 | Method | Used by | Description |
 |---|---|---|
-| `create(projectPath:schematizedFiles:supportFileContent:)` | `MutantExecutor` for schematizable path | Embeds all schematized files; injects support file; disables SwiftLint phases |
+| `create(projectPath:schematizedFiles:)` | `MutantExecutor` for schematizable path | Embeds all schematized files; disables SwiftLint phases |
 | `createClean(projectPath:)` | `IncompatibleMutantExecutor` for SPM shared sandbox | Clean sandbox without mutations; mutated files are written directly later |
-| `create(projectPath:mutatedFilePath:mutatedContent:)` | `IncompatibleMutantExecutor` for Xcode path | Writes a single mutated file; no support file injection |
+| `create(projectPath:mutatedFilePath:mutatedContent:)` | `IncompatibleMutantExecutor` for Xcode path | Writes a single mutated file |
 
 **Copy strategy:**
 
@@ -54,9 +53,7 @@ flowchart TD
 
 **Post-processing steps (schematizable overload only):**
 
-1. `injectSupportFile` — writes `__SMTSupport.swift` to the sandbox `Sources/` directory (or appends to the first schematized file if no `Sources/` directory exists). When the destination is an Xcode target (not macOS/SPM), transforms the computed property form to a `nonisolated(unsafe)` stored variable.
-
-2. `disableSwiftLintBuildPhases` — patches `project.pbxproj`, replacing the `shellScript` of every `PBXShellScriptBuildPhase` that contains `swiftlint` with `exit 0\n`.
+1. `disableSwiftLintBuildPhases` — patches `project.pbxproj`, replacing the `shellScript` of every `PBXShellScriptBuildPhase` that contains `swiftlint` with `exit 0\n`.
 
 3. `fixEmptySwitchCaseBodies` — post-processes each schematized file after writing. Inserts a `break` statement into any `case "..."` block immediately followed by another case or default, preventing Swift compiler errors when `RemoveSideEffects` removes the only statement in a function body.
 

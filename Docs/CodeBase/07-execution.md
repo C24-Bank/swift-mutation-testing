@@ -510,7 +510,6 @@ struct RunnerInput: Sendable {
     let concurrency: Int
     let noCache: Bool
     let schematizedFiles: [SchematizedFile]
-    let supportFileContent: String
     let mutants: [MutantDescriptor]
 }
 ```
@@ -519,8 +518,7 @@ The value produced by `DiscoveryPipeline` and consumed by `MutantExecutor`.
 
 | Field | Description |
 |---|---|
-| `schematizedFiles` | One entry per source file containing schematizable mutations |
-| `supportFileContent` | `__swiftMutationTestingID` global declaration for injection |
+| `schematizedFiles` | One entry per source file containing schematizable mutations, each ending with its own support declarations |
 | `mutants` | All mutants, sorted by global index; `isSchematizable` distinguishes the two populations |
 
 ---

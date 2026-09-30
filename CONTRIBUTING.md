@@ -24,7 +24,7 @@ SwiftMutationTesting follows a strict set of technical principles:
 - No mutant results are **lost or duplicated**
 - Mutant **positions (file, line, column) are accurate** in all reported results
 - A cancelled task never leaves a **simulator slot permanently acquired** from the pool
-- `schematizedContent` **never contains** the `__swiftMutationTestingID` global declaration
+- Every schematized file **declares its own** `private` `__swiftMutationTestingID`, and nothing else in the sandbox declares it
 - **Zero external dependencies** — CryptoKit and Foundation are Apple frameworks, no packages permitted
 - Full compatibility with **Swift 6 Strict Concurrency**
 - Pipeline stages are **stateless pure transformations** — no shared mutable state between them

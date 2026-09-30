@@ -117,7 +117,19 @@ struct SchematizedFile: Sendable, Codable {
 | `originalPath` | Absolute path of the original source file |
 | `schematizedContent` | Source text with all schematizable mutations embedded |
 
-`schematizedContent` never contains the `__swiftMutationTestingID` global declaration. That declaration is injected separately by `SandboxFactory` via `__SMTSupport.swift`.
+`schematizedContent` ends with `SupportDeclarations.perFile`, so the file declares the `__swiftMutationTestingID` its schema reads. Nothing else in the sandbox declares it.
+
+---
+
+## Discovery/Schematization/SupportDeclarations.swift
+
+```swift
+enum SupportDeclarations {
+    static let perFile: String
+}
+```
+
+The block `SchemataGenerator` appends to every file it changes: `import Foundation`, a `private enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once, and a `nonisolated private var __swiftMutationTestingID` that returns it. It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
 
 ---
 

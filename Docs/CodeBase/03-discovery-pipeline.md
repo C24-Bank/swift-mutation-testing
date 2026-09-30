@@ -212,7 +212,6 @@ struct IndexedMutationPoint: Sendable {
 
 ```swift
 struct SchematizationStage: Sendable {
-    static let supportFileContent: String
     func run(indexed: [IndexedMutationPoint], sources: [ParsedSource]) -> ([SchematizedFile], [MutantDescriptor])
 }
 ```
@@ -226,7 +225,7 @@ flowchart TD
     SCHEMA --> RESULT["([SchematizedFile], [MutantDescriptor])"]
 ```
 
-The static `supportFileContent` declares `__swiftMutationTestingID` as a computed property reading from `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]`.
+Every schematized file ends with `SupportDeclarations.perFile`, its own private `__swiftMutationTestingID`, appended by `SchemataGenerator` — see [05 — Schematization](05-schematization.md).
 
 ---
 

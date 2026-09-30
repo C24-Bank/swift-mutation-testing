@@ -37,7 +37,7 @@ flowchart TD
 Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<pid>-<UUID>/` before every build. Supports both Xcode and SPM projects.
 
 **Factory methods:**
-- `create(projectPath:schematizedFiles:supportFileContent:)` — full sandbox with schematized files and support file injection (normal path)
+- `create(projectPath:schematizedFiles:)` — full sandbox with schematized files (normal path)
 - `createClean(projectPath:)` — clean sandbox without mutations (used by `IncompatibleMutantExecutor` for SPM shared sandbox)
 - `create(projectPath:mutatedFilePath:mutatedContent:)` — sandbox with a single mutated file (incompatible mutants, Xcode path)
 
@@ -46,7 +46,6 @@ Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<
 - For `.xcodeproj`: creates fresh `xcuserdata`, copies `xcshareddata`, symlinks everything else
 - For source files in `schematizedFiles`: writes the schematized content directly
 - For all other files: creates symlinks to the originals (fast, space-efficient)
-- Writes `__SMTSupport.swift` (or appends to the first schematized file if no `Sources/` directory exists)
 - Disables SwiftLint `PBXShellScriptBuildPhase` entries by patching `project.pbxproj`
 - Inserts `break` statements into empty `switch case` bodies to prevent compiler errors in schematized code
 

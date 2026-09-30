@@ -34,6 +34,7 @@ Serialises progress output to stdout. Each `RunnerEvent` case maps to a formatte
 | `.loadedFromCache` | `✓ Loaded N mutants from cache` |
 | `.buildStarted` | blank line + `Building for testing...` |
 | `.buildFinished` | `✓ Built in X.Xs` |
+| `.schemaNarrowed` | `⚠ Schema did not build: retrying without N mutants, to be built one by one` |
 | `.workersReady` | `✓ N simulators ready` or `✓ N workers ready` + blank line + `Testing mutants...` |
 | `.mutantFinished` | `<icon> <index>/<total>  <operator>  <filename>:<line>` |
 
@@ -61,6 +62,7 @@ enum RunnerEvent: Sendable {
     case loadedFromCache(mutantCount: Int)
     case buildStarted
     case buildFinished(duration: Double)
+    case schemaNarrowed(excludedCount: Int)
     case workersReady(count: Int, usesSimulators: Bool)
     case mutantStarted(descriptor: MutantDescriptor, index: Int, total: Int)
     case mutantFinished(descriptor: MutantDescriptor, status: ExecutionStatus, index: Int, total: Int)

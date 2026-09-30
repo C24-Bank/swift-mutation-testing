@@ -67,41 +67,30 @@ FunctionBodyScope
 
 `isSchematizable(utf8Offset:)` is the Boolean interface used by `SchematizationStage` to classify each mutation point.
 
-## Support File
+## Per-file support declarations
 
-`SchematizationStage` generates a fixed support file content that declares the `__swiftMutationTestingID` global:
+Every schematized file ends with the same block, appended by `SchemataGenerator` (`SupportDeclarations.perFile`):
 
 ```swift
 import Foundation
 
-var __swiftMutationTestingID: String {
-    ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
-}
-```
-
-`SandboxFactory.injectSupportFile` places this content into the sandbox:
-
-```mermaid
-flowchart TD
-    A{Sources/ directory\nexists in sandbox?}
-    A -- yes --> B[Write to\nSources/__SMTSupport.swift]
-    A -- no --> C[Append to first\nschematized source file]
-```
-
-The declaration is intentionally a **computed property**, not a stored global. For Xcode targets that run on macOS (SPM, command-line, macOS app), a computed property is valid Swift 6. For Xcode targets (iOS, tvOS, watchOS), `SandboxFactory` transforms the computed form to a `nonisolated(unsafe)` stored variable at sandbox creation time to satisfy the Swift 6 actor isolation model:
-
-```swift
-// injected form (computed)
-var __swiftMutationTestingID: String {
-    ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
+private enum __SwiftMutationTesting {
+    nonisolated static let id: String =
+        ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
 }
 
-// transformed form (stored, for Xcode targets)
-nonisolated(unsafe) var __swiftMutationTestingID: String
-    = ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
+nonisolated private var __swiftMutationTestingID: String { __SwiftMutationTesting.id }
 ```
 
-The global is **never** present in any `SchematizedFile.schematizedContent` — it is injected exclusively through `__SMTSupport.swift`.
+Each piece of it is there for a reason:
+
+- **`private`, once per file.** A single `internal` declaration in one module — what a shared `__SMTSupport.swift` used to be — is invisible to schematized files in any other module, so their schema did not compile and their mutants fell to one build each. A file-scope `private` declaration is visible exactly where the schema is, cannot clash with the same declaration in another file, and needs no file of its own — which also matters for Xcode projects, which compile only the files their `project.pbxproj` lists.
+- **A `static let`, not a global.** A stored global declared in `main.swift` is initialized when top-level code reaches its line; a function called before that reads uninitialized memory and crashes. A static stored property is initialized on first use wherever it is declared, so the block can sit at the end of any file, `main.swift` included, without shifting the line numbers of the code above it.
+- **Read once.** `ProcessInfo.processInfo.environment` builds a dictionary of the whole environment; reading it once per file, instead of on every function call, keeps the schema's cost to a string comparison.
+- **`nonisolated`.** Under Swift 6.2's default `MainActor` isolation, which app targets opt into, an unmarked global or static is main-actor isolated and a nonisolated function cannot read it. Both declarations opt out, and the same block compiles in Swift 5 mode, Swift 6 mode and under default isolation.
+- **`import Foundation` at the end.** An import may appear anywhere at file scope, and a repeated import is allowed, so the block needs no knowledge of what the file already imports.
+
+The block is part of `SchematizedFile.schematizedContent`. That is what makes the retry after a failed schema build correct for free: the narrowed schema comes from the same generator and carries the same declarations.
 
 ## Runtime Activation
 

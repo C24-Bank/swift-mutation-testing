@@ -166,8 +166,7 @@ RunnerInput
 ├── projectPath
 ├── projectType       — ProjectType (.xcode or .spm)
 ├── timeout, concurrency, noCache
-├── schematizedFiles  — [SchematizedFile] (one per modified source file)
-├── supportFileContent — __swiftMutationTestingID global declaration
+├── schematizedFiles  — [SchematizedFile] (one per modified source file, each ending with its own support declarations)
 └── mutants           — [MutantDescriptor] (all mutants, schematizable and incompatible)
 ```
 

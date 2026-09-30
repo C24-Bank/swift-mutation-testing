@@ -381,6 +381,14 @@ Testing mutants...
   ⏱ 4/147  NegateConditional              Loop.swift:9
 ```
 
+When the schema does not build, the run says which mutants it drops before rebuilding:
+
+```
+  ⚠ Schema did not build: retrying without 2 mutants, to be built one by one
+```
+
+Those mutants are not lost: each gets a build of its own, like an incompatible mutant, which is slower. Their build errors are in the `--keep-logs` output.
+
 **Progress icons:**
 
 | Icon | Meaning |
