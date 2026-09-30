@@ -22,7 +22,9 @@ flowchart TD
     CACHE -- yes --> RETURN[return cached results]
     CACHE -- no --> SANDBOX[SandboxFactory.create\nschematized sandbox]
     SANDBOX --> REG[SandboxCleaner.register]
-    REG --> BUILD[BuildStage.build / buildSPM]
+    REG --> VERIFY[ApplicationVerifier.verify]
+    VERIFY -- a mutant is missing --> ABORTI[throw IntegrityError\nrun ends]
+    VERIFY -- every mutant present --> BUILD[BuildStage.build / buildSPM]
     BUILD -- success --> POOL[SimulatorPool.setUp]
     BUILD -- timedOut --> ABORT[throw BuildError\nrun ends]
     BUILD -- compilationFailed --> RETRY[retryExcludingErrors\nregenerate the schema without\nthe mutants the compiler blamed]
@@ -33,7 +35,9 @@ flowchart TD
     PROBE -- a library fails, crashes or hangs --> ABORTB[throw BaselineError\nrun ends]
     PROBE -- passes --> NORMAL[TestExecutionStage\nschematizable mutants]
     NORMAL --> INCOMPAT[IncompatibleMutantExecutor\nincompatible mutants]
-    INCOMPAT --> TEARDOWN[pool.tearDown\nsandbox.cleanup\nSandboxCleaner.deregister\ncacheStore.persist]
+    INCOMPAT --> OBSERVED{kills, but no mutant's\ncode ever seen running?}
+    OBSERVED -- yes --> ABORTI
+    OBSERVED -- no --> TEARDOWN[pool.tearDown\nsandbox.cleanup\nSandboxCleaner.deregister\ncacheStore.persist]
     TEARDOWN --> RESULTS[["[ExecutionResult]"]]
 ```
 
@@ -44,6 +48,58 @@ flowchart TD
 **Fallback path:** triggered when `BuildStage` throws `compilationFailed`. Delegates to `FallbackExecutor`, which rebuilds one schematized file at a time. Mutants in files that still fail to compile are marked `.unviable`.
 
 **Incompatible path:** always runs after the schematizable path. Delegates to `IncompatibleMutantExecutor`.
+
+**Integrity:** `ApplicationVerifier` runs right after the sandbox is created and before anything is built, and `requireObservedActivation(in:)` runs over the results: when at least one measured mutant was killed and no measured mutant recorded activation, the run ends with `IntegrityError.activationNeverObserved` — the marker cannot be written here, or the suite fails on its own, and either way no verdict can be trusted. Both are static so a test can call them on their own.
+
+---
+
+## Execution/ApplicationVerifier.swift
+
+```swift
+struct ApplicationVerifier: Sendable {
+    func verify(
+        schematizedFiles: [SchematizedFile],
+        mutants: [MutantDescriptor],
+        sandbox: Sandbox,
+        projectPath: String
+    ) throws
+}
+```
+
+Proves, before the build, that the sandbox holds what discovery produced. For each schematized file, the sandbox copy — at the original's path relative to the project — must exist, differ from the original, and contain `SupportDeclarations.perFile`; otherwise `schemaNotApplied` or `supportMissing`. Then every schematizable mutant must have `case "<id>":` in its file's copy, and every incompatible mutant must have `mutatedSourceContent` that differs from its original file; the ids that fail are thrown together as `mutantsNotApplied`. `MutantExecutor` runs it on the whole input, and `FallbackExecutor` on each per-file sandbox.
+
+---
+
+## Execution/IntegrityError.swift
+
+```swift
+enum IntegrityError: Error, Equatable, LocalizedError {
+    case mutantsNotApplied(ids: [String])
+    case schemaNotApplied(path: String)
+    case supportMissing(path: String)
+    case activationNeverObserved(killed: Int)
+}
+```
+
+Every case ends the run with exit code `1`. The descriptions name the mutants (the first ten, then a count) or the file, and say why the run stopped rather than reporting.
+
+---
+
+## Execution/ActivationMarker.swift
+
+```swift
+struct ActivationMarker: Sendable {
+    static let environmentVariable: String  // "__SWIFT_MUTATION_TESTING_ACTIVATION_FILE"
+    static let directoryName: String        // ".xmr-activation"
+
+    let path: String
+
+    init(for mutantID: String, in sandbox: Sandbox)
+    func wasWritten() -> Bool
+}
+```
+
+One marker per test run: `<sandbox>/.xmr-activation/<mutant id>-<UUID>`, created by the test process the first time the mutant's `case` runs, and read once by `wasWritten()`, which removes the file. `TestBundleInvocation.environment(mutantID:activationFile:)` puts the path in the test process's environment on the SPM path; `XCTestRunPlist.activating(_:activationFile:)` puts it in every test target's `EnvironmentVariables` on the Xcode path.
 
 ---
 
@@ -210,10 +266,11 @@ struct TestLaunchResult: Sendable {
     let output: String
     let xcresultPath: String
     let duration: Double
+    var activated: Bool = false
 }
 ```
 
-Raw result from a single `xcodebuild test-without-building` invocation.
+Raw result from a single test run — `xcodebuild test-without-building`, or the bundle invocations of the SPM path.
 
 | Field | Description |
 |---|---|
@@ -221,6 +278,7 @@ Raw result from a single `xcodebuild test-without-building` invocation.
 | `output` | Combined stdout + stderr |
 | `xcresultPath` | Absolute path to the `.xcresult` bundle |
 | `duration` | Wall-clock seconds from launch to termination |
+| `activated` | Whether the mutant's `case` wrote its activation marker during this run (or, on the SPM path, during the targeted or the full run) |
 
 ---
 
@@ -531,6 +589,7 @@ struct ExecutionResult: Sendable, Codable {
     let status: ExecutionStatus
     let testDuration: Double
     let killerTestFile: String?
+    let activated: Bool?
 }
 ```
 
@@ -540,6 +599,7 @@ struct ExecutionResult: Sendable, Codable {
 | `status` | Outcome of the test run |
 | `testDuration` | Wall-clock seconds for the test-without-building invocation; `0` for cache hits |
 | `killerTestFile` | Source file path of the test that killed this mutant; `nil` for non-killed statuses and cache hits without metadata |
+| `activated` | Whether the mutated code ran: `true`, `false`, or `nil` when it was not measured — incompatible mutants, and unviable ones, which never ran |
 
 ---
 

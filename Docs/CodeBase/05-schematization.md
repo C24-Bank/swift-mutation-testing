@@ -28,20 +28,23 @@ flowchart TD
 
 Groups are processed in reverse `bodyStartOffset` order so that earlier replacements do not invalidate the byte offsets of later ones.
 
-**Generated switch structure:**
+**Generated switch structure**, for a body of statements:
 
 ```swift
 {
 switch __swiftMutationTestingID {
 case "swift-mutation-testing_<n>":
-    <mutated statements>
+let _ = __SwiftMutationTesting.activated()
+<mutated statements>
 default:
-    <original statements>
+<original statements>
 }
 }
 ```
 
-Mutant IDs follow `"swift-mutation-testing_<index>"` where `index` is the global sequential index assigned by `MutantIndexingStage`.
+Every `case` starts by recording that it ran (`SupportDeclarations.activationCall`). The scope's `FunctionBodyShape` decides how: a body that is one expression keeps each case a single expression, `(__SwiftMutationTesting.activated(), <mutated expression>).1`, because such a body is an implicit return and the `switch` is then an expression; a body that is one `if` or `switch` expression in a value-returning scope gets `return` in front of every branch, `default` included. A blank mutated body — a removed sole statement — records the activation alone. The reasoning is in [Architecture — Activation Marker](../Architecture/05-schematization.md#activation-marker).
+
+Mutant IDs follow `"swift-mutation-testing_<index>"` where `index` is the global sequential index assigned by `MutantIndexingStage`. When at least one body was rewritten, the file ends with `SupportDeclarations.perFile`.
 
 ---
 
@@ -89,10 +92,11 @@ struct FunctionBodyScope: Sendable {
     let bodyEndOffset: Int
     let statementsStartOffset: Int
     let statementsEndOffset: Int
+    var shape: FunctionBodyShape = .statements
 }
 ```
 
-UTF-8 byte offsets describing one function body.
+UTF-8 byte offsets describing one function body, and its shape.
 
 | Field | Description |
 |---|---|
@@ -100,6 +104,27 @@ UTF-8 byte offsets describing one function body.
 | `bodyEndOffset` | Byte offset immediately after the closing `}` |
 | `statementsStartOffset` | Byte offset of the first statement |
 | `statementsEndOffset` | Byte offset immediately after the last statement |
+| `shape` | What the body is made of, see `FunctionBodyShape` |
+
+---
+
+## Discovery/Schematization/FunctionBodyShape.swift
+
+```swift
+enum FunctionBodyShape: Sendable, Equatable {
+    case statements
+    case expression
+    case conditional(returnsValue: Bool)
+}
+```
+
+| Case | Body | Recorded by `TypeScopeVisitor` when |
+|---|---|---|
+| `.statements` | zero, several, or one statement that is not an expression (`return x`) | anything else |
+| `.expression` | exactly one expression statement, `{ a + b }` or `{ print(1) }` | the single item is an `ExprSyntax` other than `if`/`switch` |
+| `.conditional(returnsValue:)` | exactly one `if` or `switch` expression | the single item is an `IfExprSyntax` or `SwitchExprSyntax`; `returnsValue` is `true` for a function with a return type other than `Void`/`()` and for a `get` accessor, `false` for `init`, `deinit`, setters and observers |
+
+`SchemataGenerator` uses the shape to place the activation call without breaking an implicit return.
 
 ---
 
@@ -125,11 +150,12 @@ struct SchematizedFile: Sendable, Codable {
 
 ```swift
 enum SupportDeclarations {
+    static let activationCall: String  // "__SwiftMutationTesting.activated()"
     static let perFile: String
 }
 ```
 
-The block `SchemataGenerator` appends to every file it changes: `import Foundation`, a `private enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once, and a `nonisolated private var __swiftMutationTestingID` that returns it. It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
+The block `SchemataGenerator` appends to every file it changes: `import Foundation`, a `private enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `nonisolated private var __swiftMutationTestingID` that returns the id. `activationCall` is the text of the call the generator writes into each `case`. It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
 
 ---
 

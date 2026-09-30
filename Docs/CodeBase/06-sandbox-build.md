@@ -45,7 +45,7 @@ flowchart TD
     XCODEPROJ -- yes --> PROJ[xcuserdata → mkdir\nxcshareddata → copy\neverything else → symlink]
     XCODEPROJ -- no --> RECURSE[recurse into directory]
     FILE[file item] --> SCHEMATIZED{schematized?}
-    SCHEMATIZED -- yes --> WRITE[write schematized content\n+ fixEmptySwitchCaseBodies]
+    SCHEMATIZED -- yes --> WRITE[write schematized content]
     SCHEMATIZED -- no --> MUTATED{mutated?}
     MUTATED -- yes --> WRITEM[write mutated content]
     MUTATED -- no --> SYMLINK[symlink to original]
@@ -55,7 +55,6 @@ flowchart TD
 
 1. `disableSwiftLintBuildPhases` — patches `project.pbxproj`, replacing the `shellScript` of every `PBXShellScriptBuildPhase` that contains `swiftlint` with `exit 0\n`.
 
-3. `fixEmptySwitchCaseBodies` — post-processes each schematized file after writing. Inserts a `break` statement into any `case "..."` block immediately followed by another case or default, preventing Swift compiler errors when `RemoveSideEffects` removes the only statement in a function body.
 
 ---
 
