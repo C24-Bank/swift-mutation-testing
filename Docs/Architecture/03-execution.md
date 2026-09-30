@@ -13,8 +13,7 @@ flowchart TD
     IN[RunnerInput] --> PREP[prepareCacheStore\ngranular invalidation]
     PREP --> ALLCACHED{all cached?}
     ALLCACHED -- yes --> RETURN[return cached results]
-    ALLCACHED -- no --> CLEAN[SandboxCleaner.removeOrphaned\nowned sandboxes are spared]
-    CLEAN --> SF[SandboxFactory\ncreate sandbox]
+    ALLCACHED -- no --> SF[SandboxFactory\ncreate sandbox]
     SF --> REG[SandboxCleaner.register]
     REG --> BS[BuildStage\nbuild-for-testing]
     BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
@@ -35,7 +34,7 @@ flowchart TD
 
 ## SandboxFactory
 
-Creates an isolated copy of the project in `$TMPDIR/xmr-<UUID>/` before every build. Supports both Xcode and SPM projects.
+Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<pid>-<UUID>/` before every build. Supports both Xcode and SPM projects.
 
 **Factory methods:**
 - `create(projectPath:schematizedFiles:supportFileContent:)` — full sandbox with schematized files and support file injection (normal path)
@@ -57,9 +56,9 @@ The original project is never touched. Cleanup removes the entire `xmr-*` direct
 
 Handles cleanup of orphaned sandbox directories and signal-based cleanup of the active sandbox.
 
-**Orphaned cleanup (`removeOrphaned`):** Called once at startup via `main()`. Scans `$TMPDIR` (or a provided directory) for directories prefixed with `xmr-` and removes them. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
+**Orphaned cleanup (`removeOrphaned`):** Called by `runPipeline` just before `MutantExecutor` runs — never on the `--version`, `--help` or `init` paths. Scans `$TMPDIR/swift-mutation-testing/` (or a provided directory) for directories prefixed with `xmr-` and removes the ones whose owning process is gone. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
 
-**Signal cleanup (`installSignalHandlers`):** Installs `SIGINT` and `SIGTERM` handlers at startup. When a signal is received, the handler removes the active sandbox directory (if registered) and calls `_exit(1)`. Uses a `nonisolated(unsafe)` C pointer for the active path — necessary because signal handlers are C function pointers that cannot capture Swift context.
+**Signal cleanup (`installSignalHandlers`):** Installs `SIGINT` and `SIGTERM` handlers at startup. When a signal is received, the handler removes the active sandbox directory (if registered) and calls `_exit(1)`. The active path lives in `SandboxRegistry` as a C string behind an `Atomic` — C signal handlers cannot capture Swift context, and a single atomic exchange per operation means no path is ever freed twice.
 
 **Lifecycle:** `MutantExecutor` calls `register(sandbox)` after creating the sandbox and `deregister()` after cleanup (both on the success and error paths). This ensures the signal handler always has the correct path.
 
@@ -286,7 +285,7 @@ score = killed / (killed + survived + timedOut + noCoverage) × 100
 | `TestExecutionStage` | `withThrowingTaskGroup` — N tasks, dynamically refilled |
 | `ProcessRunner` | `withTaskCancellationHandler` + `withCheckedThrowingContinuation` — kills process on cancel |
 | `SPMProcessLauncher` | `ProcessLaunching` conformance backed by `ProcessRunner`; on timeout it kills the process group and the descendants `ProcessTree` snapshotted before the first signal |
-| `SandboxCleaner` | `nonisolated(unsafe)` C pointer for signal handler access; `register`/`deregister` called sequentially from `MutantExecutor.execute` |
+| `SandboxRegistry` | `Atomic` holding a C string for signal handler access; each operation takes the pointer out with one `exchange` |
 | All data types | `Sendable` value types — safe to cross actor boundaries |
 
 ---

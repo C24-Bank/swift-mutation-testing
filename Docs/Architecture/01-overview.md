@@ -110,7 +110,7 @@ flowchart LR
 
 | Invariant | Enforcement |
 |---|---|
-| Original project is never modified | All mutations happen inside `$TMPDIR/xmr-<UUID>/` sandbox |
+| Original project is never modified | All mutations happen inside `$TMPDIR/swift-mutation-testing/xmr-<pid>-<UUID>/` sandbox |
 | Build runs exactly once for the normal path | `BuildStage` builds once (Xcode: `build-for-testing`, SPM: `swift build --build-tests`); `TestExecutionStage` uses `test-without-building` (Xcode) or `swift test --skip-build` (SPM) |
 | No mutant results are lost or duplicated | `MutationCounter` tracks total; `withThrowingTaskGroup` accounts for every task |
 | Mutant positions are accurate | UTF-8 offsets are preserved from AST through to final report |

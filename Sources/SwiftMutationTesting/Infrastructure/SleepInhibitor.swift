@@ -5,19 +5,26 @@ enum SleepInhibitor {
 
     static let reason = "swift-mutation-testing run"
 
-    static func preventingIdleSleep<T>(_ body: () async throws -> T) async rethrows -> T {
-        let assertion = acquire()
+    static func preventingIdleSleep<T>(
+        reason: String = reason,
+        _ body: () async throws -> T
+    ) async rethrows -> T {
+        let assertion = acquire(reason: reason)
         defer { IOPMAssertionRelease(assertion) }
         return try await body()
     }
 
     typealias AssertionTable = () -> NSDictionary?
 
-    static func isHeld(by pid: pid_t = getpid(), table: AssertionTable = assertionsByProcess) -> Bool {
+    static func isHeld(
+        by pid: pid_t = getpid(),
+        reason: String = reason,
+        table: AssertionTable = assertionsByProcess
+    ) -> Bool {
         let byProcess = table() ?? [:]
 
         return byProcess.contains { entry in
-            (entry.key as? NSNumber)?.int32Value == pid && holdsReason(entry.value)
+            (entry.key as? NSNumber)?.int32Value == pid && holds(reason, in: entry.value)
         }
     }
 
@@ -29,7 +36,7 @@ enum SleepInhibitor {
         return assertions?.takeRetainedValue() as NSDictionary?
     }
 
-    private static func acquire() -> IOPMAssertionID {
+    private static func acquire(reason: String) -> IOPMAssertionID {
         var id: IOPMAssertionID = 0
         _ = IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventSystemSleep as CFString,
@@ -41,7 +48,7 @@ enum SleepInhibitor {
         return id
     }
 
-    private static func holdsReason(_ value: Any) -> Bool {
+    private static func holds(_ reason: String, in value: Any) -> Bool {
         let held = value as? [[String: Any]] ?? []
         return held.contains { $0[kIOPMAssertionNameKey as String] as? String == reason }
     }

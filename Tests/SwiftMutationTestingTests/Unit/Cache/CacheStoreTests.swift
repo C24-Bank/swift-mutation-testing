@@ -516,4 +516,111 @@ struct CacheStoreTests {
 
         #expect(await store.result(for: key) == nil)
     }
+
+    // MARK: - Unreadable caches
+
+    @Test("Given results written before the key carried the file path, when loaded, then the cache is ignored")
+    func loadIgnoresResultsFromBeforeTheKeyCarriedThePath() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let written = """
+            [{"key":{"fileContentHash":"abc","operatorIdentifier":"binaryOperator","utf8Offset":0,\
+            "originalText":"a + b","mutatedText":"a - b"},"status":{"kind":"survived"}}]
+            """
+        try written.write(toFile: storePath, atomically: true, encoding: .utf8)
+
+        let store = CacheStore(storePath: storePath)
+        try await store.load()
+
+        #expect(await store.result(for: makeMutantCacheKey()) == nil)
+    }
+
+    @Test("Given results that are not JSON, when loaded, then the cache is ignored")
+    func loadIgnoresResultsThatAreNotJSON() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        try "not valid json".write(toFile: storePath, atomically: true, encoding: .utf8)
+
+        let store = CacheStore(storePath: storePath)
+        try await store.load()
+
+        #expect(await store.result(for: makeMutantCacheKey()) == nil)
+    }
+
+    @Test("Given metadata without a format version, when loaded, then readable results are ignored too")
+    func loadIgnoresResultsWhoseMetadataHasNoFormatVersion() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let first = CacheStore(storePath: storePath)
+        await first.store(status: .survived, for: makeMutantCacheKey())
+        try await first.persist()
+        try #"{"testFileHashes":{"Tests/A.swift":"abc"}}"#.write(
+            to: dir.appendingPathComponent("metadata.json"), atomically: true, encoding: .utf8
+        )
+
+        let second = CacheStore(storePath: storePath)
+        try await second.load()
+
+        #expect(await second.result(for: makeMutantCacheKey()) == nil)
+        #expect(try await second.loadMetadata() == nil)
+    }
+
+    @Test("Given metadata from another format version, when loaded, then readable results are ignored too")
+    func loadIgnoresResultsFromAnotherFormatVersion() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let first = CacheStore(storePath: storePath)
+        await first.store(status: .survived, for: makeMutantCacheKey())
+        try await first.persist()
+        try await first.persistMetadata(
+            CacheStore.CacheMetadata(testFileHashes: [:], formatVersion: CacheStore.formatVersion + 1)
+        )
+
+        let second = CacheStore(storePath: storePath)
+        try await second.load()
+
+        #expect(await second.result(for: makeMutantCacheKey()) == nil)
+        #expect(try await second.loadMetadata() == nil)
+    }
+
+    @Test("Given metadata from this format version, when loaded, then the results are kept")
+    func loadKeepsResultsFromThisFormatVersion() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let first = CacheStore(storePath: storePath)
+        await first.store(status: .survived, for: makeMutantCacheKey())
+        try await first.persist()
+        try await first.persistMetadata(CacheStore.CacheMetadata(testFileHashes: ["Tests/A.swift": "abc"]))
+
+        let second = CacheStore(storePath: storePath)
+        try await second.load()
+
+        #expect(await second.result(for: makeMutantCacheKey()) == .survived)
+        #expect(try await second.loadMetadata()?.formatVersion == CacheStore.formatVersion)
+    }
+
+    @Test("Given results that cannot be read from disk, when loaded, then the error still propagates")
+    func loadStillThrowsWhenResultsCannotBeRead() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storeURL = dir.appendingPathComponent("results.json")
+        try FileManager.default.createDirectory(at: storeURL, withIntermediateDirectories: true)
+
+        let store = CacheStore(storePath: storeURL.path)
+
+        await #expect(throws: (any Error).self) {
+            try await store.load()
+        }
+    }
 }

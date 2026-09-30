@@ -10,7 +10,7 @@ struct ConfigurationFileWriter: Sendable {
         }
 
         try generateContent(project: project).write(to: fileURL, atomically: true, encoding: .utf8)
-        print("Created \(fileURL.path)")
+        StandardOutput.write("Created \(fileURL.path)")
     }
 
     private func generateContent(project: DetectedProject) -> String {

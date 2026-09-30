@@ -4,7 +4,6 @@ public struct SwiftMutationTesting {
 
     public static func main() async {
         SandboxCleaner.installSignalHandlers()
-        SandboxCleaner.removeOrphaned()
         exit(await run(args: Array(CommandLine.arguments.dropFirst())).rawValue)
     }
 
@@ -24,12 +23,12 @@ public struct SwiftMutationTesting {
         let parsed = try CommandLineParser().parse(args)
 
         if parsed.showHelp {
-            print(HelpText.usage)
+            StandardOutput.write(HelpText.usage)
             return .success
         }
 
         if parsed.showVersion {
-            print(Version.current)
+            StandardOutput.write(Version.current)
             return .success
         }
 
@@ -71,6 +70,8 @@ public struct SwiftMutationTesting {
 
         let executionLauncher: any ProcessLaunching = launcher ?? defaultLauncher(for: configuration.build.projectType)
 
+        SandboxCleaner.removeOrphaned()
+
         let start = Date()
         let results = try await MutantExecutor(configuration: configuration, launcher: executionLauncher).execute(input)
         let duration = Date().timeIntervalSince(start)
@@ -104,7 +105,7 @@ public struct SwiftMutationTesting {
             || configuration.reporting.htmlOutput != nil
             || configuration.reporting.sonarOutput != nil
         guard hasReports else { return }
-        print("")
+        StandardOutput.write("")
 
         if let output = configuration.reporting.output {
             writeReport(label: "JSON", to: output) {
@@ -135,7 +136,7 @@ public struct SwiftMutationTesting {
     private static func writeReport(label: String, to path: String, _ write: () throws -> Void) {
         do {
             try write()
-            print("  ✓ \(label) report: \(path)")
+            StandardOutput.write("  ✓ \(label) report: \(path)")
         } catch {
             fputs("Warning: could not write \(label) report to '\(path)': \(error.localizedDescription)\n", stderr)
         }

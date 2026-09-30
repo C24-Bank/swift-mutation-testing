@@ -88,8 +88,8 @@ struct SwiftMutationTestingExecutionPathTests {
         #expect(launcher is SPMProcessLauncher)
     }
 
-    @Test("Given corrupted cache file at project path, when run called, then returns error")
-    func corruptedCacheFileReturnsError() async throws {
+    @Test("Given corrupted cache file at project path, when run called, then the run goes on without it")
+    func corruptedCacheFileIsIgnored() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -109,7 +109,7 @@ struct SwiftMutationTestingExecutionPathTests {
             launcher: MockProcessLauncher(exitCode: 1)
         )
 
-        #expect(result == .error)
+        #expect(result == .success)
     }
 
     @Test("Given quiet is off and the project has mutants, when run called, then discovery is reported")

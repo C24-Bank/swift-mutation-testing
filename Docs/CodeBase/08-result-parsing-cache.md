@@ -173,6 +173,7 @@ Invokes `xcresulttool get test-results tests` on the `.xcresult` bundle and pars
 ```swift
 actor CacheStore {
     static let directoryName: String
+    static let formatVersion: Int
     init(storePath: String, noCache: Bool = false)
     func result(for key: MutantCacheKey) -> ExecutionStatus?
     func killerTestFile(for key: MutantCacheKey) -> String?
@@ -191,10 +192,15 @@ Persists execution results across runs with granular per-file invalidation. All 
 | Constant | Value |
 |---|---|
 | `directoryName` | `".swift-mutation-testing-cache"` |
+| `formatVersion` | `1` — bump whenever the shape of `results.json` or `metadata.json` changes |
 
 Cache is stored at `<project>/.swift-mutation-testing-cache/results.json` as a JSON array of `CacheEntry` values (key + status + killerTestFile).
 
 `load()` is a no-op if the cache file does not exist. `persist()` creates the directory if needed and writes atomically.
+
+**A cache this version cannot read is discarded, not fatal.** `metadata.json` carries `formatVersion`. `load()` starts empty — printing a warning to stderr — when the metadata is there but undecodable or from another version (a metadata file with no version at all, as 1.4 and 1.5 wrote, counts as another version), or when `results.json` itself does not decode. `loadMetadata()` answers `nil` in the same cases, so `changedTestFiles` treats every test file as new. The next `persist()`/`persistMetadata(_:)` overwrites both files in the current format. Errors reading the files from disk still propagate: those are not a stale cache, and hiding them would hide a broken project directory.
+
+Up to 1.5.0 any decode failure ended the run. 1.4.0 added `filePath` to `MutantCacheKey`, so a cache written by 1.3 or earlier made every later run stop right after discovery with *"The data couldn't be read because it is missing"* — `DecodingError.keyNotFound` — until the user deleted the directory by hand. The cache only ever saves time: discarding it costs one full run, while refusing to run over it costs the user the tool.
 
 **`noCache`:** constructed with `noCache: true` — from `--no-cache` or `no-cache: true` in the YAML — the store is inert. It reads nothing from disk, holds no verdict, and writes nothing back. The flag is honoured here rather than at each call site, so a run can neither replay a verdict nor leave one behind for the next run to replay.
 
@@ -206,7 +212,7 @@ Cache is stored at `<project>/.swift-mutation-testing-cache/results.json` as a J
 | `store(status:for:killerTestFile:)` | Stores an execution result with optional killer test file metadata |
 | `changedTestFiles(current:)` | Compares current per-file test hashes against stored metadata to produce a `TestFileDiff` |
 | `invalidate(diff:)` | Removes cached entries based on status-aware rules (see Architecture docs) |
-| `persistMetadata(_:)` | Writes `CacheMetadata` (test file hashes) to disk alongside the results cache |
+| `persistMetadata(_:)` | Writes `CacheMetadata` (format version and test file hashes) to disk alongside the results cache |
 
 ---
 

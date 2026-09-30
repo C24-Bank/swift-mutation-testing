@@ -19,7 +19,7 @@ struct SwiftMutationTesting {
 }
 ```
 
-The program entry point. `main()` installs signal handlers for sandbox cleanup (`SandboxCleaner.installSignalHandlers()`), removes sandboxes left by interrupted runs whose process is gone (`SandboxCleaner.removeOrphaned()`), then drops `CommandLine.arguments[0]` (the executable name) and delegates to `run(args:launcher:)`.
+The program entry point. `main()` installs signal handlers for sandbox cleanup (`SandboxCleaner.installSignalHandlers()`), then drops `CommandLine.arguments[0]` (the executable name) and delegates to `run(args:launcher:)`.
 
 `run` catches two error categories before returning an exit code:
 - `UsageError` — prints `message` to stderr
@@ -40,13 +40,14 @@ flowchart TD
     D -- no --> E[ConfigurationFileParser.parse\nConfigurationResolver.resolve]
     E --> S[SleepInhibitor.preventingIdleSleep]
     S --> F[discover → RunnerInput]
-    F --> G[MutantExecutor.execute → results]
+    F --> SW[SandboxCleaner.removeOrphaned]
+    SW --> G[MutantExecutor.execute → results]
     G --> H[RunnerSummary]
     H --> I[TextReporter.report]
     I --> J[writeReports → .success]
 ```
 
-`runPipeline` holds a `SleepInhibitor` assertion from discovery to the last report, so an unattended run does not stop while the machine sleeps.
+`runPipeline` holds a `SleepInhibitor` assertion from discovery to the last report, so an unattended run does not stop while the machine sleeps. Before handing the mutants to `MutantExecutor` it sweeps sandboxes left by interrupted runs (`SandboxCleaner.removeOrphaned()`); doing it here rather than in `main()` keeps `--help`, `--version` and `init` from paying for a directory listing they do not need.
 
 `discover` runs `DiscoveryPipeline` and, when `quiet` is false, emits `.discoveryFinished` to a `ConsoleProgressReporter`.
 

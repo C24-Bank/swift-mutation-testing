@@ -68,8 +68,7 @@ struct SandboxFactory: Sendable {
     }
 
     private func makeSandboxRoot() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(SandboxName.make())
+        let url = SandboxName.directory.appendingPathComponent(SandboxName.make())
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

@@ -1,25 +1,43 @@
 import Foundation
+import Synchronization
 
-nonisolated(unsafe) private var activeSandboxPath: UnsafeMutablePointer<CChar>?
-nonisolated(unsafe) var sandboxCleanerExitHandler: @convention(c) (Int32) -> Void = { code in _exit(code) }
+private let signalTarget = Mutex(SandboxCleaner.SignalTarget.process)
 
 private func handleSignal(_: Int32) {
-    SandboxCleaner.cleanupActiveSandbox()
-    sandboxCleanerExitHandler(1)
+    signalTarget.withLock { SandboxCleaner.terminate(registry: $0.registry, exit: $0.exit) }
 }
 
 enum SandboxCleaner {
 
-    static func cleanupActiveSandbox() {
-        if let path = activeSandboxPath {
-            let url = URL(fileURLWithPath: String(cString: path))
-            try? FileManager.default.removeItem(at: url)
-            path.deallocate()
-            activeSandboxPath = nil
-        }
+    struct SignalTarget: Sendable {
+        static let process = SignalTarget(registry: .shared, exit: { _exit($0) })
+
+        let registry: SandboxRegistry
+        let exit: @Sendable (Int32) -> Void
     }
 
-    static func removeOrphaned(in directory: URL = FileManager.default.temporaryDirectory) {
+    static func withSignalTarget<T>(_ target: SignalTarget, _ body: () throws -> T) rethrows -> T {
+        let previous = signalTarget.withLock { current in
+            defer { current = target }
+            return current
+        }
+        defer { signalTarget.withLock { $0 = previous } }
+        return try body()
+    }
+
+    static func cleanupActiveSandbox(in registry: SandboxRegistry = .shared) {
+        registry.cleanup()
+    }
+
+    static func terminate(
+        registry: SandboxRegistry = .shared,
+        exit: (Int32) -> Void = SignalTarget.process.exit
+    ) {
+        registry.cleanup()
+        exit(1)
+    }
+
+    static func removeOrphaned(in directory: URL = SandboxName.directory) {
         guard
             let contents = try? FileManager.default.contentsOfDirectory(
                 at: directory,
@@ -33,18 +51,12 @@ enum SandboxCleaner {
         }
     }
 
-    static func register(_ sandbox: Sandbox) {
-        let path = sandbox.rootURL.path
-        let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: path.utf8.count + 1)
-        _ = path.withCString { strcpy(buffer, $0) }
-        activeSandboxPath = buffer
+    static func register(_ sandbox: Sandbox, in registry: SandboxRegistry = .shared) {
+        registry.register(sandbox)
     }
 
-    static func deregister() {
-        if let path = activeSandboxPath {
-            path.deallocate()
-            activeSandboxPath = nil
-        }
+    static func deregister(in registry: SandboxRegistry = .shared) {
+        registry.deregister()
     }
 
     static func installSignalHandlers() {

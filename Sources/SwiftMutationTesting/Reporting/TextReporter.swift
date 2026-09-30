@@ -11,7 +11,7 @@ struct TextReporter: Sendable {
     private let resolvedRoot: String
 
     func report(_ summary: RunnerSummary) {
-        print(format(summary))
+        StandardOutput.write(format(summary))
     }
 
     func format(_ summary: RunnerSummary) -> String {
