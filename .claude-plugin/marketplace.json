@@ -1,0 +1,15 @@
+{
+  "name": "swift-mutation-testing",
+  "description": "Mutation testing for Swift projects, as a Claude Code plugin",
+  "owner": {
+    "name": "Érico Perez Neto",
+    "url": "https://github.com/ericodx"
+  },
+  "plugins": [
+    {
+      "name": "swift-mutation-testing",
+      "source": "./",
+      "description": "Teaches Claude to run swift-mutation-testing, read its report and kill surviving mutants"
+    }
+  ]
+}

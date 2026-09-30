@@ -1,0 +1,13 @@
+{
+  "name": "swift-mutation-testing",
+  "displayName": "Swift Mutation Testing",
+  "description": "Teaches Claude to run swift-mutation-testing, read its report and kill surviving mutants",
+  "author": {
+    "name": "Érico Perez Neto",
+    "url": "https://github.com/ericodx"
+  },
+  "homepage": "https://github.com/ericodx/swift-mutation-testing",
+  "repository": "https://github.com/ericodx/swift-mutation-testing",
+  "license": "MIT",
+  "keywords": ["swift", "mutation-testing", "testing", "xcode", "swiftpm"]
+}
