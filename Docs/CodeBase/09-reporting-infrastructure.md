@@ -444,6 +444,7 @@ struct ProcessRunner: Sendable {
     var postTerminationCleanup: (@Sendable (Int32) -> Void)?
     let onTimeout: @Sendable (Int32) -> Void
     var readCapturedOutput: @Sendable (URL) throws -> String
+    var processGroups: ProcessGroupRegistry = .shared
 
     func launch(executableURL:arguments:workingDirectoryURL:timeout:) async throws -> Int32
     func launchCapturing(_ request: ProcessRequest) async throws -> (exitCode: Int32, output: String)
@@ -463,6 +464,8 @@ This is what makes a killed mutant cheap. A mutant is killed by its *first* fail
 **Post-termination cleanup:** `postTerminationCleanup` is called after every process termination (success or failure), used by `SPMProcessLauncher` to kill the process group.
 
 `launchCapturing` writes output to a temporary file (UUID-named) and reads it in the `terminationHandler` to avoid pipe buffer limits. Sets process group via `setpgid(pid, pid)` to enable group signaling.
+
+**Tracking what is in flight:** both launch paths register the new group in `processGroups` right after `setpgid`, and the `terminationHandler` deregisters it first thing, so the signal handler in `SandboxCleaner` knows exactly which groups to kill if the tool is interrupted. A process that exits before it is registered would otherwise leave its pid behind — and a later `killAll` would signal whatever reused it — so registration is followed by an `isRunning` check that undoes it.
 
 ---
 
@@ -618,6 +621,25 @@ final class TimeoutEscalation: @unchecked Sendable {
 ```
 
 Owns the `SIGKILL` that sweeps up whatever the first round of signals missed, and ties it to the run's lifetime: a process that stops when asked has its snapshotted descendants killed at once and the pending task cancelled, rather than a timer firing seconds later when the pid may belong to something else.
+
+---
+
+## Infrastructure/ProcessGroupRegistry.swift
+
+```swift
+final class ProcessGroupRegistry: @unchecked Sendable {
+    static let shared: ProcessGroupRegistry
+    init(capacity: Int = 256)
+
+    func register(_ pid: pid_t)
+    func deregister(_ pid: pid_t)
+    func killAll(kill: SystemCalls.Kill = Darwin.kill)
+}
+```
+
+The process groups of the test runs currently in flight. `killAll` sends `SIGKILL` to each group and empties the registry; `SandboxCleaner.terminate` calls it from the signal handler, so the registry holds no lock and allocates nothing after `init`. Each slot is an `Atomic<pid_t>` claimed with one compare-exchange and released with another, which leaves a signal that lands mid-update seeing either the pid or an empty slot. `killAll` does not walk `ProcessTree` for descendants the way a timeout does: `sysctl` allocates, and the group kill already reaches every process the test run did not move into a group of its own.
+
+The capacity bounds how many runs can be tracked at once — 256, well above the one SPM worker or the simulator pool's `CPUs - 1`. A run registered past it is simply not tracked, which is the behaviour every run had before this.
 
 ---
 
