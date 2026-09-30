@@ -28,6 +28,7 @@ Mutation testing introduces controlled changes to your code to verify that your 
 - Multiple report formats: text, JSON (Stryker-compatible), HTML, SonarQube
 - Simulator pool management for iOS/tvOS/watchOS targets
 - Per-scope mutation suppression via `@SwiftMutationTestingDisabled`
+- Quality gate for CI: minimum score, maximum drop, and no new survivors against a committed baseline
 - Configurable via YAML or CLI flags
 - CI/CD ready with caching support
 
