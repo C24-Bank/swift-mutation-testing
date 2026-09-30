@@ -143,4 +143,23 @@ struct RunnerSummaryTests {
         #expect(summary.score == 50.0)
     }
 
+    @Test("Given a mixed summary, when the detection line is built, then it breaks both sides down")
+    func detectionLineBreaksDownBothSides() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(status: .killed(by: "t")),
+                makeExecutionResult(status: .killedByCrash),
+                makeExecutionResult(status: .timeout),
+                makeExecutionResult(status: .survived),
+                makeExecutionResult(status: .noCoverage),
+                makeExecutionResult(status: .unviable),
+            ],
+            totalDuration: 0
+        )
+
+        #expect(
+            summary.detectionLine
+                == "Detected: 3 (killed 2, timeout 1) / Undetected: 2 (survived 1, no coverage 1)"
+        )
+    }
 }
