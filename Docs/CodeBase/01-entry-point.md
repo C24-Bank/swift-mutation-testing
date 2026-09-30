@@ -12,9 +12,11 @@ struct SwiftMutationTesting {
     static func main() async
     static func run(args: [String], launcher: (any ProcessLaunching)? = nil) async -> ExitCode
     private static func execute(args: [String], launcher: (any ProcessLaunching)?) async throws -> ExitCode
-    private static func runPipeline(configuration: RunnerConfiguration, launcher: (any ProcessLaunching)?) async throws -> ExitCode
+    private static func runPipeline(configuration: RunnerConfiguration, baseline: Baseline?, launcher: (any ProcessLaunching)?) async throws -> ExitCode
     private static func discover(configuration: RunnerConfiguration) async throws -> (RunnerInput, TimeInterval)
     static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration)
+    static func loadBaseline(for configuration: RunnerConfiguration) throws -> Baseline?
+    static func applyGate(_ summary: RunnerSummary, configuration: RunnerConfiguration, baseline: Baseline?, now: Date = Date()) throws -> ExitCode
     static func defaultLauncher(for projectType: ProjectType) -> any ProcessLaunching
 }
 ```
@@ -38,14 +40,16 @@ flowchart TD
     C -- no --> D{showInit?}
     D -- yes --> INIT[ProjectDetector.detect\nConfigurationFileWriter.write → .success]
     D -- no --> E[ConfigurationFileParser.parse\nConfigurationResolver.resolve]
-    E --> S[SleepInhibitor.preventingIdleSleep]
+    E --> LB[loadBaseline\nscope mismatch → error]
+    LB --> S[SleepInhibitor.preventingIdleSleep]
     S --> F[discover → RunnerInput]
     F --> RP[OrphanedProcessReaper.reap]
     RP --> SW[SandboxCleaner.removeOrphaned]
     SW --> G[MutantExecutor.execute → results]
     G --> H[RunnerSummary]
     H --> I[TextReporter.report]
-    I --> J[writeReports → .success]
+    I --> J[writeReports]
+    J --> K[applyGate → .success or .gateFailed]
 ```
 
 `runPipeline` holds a `SleepInhibitor` assertion from discovery to the last report, so an unattended run does not stop while the machine sleeps. Before handing the mutants to `MutantExecutor` it kills test processes still running from the sandboxes of dead runs (`OrphanedProcessReaper().reap()`) and then sweeps those sandboxes (`SandboxCleaner.removeOrphaned()`); doing it here rather than in `main()` keeps `--help`, `--version` and `init` from paying for a directory listing they do not need.
@@ -54,18 +58,23 @@ flowchart TD
 
 `writeReports` writes `JsonReporter`, `HtmlReporter`, and `SonarReporter` outputs when the corresponding output path is configured. Each reporter failure prints a warning to stderr without aborting.
 
+`loadBaseline` reads the baseline named by `--baseline` before anything runs and compares its scope with the run's (`BaselineScope.differences`). A missing, unreadable or out-of-scope baseline throws `GateError`, so the run ends with `.error` before a single mutant is built.
+
+`applyGate` runs after the reports. When the gate is active it evaluates `QualityGate`, prints the result with `GateReporter` and returns `.gateFailed` if a check failed; then, when `--write-baseline` was given, it writes this run's baseline whatever the outcome. See [10 — Quality Gate](10-quality-gate.md).
+
 ---
 
 ## CLI/ExitCode.swift
 
 ```swift
 enum ExitCode: Int32 {
-    case success = 0
-    case error   = 1
+    case success    = 0
+    case error      = 1
+    case gateFailed = 2
 }
 ```
 
-Passed directly to `exit(_:)` as `rawValue`. All error conditions (usage, build, unexpected) map to `.error`.
+Passed directly to `exit(_:)` as `rawValue`. All error conditions (usage, build, baseline, unexpected) map to `.error`. `.gateFailed` means the run completed and its reports were written, but the quality gate did not pass, so CI can tell a failed gate from a broken run.
 
 ---
 

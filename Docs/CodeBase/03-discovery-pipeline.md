@@ -142,11 +142,45 @@ Results are sorted by `filePath` then `utf8Offset`.
 
 ```swift
 struct MutantIndexingStage: Sendable {
-    func run(mutationPoints: [MutationPoint], sources: [ParsedSource]) -> [IndexedMutationPoint]
+    func run(mutationPoints: [MutationPoint], sources: [ParsedSource], projectPath: String) -> [IndexedMutationPoint]
 }
 ```
 
 Assigns a globally unique sequential index to each mutation point (sorted by file path, then UTF-8 offset) and classifies them as schematizable or incompatible using `TypeScopeVisitor`. The index becomes the mutant ID suffix in `"swift-mutation-testing_<index>"`.
+
+It also computes each mutant's `MutantFingerprint`. The index is renumbered by any mutant added earlier in any file, so it cannot identify a mutant across runs of different code; the fingerprint can. Among mutants that share a file, declaration, operator and change, the ordinal is their position in offset order.
+
+---
+
+## Discovery/Pipeline/DeclarationPath.swift
+
+```swift
+enum DeclarationPath {
+    static let topLevel: String  // "<top-level>"
+    static func of(utf8Offset: Int, in syntax: SourceFileSyntax) -> String
+}
+```
+
+Names the declarations that enclose an offset, outermost first, joined with `.`: `Parser.parse(_:strict:)`, `Foo.init(bar:)`, `S.flag.get`, `Outer.Inner.f()`, `Array.f()` for an extension. It walks up from the token at the offset through its ancestors, naming functions (with their argument labels), initializers, subscripts, `deinit`, accessors, variables, and the types and extensions around them. Closures are transparent: a mutant inside a closure belongs to the function that contains it. A mutant in no declaration is `<top-level>`.
+
+---
+
+## Discovery/Pipeline/MutantFingerprint.swift
+
+```swift
+enum MutantFingerprint {
+    static func make(relativePath: String, declarationPath: String, mutation: MutationPoint, ordinal: Int) -> String
+}
+```
+
+SHA-256 of the file path relative to the project, the declaration path, the operator, the original and mutated text, and the ordinal, truncated to 16 bytes and written as 32 hexadecimal characters.
+
+| Change | Fingerprint |
+|---|---|
+| Lines inserted above, another declaration edited, the project cloned elsewhere | unchanged |
+| The function or file renamed, the mutated expression edited | new — the mutant is reviewed as new |
+
+The quality gate compares baselines by fingerprint ([10 — Quality Gate](10-quality-gate.md)), and `JsonReporter` writes it to each mutant.
 
 ---
 
@@ -157,6 +191,7 @@ struct IndexedMutationPoint: Sendable {
     let index: Int
     let mutation: MutationPoint
     let isSchematizable: Bool
+    let fingerprint: String
 
     var mutantID: String { get }
     func toDescriptor(mutatedContent: String?, sourceContentHash: String) -> MutantDescriptor
@@ -169,6 +204,7 @@ struct IndexedMutationPoint: Sendable {
 | `mutation` | The original mutation point |
 | `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID` is compared against in the schema |
 | `isSchematizable` | `true` if the mutation falls inside a function body (determined by `TypeScopeVisitor`) |
+| `fingerprint` | The mutant's `MutantFingerprint`, stable across runs |
 
 ---
 
@@ -285,8 +321,9 @@ struct MutantDescriptor: Sendable, Codable {
     let replacementKind: ReplacementKind
     let description: String
     let isSchematizable: Bool
-    let mutatedSourceContent: String?
+    var mutatedSourceContent: String?
     let sourceContentHash: String
+    let fingerprint: String
 }
 ```
 
@@ -296,7 +333,8 @@ The canonical representation of a mutant carried through the execution pipeline 
 |---|---|
 | `id` | `"swift-mutation-testing_<index>"` — unique per run |
 | `isSchematizable` | `true` if the mutation falls inside a function body |
-| `mutatedSourceContent` | Complete source file with the mutation applied; `nil` for schematizable mutants |
+| `mutatedSourceContent` | Complete source file with the mutation applied; `nil` for schematizable mutants. A `var`, so the executor's fallback can hand a schematizable mutant its rewritten file on a copy |
+| `fingerprint` | Stable identity across runs — see `MutantFingerprint` |
 
 All position fields (`line`, `column`, `utf8Offset`) match those in the originating `MutationPoint`.
 

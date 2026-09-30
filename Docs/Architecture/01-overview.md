@@ -24,11 +24,13 @@ graph TD
     INFRA["Infrastructure\n(ProcessRunner · ProcessRequest · OutputStopRule\nSPMProcessLauncher · XcodeProcessLauncher · ProcessTree\nTimeoutEscalation · SleepInhibitor · XCTestRunPlist · TestFilesHasher)"]
     CACHE["Cache\n(CacheStore · MutantCacheKey · TestFileDiff\nKillerTestFileResolver)"]
     SANDBOX["Sandbox\n(SandboxFactory · SandboxName · SandboxCleaner)"]
+    GATE["Gate\n(QualityGate · Baseline · BaselineStore)"]
 
     CLI --> CONFIG
     CLI --> DISCOVERY
     CLI --> EXECUTION
     CLI --> REPORTING
+    CLI --> GATE
     EXECUTION --> INFRA
     EXECUTION --> CACHE
     EXECUTION --> SANDBOX
@@ -45,6 +47,7 @@ graph TD
 | **Sandbox** | Sandbox creation (`SandboxFactory`), orphaned sandbox cleanup and signal-based cleanup (`SandboxCleaner`) |
 | **Cache** | Granular per-file cache invalidation (`CacheStore`, `TestFileDiff`), killer test file resolution (`KillerTestFileResolver`), cache key computation (`MutantCacheKey`) |
 | **Reporting** | Progress output, mutation report generation (text, JSON, HTML, Sonar) |
+| **Gate** | Quality gate policies, baselines of undetected mutants matched by fingerprint, gate exit code |
 | **Infrastructure** | Process lifecycle management (`ProcessRunner`, `ProcessRequest`, `SPMProcessLauncher`), xctestrun plist manipulation, test file hashing |
 
 ## Entry Point
@@ -63,7 +66,10 @@ flowchart TD
     G --> H[MutantExecutor\nbuilds and tests each mutant]
     H --> I[TextReporter prints summary]
     I --> J[JsonReporter · HtmlReporter\n· SonarReporter write files]
-    J --> EXIT0
+    J --> GT{Quality gate\nconfigured?}
+    GT -- no --> EXIT0
+    GT -- passed --> EXIT0
+    GT -- failed --> EXIT2[Exit 2]
     B -- --help / --version --> EXIT0
 ```
 
@@ -122,7 +128,8 @@ flowchart LR
 | Code | Meaning |
 |---|---|
 | `0` | Success |
-| `1` | Error (usage error, build failure, unexpected failure) |
+| `1` | Error (usage error, build failure, unreadable or out-of-scope baseline, unexpected failure) |
+| `2` | The run completed but the quality gate failed |
 
 ---
 

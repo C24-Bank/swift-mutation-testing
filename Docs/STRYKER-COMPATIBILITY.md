@@ -80,6 +80,7 @@ Each object in the `mutants` array describes one mutation point and its outcome.
 | `statusReason` | `string?` | `"crash"` for a mutant killed by a crash, omitted otherwise | ✓ |
 | `killedBy` | `string[]?` | the name of the test that killed the mutant, omitted when no test is named | ✓ |
 | `description` | `string?` | `"<original> → <mutated>"` | ✓ |
+| `fingerprint` | — | the mutant's stable identity, see [Baselines](USAGE.MD#baselines) | ✓ — an extra property, which the schema allows |
 
 Both lines and columns are 1-based, as the schema defines them and as SwiftSyntax's `SourceLocation` reports them.
 
