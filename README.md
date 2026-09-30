@@ -124,6 +124,17 @@ mutators:
 
 Full reference in the [Usage & Configuration Guide](Docs/USAGE.MD).
 
+## Using with AI coding agents
+
+The repository is a [Claude Code](https://code.claude.com) plugin marketplace. Its plugin ships a skill that teaches Claude when to run mutation testing, how to read the report, and how to write the test that kills a surviving mutant:
+
+```bash
+claude plugin marketplace add ericodx/swift-mutation-testing
+claude plugin install swift-mutation-testing@swift-mutation-testing
+```
+
+Then ask Claude, in a Swift project, something like *"how good are the tests in this package?"*. The skill is in [`skills/swift-mutation-testing/SKILL.md`](skills/swift-mutation-testing/SKILL.md) and needs the CLI [installed](#install). Updating, project-wide installs and uninstalling are covered in the [Installation Guide](Docs/INSTALLATION.MD#claude-code-plugin-ai-coding-agents).
+
 ## Documentation
 
 | Document | Description |
