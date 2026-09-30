@@ -33,4 +33,12 @@ struct IntegrityErrorTests {
         #expect(error.errorDescription?.contains("/p/Foo.swift") == true)
         #expect(error.errorDescription?.contains(fragment) == true)
     }
+
+    @Test("Given kills without any activation, when described, then the message says every verdict is suspect")
+    func activationNeverObserved() {
+        let message = IntegrityError.activationNeverObserved(killed: 3).errorDescription
+
+        #expect(message?.hasPrefix("3 mutants were killed, but no mutant's code was ever seen running.") == true)
+        #expect(message?.contains("every verdict is suspect") == true)
+    }
 }

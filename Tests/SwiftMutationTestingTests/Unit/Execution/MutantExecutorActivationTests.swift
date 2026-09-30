@@ -32,13 +32,12 @@ struct MutantExecutorActivationTests {
     func aKillWithoutActivationIsKeptAndFlagged() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
+        let launcher = MarkerWritingLauncher(full: .killed(by: "flaky()", writesMarker: true), activates: ["m1"])
 
-        let results = try await execute(
-            in: dir, launcher: MarkerWritingLauncher(full: .killed(by: "flaky()", writesMarker: false))
-        )
+        let results = try await execute(in: dir, mutantIDs: ["m0", "m1"], launcher: launcher)
 
-        #expect(results.map(\.status) == [.killed(by: "flaky()")])
-        #expect(results.map(\.activated) == [false])
+        #expect(results.map(\.status) == [.killed(by: "flaky()"), .killed(by: "flaky()")])
+        #expect(results.map(\.activated) == [false, true])
     }
 
     @Test("Given only the targeted run reached the mutated code, when executed, then the mutant counts as activated")
@@ -78,6 +77,7 @@ struct MutantExecutorActivationTests {
         in dir: URL,
         withSuite: Bool = false,
         noCache: Bool = true,
+        mutantIDs: [String] = ["m0"],
         launcher: MarkerWritingLauncher
     ) async throws -> [ExecutionResult] {
         let sourceFile = dir.appendingPathComponent("Foo.swift")
@@ -99,7 +99,9 @@ struct MutantExecutorActivationTests {
             makeRunnerInput(
                 projectPath: dir.path, projectType: .spm, noCache: noCache,
                 schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
-                mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+                mutants: mutantIDs.enumerated().map {
+                    makeMutantDescriptor(id: $1, filePath: sourceFile.path, utf8Offset: $0, isSchematizable: true)
+                }
             )
         )
     }

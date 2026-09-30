@@ -25,10 +25,12 @@ actor MarkerWritingLauncher: ProcessLaunching {
 
     private let full: Phase
     private let targeted: Phase?
+    private let activates: Set<String>?
 
-    init(full: Phase, targeted: Phase? = nil) {
+    init(full: Phase, targeted: Phase? = nil, activates: Set<String>? = nil) {
         self.full = full
         self.targeted = targeted
+        self.activates = activates
     }
 
     func launch(
@@ -65,7 +67,8 @@ actor MarkerWritingLauncher: ProcessLaunching {
         let isTargeted = request.arguments.contains("--filter")
         let phase = isTargeted ? (targeted ?? full) : full
 
-        if phase.writesMarker, let path = request.additionalEnvironment[ActivationMarker.environmentVariable] {
+        let writesMarker = activates.map { $0.contains(mutantID) } ?? phase.writesMarker
+        if writesMarker, let path = request.additionalEnvironment[ActivationMarker.environmentVariable] {
             FileManager.default.createFile(atPath: path, contents: nil)
         }
 
