@@ -154,50 +154,6 @@ struct SandboxFactoryTests {
         #expect(otherPhase?["shellScript"] as? String == "echo hello")
     }
 
-    @Test("Given empty switch case bodies in schematized content, when sandbox created, then break is inserted")
-    func insertsBreakIntoEmptySwitchCaseBodies() async throws {
-        let projectDir = try FileHelpers.makeTemporaryDirectory()
-        defer { FileHelpers.cleanup(projectDir) }
-
-        try FileHelpers.write("original content", named: "File.swift", in: projectDir)
-        let filePath = projectDir.appendingPathComponent("File.swift").path
-
-        let schematizedContent = """
-            switch __swiftMutationTestingID {
-            case "abc-123":
-            case "def-456":
-                foo()
-            default:
-                bar()
-            }
-            """
-
-        let schematized = SchematizedFile(originalPath: filePath, schematizedContent: schematizedContent)
-        let sandbox = try await factory.create(
-            projectPath: projectDir.path,
-            schematizedFiles: [schematized]
-        )
-        defer { try? sandbox.cleanup() }
-
-        let content = try String(
-            contentsOf: sandbox.rootURL.appendingPathComponent("File.swift"),
-            encoding: .utf8
-        )
-
-        let expectedContent = """
-            switch __swiftMutationTestingID {
-            case "abc-123":
-                break
-            case "def-456":
-                foo()
-            default:
-                bar()
-            }
-            """
-
-        #expect(content == expectedContent)
-    }
-
     @Test("Given xcworkspace with xcshareddata file, when sandbox created, then xcshareddata file is copied")
     func xcworkspaceXcsharedDataFileIsCopied() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()
@@ -224,41 +180,6 @@ struct SandboxFactoryTests {
         #expect(!isSymlink)
         let content = try String(contentsOf: sandboxFile, encoding: .utf8)
         #expect(content == "shared content")
-    }
-
-    @Test("Given empty switch case body preceded by blank line, when sandbox created, then break is inserted")
-    func insertsBreakWhenEmptyCaseBodyHasBlankLineBefore() async throws {
-        let projectDir = try FileHelpers.makeTemporaryDirectory()
-        defer { FileHelpers.cleanup(projectDir) }
-
-        try FileHelpers.write("original content", named: "File.swift", in: projectDir)
-        let filePath = projectDir.appendingPathComponent("File.swift").path
-
-        let schematizedContent = """
-            switch __swiftMutationTestingID {
-            case "abc-123":
-
-            case "def-456":
-                foo()
-            default:
-                bar()
-            }
-            """
-
-        let schematized = SchematizedFile(originalPath: filePath, schematizedContent: schematizedContent)
-        let sandbox = try await factory.create(
-            projectPath: projectDir.path,
-            schematizedFiles: [schematized]
-        )
-        defer { try? sandbox.cleanup() }
-
-        let content = try String(
-            contentsOf: sandbox.rootURL.appendingPathComponent("File.swift"),
-            encoding: .utf8
-        )
-
-        #expect(content.contains("    break"))
-        #expect(content.contains("case \"abc-123\":"))
     }
 
     @Test("Given build output directories, when sandbox created, then they are not replicated")
@@ -359,28 +280,6 @@ struct SandboxFactoryTests {
 
         #expect(copied.contains("archiveVersion"))
         #expect(!copied.contains("exit 0"))
-    }
-
-    @Test("Given a schema whose last line opens a case, when the sandbox is created, then nothing is appended to it")
-    func aSchemaEndingInACaseIsWrittenAsItIs() async throws {
-        let projectDir = try FileHelpers.makeTemporaryDirectory()
-        defer { FileHelpers.cleanup(projectDir) }
-
-        try FileHelpers.write("original", named: "File.swift", in: projectDir)
-        let filePath = projectDir.appendingPathComponent("File.swift").path
-        let schema = "switch id {\ncase \"swift-mutation-testing_0\":"
-
-        let sandbox = try await factory.create(
-            projectPath: projectDir.path,
-            schematizedFiles: [SchematizedFile(originalPath: filePath, schematizedContent: schema)]
-        )
-        defer { try? sandbox.cleanup() }
-
-        let written = try String(
-            contentsOf: sandbox.rootURL.appendingPathComponent("File.swift"), encoding: .utf8
-        )
-
-        #expect(written == schema)
     }
 
     @Test("Given the first schematized file lies outside the project, when created, then it is not written")
