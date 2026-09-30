@@ -57,6 +57,26 @@ struct ProcessTreeTests {
         #expect(ProcessTree.descendants(of: process.processIdentifier).isEmpty)
     }
 
+    @Test("Given a running process, when all processes are listed, then it is among them")
+    func allIncludesARunningProcess() async throws {
+        let process = try longRunningShell(spawning: "sleep 30")
+        defer { terminate(process) }
+
+        try await settle()
+
+        let all = ProcessTree.all()
+
+        #expect(all.contains(process.processIdentifier))
+        #expect(!all.contains(1))
+    }
+
+    @Test("Given the process table cannot be read, when all processes are listed, then there are none")
+    func allIsEmptyWhenTheTableCannotBeRead() {
+        let failing: SystemCalls.Sysctl = { _, _, _, _, _, _ in -1 }
+
+        #expect(ProcessTree.all(sysctl: failing).isEmpty)
+    }
+
     @Test("Given pid 1 or below, when descendants queried, then nothing is returned")
     func refusesToWalkFromInit() {
         #expect(ProcessTree.descendants(of: 1).isEmpty)
