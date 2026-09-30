@@ -53,6 +53,17 @@ struct MutantExecutor: Sendable {
         )
         SandboxCleaner.register(sandbox)
 
+        do {
+            try ApplicationVerifier().verify(
+                schematizedFiles: input.schematizedFiles, mutants: input.mutants,
+                sandbox: sandbox, projectPath: input.projectPath
+            )
+        } catch {
+            try? sandbox.cleanup()
+            SandboxCleaner.deregister()
+            throw error
+        }
+
         let (artifact, schemaBuildExcluded) = try await buildArtifact(sandbox: sandbox, input: input, deps: deps)
         let pool = try await makePool(launcher: launcher)
         try await pool.setUp()

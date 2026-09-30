@@ -30,6 +30,15 @@ struct FallbackExecutor: Sendable {
             schematizedFiles: [file]
         )
 
+        do {
+            try ApplicationVerifier().verify(
+                schematizedFiles: [file], mutants: fileMutants, sandbox: sandbox, projectPath: input.projectPath
+            )
+        } catch {
+            try? sandbox.cleanup()
+            throw error
+        }
+
         await deps.reporter.report(.fallbackBuildStarted(filePath: file.originalPath))
 
         let artifact: BuildArtifact
