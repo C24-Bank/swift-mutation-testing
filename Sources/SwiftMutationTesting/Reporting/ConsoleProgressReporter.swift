@@ -7,22 +7,22 @@ actor ConsoleProgressReporter: ProgressReporter {
             let schema = "\(schematizableCount) schematizable"
             let extra = incompatibleCount > 0 ? ", \(incompatibleCount) incompatible" : ""
             let dur = String(format: "%.1f", duration)
-            print("  ✓ Discovery: \(mutantCount) mutants (\(schema)\(extra)) in \(dur)s")
+            StandardOutput.write("  ✓ Discovery: \(mutantCount) mutants (\(schema)\(extra)) in \(dur)s")
 
         case .loadedFromCache(let mutantCount):
-            print("  ✓ Loaded \(mutantCount) mutants from cache")
+            StandardOutput.write("  ✓ Loaded \(mutantCount) mutants from cache")
 
         case .buildStarted:
-            print("")
-            print("Building for testing...")
+            StandardOutput.write("")
+            StandardOutput.write("Building for testing...")
 
         case .buildFinished(let duration):
-            print("  ✓ Built in \(String(format: "%.1f", duration))s")
+            StandardOutput.write("  ✓ Built in \(String(format: "%.1f", duration))s")
 
         case .workersReady(let count, let usesSimulators):
             let unit = usesSimulators ? "simulator" : "worker"
-            print("  ✓ \(count) \(unit)\(count == 1 ? "" : "s") ready")
-            print("\nTesting mutants...")
+            StandardOutput.write("  ✓ \(count) \(unit)\(count == 1 ? "" : "s") ready")
+            StandardOutput.write("\nTesting mutants...")
 
         case .mutantStarted:
             break
@@ -30,7 +30,7 @@ actor ConsoleProgressReporter: ProgressReporter {
         case .mutantFinished(let descriptor, let status, let index, let total):
             let file = URL(fileURLWithPath: descriptor.filePath).lastPathComponent
             let op = descriptor.operatorIdentifier
-            print("  \(status.progressIcon) \(index)/\(total)  \(op)  \(file):\(descriptor.line)")
+            StandardOutput.write("  \(status.progressIcon) \(index)/\(total)  \(op)  \(file):\(descriptor.line)")
 
         case .fallbackBuildStarted:
             break

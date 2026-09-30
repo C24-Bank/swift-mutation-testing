@@ -23,12 +23,12 @@ public struct SwiftMutationTesting {
         let parsed = try CommandLineParser().parse(args)
 
         if parsed.showHelp {
-            print(HelpText.usage)
+            StandardOutput.write(HelpText.usage)
             return .success
         }
 
         if parsed.showVersion {
-            print(Version.current)
+            StandardOutput.write(Version.current)
             return .success
         }
 
@@ -105,7 +105,7 @@ public struct SwiftMutationTesting {
             || configuration.reporting.htmlOutput != nil
             || configuration.reporting.sonarOutput != nil
         guard hasReports else { return }
-        print("")
+        StandardOutput.write("")
 
         if let output = configuration.reporting.output {
             writeReport(label: "JSON", to: output) {
@@ -136,7 +136,7 @@ public struct SwiftMutationTesting {
     private static func writeReport(label: String, to path: String, _ write: () throws -> Void) {
         do {
             try write()
-            print("  ✓ \(label) report: \(path)")
+            StandardOutput.write("  ✓ \(label) report: \(path)")
         } catch {
             fputs("Warning: could not write \(label) report to '\(path)': \(error.localizedDescription)\n", stderr)
         }
