@@ -3,12 +3,6 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-nonisolated(unsafe) private var capturedExitCode: Int32?
-
-private func stubExitHandler(_ code: Int32) {
-    capturedExitCode = code
-}
-
 @Suite("SandboxCleaner")
 struct SandboxCleanerTests {
 
@@ -166,7 +160,7 @@ struct SandboxCleanerTests {
 
     @Test("Given no active sandbox, when deregister called, then no error occurs")
     func deregisterWithoutRegisterIsNoOp() {
-        SandboxCleaner.deregister()
+        SandboxCleaner.deregister(in: SandboxRegistry())
     }
 
     @Test("Given registered sandbox, when cleanupActiveSandbox called, then sandbox directory is removed")
@@ -179,9 +173,9 @@ struct SandboxCleanerTests {
             atomically: true, encoding: .utf8
         )
 
-        let sandbox = Sandbox(rootURL: sandboxDir)
-        SandboxCleaner.register(sandbox)
-        SandboxCleaner.cleanupActiveSandbox()
+        let registry = SandboxRegistry()
+        SandboxCleaner.register(Sandbox(rootURL: sandboxDir), in: registry)
+        SandboxCleaner.cleanupActiveSandbox(in: registry)
 
         #expect(!FileManager.default.fileExists(atPath: sandboxDir.path))
         FileHelpers.cleanup(baseDir)
@@ -189,8 +183,7 @@ struct SandboxCleanerTests {
 
     @Test("Given no registered sandbox, when cleanupActiveSandbox called, then no error occurs")
     func cleanupActiveSandboxWithoutRegistrationIsNoOp() {
-        SandboxCleaner.deregister()
-        SandboxCleaner.cleanupActiveSandbox()
+        SandboxCleaner.cleanupActiveSandbox(in: SandboxRegistry())
     }
 
     @Test("Given registered sandbox, when deregister called, then cleanupActiveSandbox does not remove directory")
@@ -201,10 +194,10 @@ struct SandboxCleanerTests {
         let sandboxDir = baseDir.appendingPathComponent("xmr-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: sandboxDir, withIntermediateDirectories: true)
 
-        let sandbox = Sandbox(rootURL: sandboxDir)
-        SandboxCleaner.register(sandbox)
-        SandboxCleaner.deregister()
-        SandboxCleaner.cleanupActiveSandbox()
+        let registry = SandboxRegistry()
+        SandboxCleaner.register(Sandbox(rootURL: sandboxDir), in: registry)
+        SandboxCleaner.deregister(in: registry)
+        SandboxCleaner.cleanupActiveSandbox(in: registry)
 
         #expect(FileManager.default.fileExists(atPath: sandboxDir.path))
     }
@@ -219,16 +212,17 @@ struct SandboxCleanerTests {
         try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
 
-        SandboxCleaner.register(Sandbox(rootURL: first))
-        SandboxCleaner.register(Sandbox(rootURL: second))
-        SandboxCleaner.cleanupActiveSandbox()
+        let registry = SandboxRegistry()
+        SandboxCleaner.register(Sandbox(rootURL: first), in: registry)
+        SandboxCleaner.register(Sandbox(rootURL: second), in: registry)
+        SandboxCleaner.cleanupActiveSandbox(in: registry)
 
         #expect(FileManager.default.fileExists(atPath: first.path))
         #expect(!FileManager.default.fileExists(atPath: second.path))
     }
 
-    @Test("Given registered sandbox, when handleSignal fires, then sandbox is removed and exit handler called with 1")
-    func handleSignalCleansSandboxAndExits() throws {
+    @Test("Given registered sandbox, when terminated, then sandbox is removed and the exit code is 1")
+    func terminateCleansSandboxAndExits() throws {
         let baseDir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(baseDir) }
 
@@ -239,48 +233,38 @@ struct SandboxCleanerTests {
             atomically: true, encoding: .utf8
         )
 
-        SandboxCleaner.register(Sandbox(rootURL: sandboxDir))
-        SandboxCleaner.installSignalHandlers()
-        defer {
-            signal(SIGINT, SIG_DFL)
-            signal(SIGTERM, SIG_DFL)
-            SandboxCleaner.deregister()
-        }
+        let registry = SandboxRegistry()
+        SandboxCleaner.register(Sandbox(rootURL: sandboxDir), in: registry)
 
-        let handler = signal(SIGINT, SIG_DFL)!
-        signal(SIGINT, handler)
-
-        let previousExit = sandboxCleanerExitHandler
-        capturedExitCode = nil
-        sandboxCleanerExitHandler = stubExitHandler
-        defer { sandboxCleanerExitHandler = previousExit }
-
-        handler(SIGINT)
+        var exitCode: Int32?
+        SandboxCleaner.terminate(registry: registry) { exitCode = $0 }
 
         #expect(!FileManager.default.fileExists(atPath: sandboxDir.path))
-        #expect(capturedExitCode == 1)
+        #expect(exitCode == 1)
     }
 
-    @Test("Given no registered sandbox, when handleSignal fires, then exit handler called with 1")
-    func handleSignalWithNoSandboxStillExits() {
-        SandboxCleaner.deregister()
+    @Test("Given no registered sandbox, when terminated, then the exit code is still 1")
+    func terminateWithNoSandboxStillExits() {
+        var exitCode: Int32?
+        SandboxCleaner.terminate(registry: SandboxRegistry()) { exitCode = $0 }
+
+        #expect(exitCode == 1)
+    }
+
+    @Test("Given signal handlers installed, when SIGINT and SIGTERM are inspected, then neither is the default")
+    func installSignalHandlersReplacesTheDefaults() {
         SandboxCleaner.installSignalHandlers()
         defer {
             signal(SIGINT, SIG_DFL)
             signal(SIGTERM, SIG_DFL)
         }
 
-        let handler = signal(SIGINT, SIG_DFL)!
-        signal(SIGINT, handler)
+        let interrupt = signal(SIGINT, SIG_DFL)
+        let terminate = signal(SIGTERM, SIG_DFL)
 
-        let previousExit = sandboxCleanerExitHandler
-        capturedExitCode = nil
-        sandboxCleanerExitHandler = stubExitHandler
-        defer { sandboxCleanerExitHandler = previousExit }
-
-        handler(SIGINT)
-
-        #expect(capturedExitCode == 1)
+        let address = { (handler: sig_t?) in unsafeBitCast(handler, to: Int.self) }
+        #expect(address(interrupt) != address(SIG_DFL))
+        #expect(address(terminate) != address(SIG_DFL))
     }
 
     @Test("Given a directory that cannot be listed, when removeOrphaned called, then it returns without complaint")

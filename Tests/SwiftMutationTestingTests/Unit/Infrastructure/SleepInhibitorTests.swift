@@ -8,22 +8,26 @@ struct SleepInhibitorTests {
 
     @Test("Given a body, when run under preventingIdleSleep, then the assertion is held only while it runs")
     func assertionIsHeldOnlyDuringBody() async {
-        #expect(!SleepInhibitor.isHeld())
+        let reason = uniqueReason()
+        #expect(!SleepInhibitor.isHeld(reason: reason))
 
-        let heldInside = await SleepInhibitor.preventingIdleSleep { SleepInhibitor.isHeld() }
+        let heldInside = await SleepInhibitor.preventingIdleSleep(reason: reason) {
+            SleepInhibitor.isHeld(reason: reason)
+        }
 
         #expect(heldInside)
-        #expect(!SleepInhibitor.isHeld())
+        #expect(!SleepInhibitor.isHeld(reason: reason))
     }
 
     @Test("Given a throwing body, when it throws, then the assertion is released and the error propagates")
     func assertionIsReleasedWhenBodyThrows() async {
         struct Failure: Error {}
+        let reason = uniqueReason()
 
         await #expect(throws: Failure.self) {
-            try await SleepInhibitor.preventingIdleSleep { throw Failure() }
+            try await SleepInhibitor.preventingIdleSleep(reason: reason) { throw Failure() }
         }
-        #expect(!SleepInhibitor.isHeld())
+        #expect(!SleepInhibitor.isHeld(reason: reason))
     }
 
     @Test("Given a body with a value, when run, then that value is returned")
@@ -55,5 +59,11 @@ struct SleepInhibitorTests {
         let table: NSDictionary = [NSNumber(value: getpid()): entry]
 
         #expect(SleepInhibitor.isHeld(table: { table }))
+    }
+
+    // MARK: - Private
+
+    private func uniqueReason() -> String {
+        "\(SleepInhibitor.reason) \(UUID().uuidString)"
     }
 }
