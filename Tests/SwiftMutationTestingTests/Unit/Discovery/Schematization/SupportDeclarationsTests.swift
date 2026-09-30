@@ -25,6 +25,17 @@ struct SupportDeclarationsTests {
         #expect(nonImports.allSatisfy { $0.description.contains("private ") })
     }
 
+    @Test("Given the per-file declarations, when read, then activation writes the marker file once, off any actor")
+    func activationWritesTheMarkerOnce() {
+        let block = SupportDeclarations.perFile
+
+        #expect(block.contains("nonisolated static func activated()"))
+        #expect(block.contains("nonisolated(unsafe) static var activationRecorded = false"))
+        #expect(block.contains(#"environment["__SWIFT_MUTATION_TESTING_ACTIVATION_FILE"]"#))
+        #expect(block.contains("FileManager.default.createFile(atPath: path, contents: nil)"))
+        #expect(SupportDeclarations.activationCall == "__SwiftMutationTesting.activated()")
+    }
+
     @Test("Given the per-file declarations, when read, then the ID is read once from the environment, off any actor")
     func theIDIsReadLazilyFromTheEnvironment() {
         let block = SupportDeclarations.perFile

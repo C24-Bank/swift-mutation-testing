@@ -43,7 +43,8 @@ struct SchemataGeneratorOffsetTests {
 
         let result = SchemataGenerator().generate(source: source, mutations: [(index: 0, point: point)])
 
-        #expect(result.contains("swift-mutation-testing_0"))
-        #expect(!result.contains("false"))
+        let schema = result.components(separatedBy: SupportDeclarations.perFile)[0]
+        #expect(schema.contains("swift-mutation-testing_0"))
+        #expect(!schema.contains("false"))
     }
 }
