@@ -149,7 +149,7 @@ struct SandboxFactory: Sendable {
         let canonicalPath = source.resolvingSymlinksInPath().path
 
         if let content = schematizedPaths[canonicalPath] {
-            try fixEmptySwitchCaseBodies(content).write(to: destination, atomically: true, encoding: .utf8)
+            try content.write(to: destination, atomically: true, encoding: .utf8)
             return
         }
 
@@ -223,34 +223,6 @@ struct SandboxFactory: Sendable {
             )) ?? []
 
         return items.first { $0.pathExtension == "xcodeproj" }
-    }
-
-    private func fixEmptySwitchCaseBodies(_ content: String) -> String {
-        let lines = content.components(separatedBy: "\n")
-        var result: [String] = []
-
-        for idx in 0 ..< lines.count {
-            result.append(lines[idx])
-
-            let trimmed = lines[idx].trimmingCharacters(in: .whitespaces)
-
-            guard trimmed.hasPrefix("case \""), trimmed.hasSuffix(":") else { continue }
-
-            var nextIdx = idx + 1
-            while nextIdx < lines.count, lines[nextIdx].trimmingCharacters(in: .whitespaces).isEmpty {
-                nextIdx += 1
-            }
-
-            guard nextIdx < lines.count else { continue }
-
-            let next = lines[nextIdx].trimmingCharacters(in: .whitespaces)
-            guard next.hasPrefix("case ") || next.hasPrefix("default") || next == "}" else { continue }
-
-            let indent = String(lines[idx].prefix { $0 == " " || $0 == "\t" })
-            result.append(indent + "    break")
-        }
-
-        return result.joined(separator: "\n")
     }
 
 }
