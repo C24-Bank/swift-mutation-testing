@@ -128,6 +128,13 @@ struct JsonReporterTests {
         #expect(mutant?["statusReason"] == nil)
     }
 
+    @Test("Given a mutant, when report called, then its fingerprint is in the mutant entry")
+    func mutantEntryCarriesTheFingerprint() throws {
+        let mutant = try reportedMutant(status: .survived)
+
+        #expect(mutant?["fingerprint"] as? String == "fingerprint")
+    }
+
     @Test("Given an unviable mutant, when report called, then status string is CompileError")
     func unviableMutantIsCompileError() throws {
         let mutant = try reportedMutant(status: .unviable)

@@ -5,5 +5,5 @@ func makeIndexedMutationPoints(
     operators: [any MutationOperator]
 ) -> [IndexedMutationPoint] {
     let points = operators.flatMap { $0.mutations(in: source) }
-    return MutantIndexingStage().run(mutationPoints: points, sources: [source])
+    return MutantIndexingStage().run(mutationPoints: points, sources: [source], projectPath: "/tmp")
 }

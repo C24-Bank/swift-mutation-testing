@@ -45,7 +45,8 @@ struct JsonReporter: Sendable {
             status: result.status.mutationReportStatus,
             statusReason: result.status.mutationReportStatusReason,
             description: descriptor.description,
-            killedBy: killedBy(from: result.status)
+            killedBy: killedBy(from: result.status),
+            fingerprint: descriptor.fingerprint
         )
     }
 

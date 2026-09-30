@@ -10,6 +10,7 @@ struct RunnerConfiguration: Sendable {
     let build: BuildOptions
     let reporting: ReportingOptions
     let filter: FilterOptions
+    var gate: GateOptions = GateOptions()
 
     struct BuildOptions: Sendable {
         var projectType: ProjectType
@@ -33,5 +34,15 @@ struct RunnerConfiguration: Sendable {
         var sourcesPath: String?
         var excludePatterns: [String]
         var operators: [String]
+    }
+
+    struct GateOptions: Sendable {
+        var policy = GatePolicy()
+        var baselinePath: String?
+        var writeBaselinePath: String?
+
+        var isActive: Bool {
+            !policy.isEmpty || baselinePath != nil
+        }
     }
 }

@@ -9,7 +9,7 @@ struct MutantIndexingStageTests {
     @Test("Given empty mutation points, when run, then returns empty")
     func emptyMutationPointsReturnsEmpty() {
         let source = makeParsedSource("func f() { let x = 1 }", path: "a.swift")
-        let result = stage.run(mutationPoints: [], sources: [source])
+        let result = stage.run(mutationPoints: [], sources: [source], projectPath: "/tmp")
         #expect(result.isEmpty)
     }
 
@@ -17,7 +17,7 @@ struct MutantIndexingStageTests {
     func mutationInFunctionBodyIsSchematizable() {
         let source = makeParsedSource("func f() { let x = true }", path: "a.swift")
         let points = BooleanLiteralReplacement().mutations(in: source)
-        let result = stage.run(mutationPoints: points, sources: [source])
+        let result = stage.run(mutationPoints: points, sources: [source], projectPath: "/tmp")
         #expect(result.allSatisfy { $0.isSchematizable })
     }
 
@@ -25,7 +25,7 @@ struct MutantIndexingStageTests {
     func mutationAtFileScopeIsNotSchematizable() {
         let source = makeParsedSource("let x = true", path: "a.swift")
         let points = BooleanLiteralReplacement().mutations(in: source)
-        let result = stage.run(mutationPoints: points, sources: [source])
+        let result = stage.run(mutationPoints: points, sources: [source], projectPath: "/tmp")
         #expect(result.allSatisfy { !$0.isSchematizable })
     }
 
@@ -33,7 +33,7 @@ struct MutantIndexingStageTests {
     func indicesAreZeroBasedAndSequential() {
         let source = makeParsedSource("func f() { let x = true }", path: "a.swift")
         let points = BooleanLiteralReplacement().mutations(in: source)
-        let result = stage.run(mutationPoints: points, sources: [source])
+        let result = stage.run(mutationPoints: points, sources: [source], projectPath: "/tmp")
         for (pos, entry) in result.enumerated() {
             #expect(entry.index == pos)
         }
@@ -45,7 +45,7 @@ struct MutantIndexingStageTests {
         let sourceB = makeParsedSource("func g() { let y = false }", path: "a.swift")
         let pointsA = BooleanLiteralReplacement().mutations(in: sourceA)
         let pointsB = BooleanLiteralReplacement().mutations(in: sourceB)
-        let result = stage.run(mutationPoints: pointsA + pointsB, sources: [sourceA, sourceB])
+        let result = stage.run(mutationPoints: pointsA + pointsB, sources: [sourceA, sourceB], projectPath: "/tmp")
 
         #expect(result.count == 2)
         #expect(result[0].mutation.filePath == "a.swift")
@@ -56,7 +56,7 @@ struct MutantIndexingStageTests {
     func missingSourceDefaultsToNotSchematizable() {
         let source = makeParsedSource("func f() { let x = true }", path: "a.swift")
         let points = BooleanLiteralReplacement().mutations(in: source)
-        let result = stage.run(mutationPoints: points, sources: [])
+        let result = stage.run(mutationPoints: points, sources: [], projectPath: "/tmp")
         #expect(result.allSatisfy { !$0.isSchematizable })
     }
 }

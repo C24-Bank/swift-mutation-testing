@@ -29,6 +29,7 @@ struct ParsedArguments: Sendable {
     var build: BuildOptions = BuildOptions()
     var reporting: ReportingOptions = ReportingOptions()
     var filter: FilterOptions = FilterOptions()
+    var gate: GateOptions = GateOptions()
 
     struct BuildOptions: Sendable {
         var scheme: String?
@@ -54,6 +55,14 @@ struct ParsedArguments: Sendable {
         var excludePatterns: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
+    }
+
+    struct GateOptions: Sendable {
+        var minScore: Double?
+        var baseline: String?
+        var maxScoreDrop: Double?
+        var maxNewSurvivors: Int?
+        var writeBaseline: String?
     }
 }
 ```
@@ -81,6 +90,13 @@ struct ParsedArguments: Sendable {
 | `filter.excludePatterns` | `[]` | `--exclude <pattern>`, repeatable |
 | `filter.operators` | `[]` | `--operator <id>`, repeatable |
 | `filter.disabledMutators` | `[]` | `--disable-mutator <id>`, repeatable |
+| `gate.minScore` | `nil` | `--min-score <0-100>` |
+| `gate.baseline` | `nil` | `--baseline <path>` |
+| `gate.maxScoreDrop` | `nil` | `--max-score-drop <points>`, `0` allowed |
+| `gate.maxNewSurvivors` | `nil` | `--max-new-survivors <n>` |
+| `gate.writeBaseline` | `nil` | `--write-baseline <path>` |
+
+`CommandLineParser` applies each flag through one function per option group — build, reporting, filter and gate — and reports an unknown option when none of them takes it.
 
 ---
 
@@ -92,6 +108,7 @@ struct RunnerConfiguration: Sendable {
     let build: BuildOptions
     let reporting: ReportingOptions
     let filter: FilterOptions
+    var gate: GateOptions = GateOptions()
 
     static let defaultXcodeTimeout: Double   // 120.0
     static let defaultSPMTimeout: Double     // 30.0
@@ -119,10 +136,17 @@ struct RunnerConfiguration: Sendable {
         var excludePatterns: [String]
         var operators: [String]
     }
+
+    struct GateOptions: Sendable {
+        var policy: GatePolicy          // default: no policy
+        var baselinePath: String?
+        var writeBaselinePath: String?
+        var isActive: Bool { get }      // a policy is set, or a baseline is given
+    }
 }
 ```
 
-Fully resolved configuration passed to both pipelines. Organized into three nested option groups: build, reporting, and filter.
+Fully resolved configuration passed to both pipelines. Organized into four nested option groups: build, reporting, filter and gate. `gate` defaults to an inactive gate, so a run without gate settings behaves as it did before the gate existed.
 
 | Constant | Value |
 |---|---|
@@ -176,6 +200,8 @@ For Xcode projects, throws `UsageError` if `scheme` or `destination` is absent i
 1. If `--operator` flags were passed, use only those identifiers
 2. Otherwise start from all operators, then remove any disabled via `--disable-mutator` (CLI) or `mutators` block with `active: false` (file)
 
+**Gate resolution** (`resolveGate`): each policy comes from its flag or, failing that, from `min-score`, `max-score-drop` and `max-new-survivors` in the file. `baseline` and `--write-baseline` are resolved against the project path unless absolute. Throws `UsageError` when `min-score` is outside 0–100, a maximum is negative, a file value is not a number, `max-score-drop` or `max-new-survivors` is set without a baseline, or the baseline file does not exist.
+
 ---
 
 ## Configuration/ConfigurationFileParser.swift
@@ -206,6 +232,7 @@ Generates YAML content using `DetectedProject` values where available, falling b
 
 - `timeout: 60` — matches `RunnerConfiguration.defaultTimeout`
 - `concurrency` — written as a comment (`# concurrency: 4`); the code default (`max(1, CPU count - 1)`) applies when absent
+- quality gate keys — `min-score`, `baseline`, `max-score-drop` and `max-new-survivors`, all commented
 - `mutators:` block — one `- name: / active: true` entry per operator from `DiscoveryPipeline.allOperatorNames`; user sets `active: false` to disable individual operators
 
 ---

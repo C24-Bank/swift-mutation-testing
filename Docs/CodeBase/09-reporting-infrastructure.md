@@ -1,6 +1,6 @@
 # Reporting & Infrastructure
 
-← [Result Parsing & Cache](08-result-parsing-cache.md) | [Index →](README.md)
+← [Result Parsing & Cache](08-result-parsing-cache.md) | Next: [Quality Gate →](10-quality-gate.md)
 
 ---
 
@@ -278,10 +278,11 @@ struct MutationReportMutant: Sendable, Encodable {
     let statusReason: String?
     let description: String
     let killedBy: [String]?
+    let fingerprint: String
 }
 ```
 
-`killedBy` is populated only for `.killed(by:)` status, as a one-element array: the schema types it `string[]`, and a mutant's run stops at its first failing test. `statusReason` is populated only for `.killedByCrash`. Both are omitted from the JSON when `nil`.
+`killedBy` is populated only for `.killed(by:)` status, as a one-element array: the schema types it `string[]`, and a mutant's run stops at its first failing test. `statusReason` is populated only for `.killedByCrash`. Both are omitted from the JSON when `nil`. `fingerprint` is the mutant's `MutantFingerprint`, an extra property the Stryker schema allows.
 
 ---
 
@@ -727,4 +728,4 @@ Provides per-file test hashing and test file path enumeration for granular cache
 
 ---
 
-← [Result Parsing & Cache](08-result-parsing-cache.md) | [Index →](README.md)
+← [Result Parsing & Cache](08-result-parsing-cache.md) | Next: [Quality Gate →](10-quality-gate.md)

@@ -41,6 +41,27 @@ struct ConfigurationFileWriterTests {
         #expect(content.contains("# build-timeout: 240"))
     }
 
+    @Test(
+        "Given either project type, when write called, then the quality gate keys are offered as commented lines",
+        arguments: [
+            DetectedProject.empty,
+            DetectedProject(kind: .spm(testTargets: ["AppTests"]), testTarget: "AppTests"),
+        ]
+    )
+    func gateKeysAreOffered(project: DetectedProject) throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try writer.write(to: dir.path, project: project)
+
+        let content = try String(contentsOf: dir.appendingPathComponent(".swift-mutation-testing.yml"), encoding: .utf8)
+        #expect(content.contains("# Quality gate — a failed gate exits with code 2"))
+        #expect(content.contains("# min-score: 80"))
+        #expect(content.contains("# baseline: .swift-mutation-testing-baseline.json"))
+        #expect(content.contains("# max-score-drop: 2"))
+        #expect(content.contains("# max-new-survivors: 0"))
+    }
+
     @Test("Given no detected scheme, when write called, then scheme line is commented")
     func schemeLineIsCommentedWhenNotDetected() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

@@ -19,4 +19,4 @@ swift-mutation-testing [<project-path>] [options]
 swift-mutation-testing init [<project-path>]
 ```
 
-**Exit codes:** `0` success · `1` error
+**Exit codes:** `0` success · `1` error · `2` quality gate failed

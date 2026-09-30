@@ -19,7 +19,8 @@ struct MutantCacheKeyTests {
             description: "Replace + with -",
             isSchematizable: false,
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let key = MutantCacheKey.make(for: mutant)
@@ -54,7 +55,8 @@ struct MutantCacheKeyTests {
             description: "desc",
             isSchematizable: false,
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let keyA = MutantCacheKey.make(for: mutant)
@@ -78,7 +80,8 @@ struct MutantCacheKeyTests {
             description: "desc",
             isSchematizable: false,
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let shifted = MutantDescriptor(
             id: "m1",
@@ -93,7 +96,8 @@ struct MutantCacheKeyTests {
             description: "desc",
             isSchematizable: false,
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let keyBase = MutantCacheKey.make(for: base)
@@ -116,7 +120,8 @@ struct MutantCacheKeyTests {
             description: "desc",
             isSchematizable: false,
             mutatedSourceContent: "let x = a - b",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let key1 = MutantCacheKey.make(for: mutant)

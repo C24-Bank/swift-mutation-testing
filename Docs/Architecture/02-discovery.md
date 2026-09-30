@@ -62,9 +62,11 @@ Assigns unique sequential IDs to each mutation point and classifies them as sche
 | | |
 |---|---|
 | Input | `[MutationPoint]`, `[ParsedSource]` |
-| Output | `[IndexedMutationPoint]` — mutation point + unique ID + schematizable flag |
+| Output | `[IndexedMutationPoint]` — mutation point + unique ID + schematizable flag + fingerprint |
 
 Each mutation point receives an ID in the format `swift-mutation-testing_<index>`, where `<index>` is a zero-based global counter. `TypeScopeVisitor` determines whether a mutation falls inside a function body (schematizable) or outside (incompatible). The indexed points are consumed by the next two stages.
+
+The ID is only unique within one run: a mutant added earlier in any file renumbers every later one. Each point therefore also gets a **fingerprint** — a hash of its project-relative file, the declaration that contains it (`Parser.parse(_:)`), its operator and its change — which stays the same when other code moves or changes. The quality gate matches baselines by fingerprint.
 
 ### SchematizationStage
 

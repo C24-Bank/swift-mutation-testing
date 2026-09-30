@@ -551,21 +551,9 @@ struct MutantExecutor: Sendable {
         let content = rewriter.rewrite(source: source, applying: point)
         guard content != source else { return nil }
 
-        return MutantDescriptor(
-            id: mutant.id,
-            filePath: mutant.filePath,
-            line: mutant.line,
-            column: mutant.column,
-            utf8Offset: mutant.utf8Offset,
-            originalText: mutant.originalText,
-            mutatedText: mutant.mutatedText,
-            operatorIdentifier: mutant.operatorIdentifier,
-            replacementKind: mutant.replacementKind,
-            description: mutant.description,
-            isSchematizable: mutant.isSchematizable,
-            mutatedSourceContent: content,
-            sourceContentHash: mutant.sourceContentHash
-        )
+        var rewritten = mutant
+        rewritten.mutatedSourceContent = content
+        return rewritten
     }
 
     private func makePool(launcher: any ProcessLaunching) async throws -> SimulatorPool {

@@ -22,7 +22,8 @@ struct IncompatibleMutantExecutorTests {
                 operatorIdentifier: "binaryOperator",
                 description: "Replace + with -",
                 mutatedSourceContent: "let x = \($0)",
-                sourceContentHash: "test-hash"
+                sourceContentHash: "test-hash",
+                fingerprint: "fingerprint"
             )
         }
 
@@ -52,7 +53,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -80,7 +82,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -108,7 +111,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let configuration = makeRunnerConfiguration(projectPath: dir.path)
 
@@ -177,7 +181,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -204,7 +209,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let firstExecutor = IncompatibleMutantExecutor(
@@ -264,7 +270,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         await #expect(throws: (any Error).self) {
@@ -296,7 +303,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -328,7 +336,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -361,7 +370,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: nil,
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
         let withContent = makeMutantDescriptor(
             id: "m1",
@@ -371,7 +381,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with *",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -460,7 +471,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -493,7 +505,8 @@ struct IncompatibleMutantExecutorTests {
                 operatorIdentifier: "binaryOperator",
                 description: "Replace + with -",
                 mutatedSourceContent: "let x = false",
-                sourceContentHash: "test-hash"
+                sourceContentHash: "test-hash",
+                fingerprint: "fingerprint"
             ),
             makeMutantDescriptor(
                 id: "m1",
@@ -503,7 +516,8 @@ struct IncompatibleMutantExecutorTests {
                 operatorIdentifier: "binaryOperator",
                 description: "Replace + with -",
                 mutatedSourceContent: "let x = 0",
-                sourceContentHash: "test-hash"
+                sourceContentHash: "test-hash",
+                fingerprint: "fingerprint"
             ),
         ]
 
@@ -545,7 +559,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = 1",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -578,7 +593,8 @@ struct IncompatibleMutantExecutorTests {
             operatorIdentifier: "binaryOperator",
             description: "Replace + with -",
             mutatedSourceContent: "let x = INVALID",
-            sourceContentHash: "test-hash"
+            sourceContentHash: "test-hash",
+            fingerprint: "fingerprint"
         )
 
         let results = try await executor.execute(
@@ -910,7 +926,8 @@ struct IncompatibleMutantExecutorTests {
                 filePath: dir.appendingPathComponent("Foo.swift").path,
                 utf8Offset: $0,
                 mutatedSourceContent: "let x = \($0 + 10)",
-                sourceContentHash: "test-hash"
+                sourceContentHash: "test-hash",
+                fingerprint: "fingerprint"
             )
         }
     }

@@ -54,7 +54,8 @@ struct ConfigurationResolver: Sendable {
                     from: fileValues
                 ),
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
-            )
+            ),
+            gate: try resolveGate(cli: cliArguments.gate, fileValues: fileValues, projectPath: projectPath)
         )
     }
 
@@ -154,6 +155,60 @@ struct ConfigurationResolver: Sendable {
         }
 
         return resolveList(cli: [], keys: ["operators"], from: fileValues)
+    }
+
+    private func resolveGate(
+        cli: ParsedArguments.GateOptions,
+        fileValues: [String: String],
+        projectPath: String
+    ) throws -> RunnerConfiguration.GateOptions {
+        let policy = GatePolicy(
+            minScore: try cli.minScore ?? number(fileValues["min-score"], key: "min-score", as: Double.self),
+            maxScoreDrop: try cli.maxScoreDrop
+                ?? number(fileValues["max-score-drop"], key: "max-score-drop", as: Double.self),
+            maxNewSurvivors: try cli.maxNewSurvivors
+                ?? number(fileValues["max-new-survivors"], key: "max-new-survivors", as: Int.self)
+        )
+        let baseline = (cli.baseline ?? fileValues["baseline"]).map { projectRelative($0, in: projectPath) }
+
+        if let minScore = policy.minScore, !(0 ... 100).contains(minScore) {
+            throw UsageError(message: "--min-score must be between 0 and 100")
+        }
+        if let maxScoreDrop = policy.maxScoreDrop, maxScoreDrop < 0 {
+            throw UsageError(message: "--max-score-drop must be a number >= 0")
+        }
+        if let maxNewSurvivors = policy.maxNewSurvivors, maxNewSurvivors < 0 {
+            throw UsageError(message: "--max-new-survivors must be >= 0")
+        }
+        if baseline == nil, policy.maxScoreDrop != nil || policy.maxNewSurvivors != nil {
+            throw UsageError(message: "--max-score-drop and --max-new-survivors need --baseline")
+        }
+        if let baseline, !FileManager.default.fileExists(atPath: baseline) {
+            throw UsageError(message: "baseline '\(baseline)' does not exist; write one with --write-baseline")
+        }
+
+        return RunnerConfiguration.GateOptions(
+            policy: policy,
+            baselinePath: baseline,
+            writeBaselinePath: cli.writeBaseline.map { projectRelative($0, in: projectPath) }
+        )
+    }
+
+    private func number<Value: LosslessStringConvertible>(
+        _ raw: String?,
+        key: String,
+        as type: Value.Type
+    ) throws -> Value? {
+        guard let raw else { return nil }
+        guard let value = Value(raw) else {
+            throw UsageError(message: "\(key) in .swift-mutation-testing.yml must be a number")
+        }
+        return value
+    }
+
+    private func projectRelative(_ path: String, in projectPath: String) -> String {
+        guard !path.hasPrefix("/") else { return path }
+        return URL(fileURLWithPath: projectPath).appendingPathComponent(path).standardizedFileURL.path
     }
 
     private func resolvedPath(_ path: String) -> String {

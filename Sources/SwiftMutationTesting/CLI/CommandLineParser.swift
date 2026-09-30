@@ -17,6 +17,7 @@ struct CommandLineParser: Sendable {
         var excludePatterns: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
+        var gate = ParsedArguments.GateOptions()
     }
 
     func parse(_ arguments: [String]) throws -> ParsedArguments {
@@ -85,7 +86,8 @@ struct CommandLineParser: Sendable {
                 excludePatterns: flags.excludePatterns,
                 operators: flags.operators,
                 disabledMutators: flags.disabledMutators
-            )
+            ),
+            gate: flags.gate
         )
     }
 
@@ -107,6 +109,20 @@ struct CommandLineParser: Sendable {
         at index: inout Int,
         in arguments: [String]
     ) throws {
+        if try applyBuildFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyReportingFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyFilterFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyGateFlag(flag, to: &values, at: &index, in: arguments) { return }
+
+        throw UsageError(message: "unknown option '\(flag)'")
+    }
+
+    private func applyBuildFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
         switch flag {
         case "--scheme":
             values.scheme = try nextValue(for: flag, at: &index, in: arguments)
@@ -132,6 +148,19 @@ struct CommandLineParser: Sendable {
         case "--testing-framework":
             values.testingFramework = try nextValue(for: flag, at: &index, in: arguments)
 
+        default:
+            return false
+        }
+        return true
+    }
+
+    private func applyReportingFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
         case "--output":
             values.output = try nextValue(for: flag, at: &index, in: arguments)
 
@@ -147,6 +176,19 @@ struct CommandLineParser: Sendable {
         case "--quiet":
             values.quiet = true
 
+        default:
+            return false
+        }
+        return true
+    }
+
+    private func applyFilterFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
         case "--sources-path":
             values.sourcesPath = try nextValue(for: flag, at: &index, in: arguments)
 
@@ -160,8 +202,37 @@ struct CommandLineParser: Sendable {
             values.disabledMutators.append(try nextValue(for: flag, at: &index, in: arguments))
 
         default:
-            throw UsageError(message: "unknown option '\(flag)'")
+            return false
         }
+        return true
+    }
+
+    private func applyGateFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
+        case "--min-score":
+            values.gate.minScore = try nextNonNegativeDouble(for: flag, at: &index, in: arguments)
+
+        case "--baseline":
+            values.gate.baseline = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--max-score-drop":
+            values.gate.maxScoreDrop = try nextNonNegativeDouble(for: flag, at: &index, in: arguments)
+
+        case "--max-new-survivors":
+            values.gate.maxNewSurvivors = try nextInt(for: flag, at: &index, in: arguments)
+
+        case "--write-baseline":
+            values.gate.writeBaseline = try nextValue(for: flag, at: &index, in: arguments)
+
+        default:
+            return false
+        }
+        return true
     }
 
     private func nextValue(for flag: String, at index: inout Int, in arguments: [String]) throws -> String {
@@ -177,6 +248,14 @@ struct CommandLineParser: Sendable {
         let raw = try nextValue(for: flag, at: &index, in: arguments)
         guard let value = Double(raw), value > 0 else {
             throw UsageError(message: "\(flag) must be a positive number")
+        }
+        return value
+    }
+
+    private func nextNonNegativeDouble(for flag: String, at index: inout Int, in arguments: [String]) throws -> Double {
+        let raw = try nextValue(for: flag, at: &index, in: arguments)
+        guard let value = Double(raw), value >= 0 else {
+            throw UsageError(message: "\(flag) must be a number >= 0")
         }
         return value
     }

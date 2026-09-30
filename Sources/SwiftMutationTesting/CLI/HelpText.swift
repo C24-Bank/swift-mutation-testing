@@ -30,5 +30,12 @@ enum HelpText {
           --disable-mutator <id>        Disable a specific mutation operator (repeatable)
           --version                     Print version and exit
           --help                        Print this help and exit
+
+        QUALITY GATE (a failed gate exits with code 2):
+          --min-score <0-100>           Fail when the mutation score is below this
+          --baseline <path>             Baseline to compare with, relative to the project
+          --max-score-drop <points>     Fail when the score drops more than this below the baseline's
+          --max-new-survivors <n>       Fail when more than n undetected mutants are not in the baseline
+          --write-baseline <path>       Write this run's baseline, relative to the project
         """
 }
