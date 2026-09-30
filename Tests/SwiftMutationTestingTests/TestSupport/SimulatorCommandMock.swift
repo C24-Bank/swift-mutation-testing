@@ -25,6 +25,7 @@ struct SimulatorCommandMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.contains("clone") {
             return (0, cloneUDID + "\n")
         }

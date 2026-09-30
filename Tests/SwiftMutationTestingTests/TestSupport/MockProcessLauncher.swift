@@ -33,6 +33,7 @@ struct MockProcessLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if throwsOnCapture { throw CocoaError(.fileReadNoSuchFile) }
         let key = request.executableURL.lastPathComponent
         return responses[key] ?? (exitCode: exitCode, output: output)

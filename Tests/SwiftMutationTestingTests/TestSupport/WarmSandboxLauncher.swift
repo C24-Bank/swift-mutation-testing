@@ -30,6 +30,7 @@ actor WarmSandboxLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         let root = request.workingDirectoryURL.path
 
         if request.arguments.first == "build" {

@@ -29,6 +29,7 @@ actor TimeoutUnderLoadLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         guard let id = request.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] else {
             return (0, "")
         }

@@ -34,6 +34,7 @@ actor TwoBundleLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.first == "build" {
             for bundle in Self.bundles {
                 let macOS = request.workingDirectoryURL

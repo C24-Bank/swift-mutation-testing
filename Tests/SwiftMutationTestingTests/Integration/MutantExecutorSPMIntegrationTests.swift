@@ -91,13 +91,13 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
             schematizedContent: """
                 struct Calculator {
                     func add(_ a: Int, _ b: Int) -> Int {
-                        (__swiftMutationTestingID == "m1") ? a - b : a + b
+                        (__swiftMutationTestingID == "m1") ? (__SwiftMutationTesting.activated(), a - b).1 : a + b
                     }
                     func subtract(_ a: Int, _ b: Int) -> Int {
-                        (__swiftMutationTestingID == "m2") ? a + b : a - b
+                        (__swiftMutationTestingID == "m2") ? (__SwiftMutationTesting.activated(), a + b).1 : a - b
                     }
                     func isPositive(_ n: Int) -> Bool {
-                        (__swiftMutationTestingID == "m3") ? n >= 0 : n > 0
+                        (__swiftMutationTestingID == "m3") ? (__SwiftMutationTesting.activated(), n >= 0).1 : n > 0
                     }
                 }
                 """
@@ -107,8 +107,10 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
             schematizedContent: """
                 struct Validator {
                     func isInRange(_ value: Int) -> Bool {
-                        ((__swiftMutationTestingID == "m4") ? value > 0 : value >= 0)
-                            && ((__swiftMutationTestingID == "m5") ? value < 100 : value <= 100)
+                        ((__swiftMutationTestingID == "m4")
+                            ? (__SwiftMutationTesting.activated(), value > 0).1 : value >= 0)
+                            && ((__swiftMutationTestingID == "m5")
+                                ? (__SwiftMutationTesting.activated(), value < 100).1 : value <= 100)
                     }
                 }
                 """

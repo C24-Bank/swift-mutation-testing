@@ -20,6 +20,7 @@ actor SPMRetrySwiftBuildFormatMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         guard request.arguments.first == "build" else { return (0, "") }
         buildCallCount += 1
         guard buildCallCount == 1 else { return (0, "") }

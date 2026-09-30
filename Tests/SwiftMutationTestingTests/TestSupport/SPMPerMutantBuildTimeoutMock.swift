@@ -17,6 +17,7 @@ actor SPMPerMutantBuildTimeoutMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         guard request.arguments.first == "build" else { return (0, "") }
 
         buildCount += 1

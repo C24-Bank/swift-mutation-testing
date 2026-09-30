@@ -23,6 +23,7 @@ actor RecordingSPMRetryLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         requests.append(request)
 
         guard request.arguments.first == "build" else { return (0, "") }

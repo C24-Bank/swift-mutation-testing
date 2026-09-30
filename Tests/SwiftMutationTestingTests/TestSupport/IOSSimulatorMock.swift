@@ -15,6 +15,7 @@ struct IOSSimulatorMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.contains("clone") { return (0, cloneUDID + "\n") }
         if request.executableURL.lastPathComponent == "xcodebuild" { return (1, "") }
         return (0, listJSON)

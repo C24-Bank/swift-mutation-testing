@@ -15,6 +15,7 @@ actor SPMInitialBuildSuccessThenFailMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.contains("--build-tests") || request.arguments.first == "build" {
             buildCallCount += 1
             if buildCallCount == 1 { return (0, "") }

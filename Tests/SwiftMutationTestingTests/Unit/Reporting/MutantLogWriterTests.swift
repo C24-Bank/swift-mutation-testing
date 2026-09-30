@@ -100,7 +100,7 @@ struct MutantLogWriterTests {
 
         let contents = try String(contentsOf: dir.appendingPathComponent("m2.log"), encoding: .utf8)
 
-        #expect(contents.contains("status:   \(label)\n"))
+        #expect(contents.contains("status:    \(label)\n"))
     }
 
     @Test("Given an unwritable directory, when written, then the run is not disturbed")
