@@ -9,7 +9,7 @@ struct SwiftMutationTestingGateTests {
     func inactiveGateSucceedsSilently() {
         var exitCode: ExitCode?
         let output = captureOutputSync {
-            exitCode = try? SwiftMutationTesting.applyGate(summary(), configuration: configuration(), baseline: nil)
+            exitCode = try? apply(configuration())
         }
 
         #expect(exitCode == .success)
@@ -20,9 +20,7 @@ struct SwiftMutationTestingGateTests {
     func failedGateExitsWithTheGateCode() {
         var exitCode: ExitCode?
         let output = captureOutputSync {
-            exitCode = try? SwiftMutationTesting.applyGate(
-                summary(), configuration: configuration(policy: GatePolicy(minScore: 90)), baseline: nil
-            )
+            exitCode = try? apply(configuration(policy: GatePolicy(minScore: 90)))
         }
 
         #expect(exitCode == .gateFailed)
@@ -34,9 +32,7 @@ struct SwiftMutationTestingGateTests {
     func passedGateSucceeds() {
         var exitCode: ExitCode?
         let output = captureOutputSync {
-            exitCode = try? SwiftMutationTesting.applyGate(
-                summary(), configuration: configuration(policy: GatePolicy(minScore: 50)), baseline: nil
-            )
+            exitCode = try? apply(configuration(policy: GatePolicy(minScore: 50)))
         }
 
         #expect(exitCode == .success)
@@ -52,10 +48,8 @@ struct SwiftMutationTestingGateTests {
 
         var exitCode: ExitCode?
         let output = captureOutputSync {
-            exitCode = try? SwiftMutationTesting.applyGate(
-                summary(),
-                configuration: configuration(projectPath: dir.path, policy: GatePolicy(minScore: 90), write: path),
-                baseline: nil,
+            exitCode = try? apply(
+                configuration(projectPath: dir.path, policy: GatePolicy(minScore: 90), write: path),
                 now: now
             )
         }
@@ -129,6 +123,11 @@ struct SwiftMutationTestingGateTests {
         let result = await SwiftMutationTesting.run(args: [dir.path], launcher: MockProcessLauncher(exitCode: 1))
 
         #expect(result == .success)
+    }
+
+    private func apply(_ configuration: RunnerConfiguration, now: Date = Date()) throws -> ExitCode {
+        let gate = SwiftMutationTesting.evaluateGate(summary(), configuration: configuration, baseline: nil)
+        return try SwiftMutationTesting.applyGate(gate, summary: summary(), configuration: configuration, now: now)
     }
 
     private func summary() -> RunnerSummary {
