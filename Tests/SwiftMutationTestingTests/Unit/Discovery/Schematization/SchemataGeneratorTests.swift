@@ -11,7 +11,7 @@ struct SchemataGeneratorTests {
     func oneMutationProducesSwitchWithOneCaseAndDefault() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result.contains("switch __swiftMutationTestingID"))
         #expect(result.contains("case \"swift-mutation-testing_0\""))
         #expect(result.contains("default:"))
@@ -21,7 +21,7 @@ struct SchemataGeneratorTests {
     func mutatedTextAppearsInCaseBody() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result.contains("false"))
     }
 
@@ -29,7 +29,7 @@ struct SchemataGeneratorTests {
     func originalTextAppearsInDefaultBody() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result.contains("true"))
     }
 
@@ -37,7 +37,7 @@ struct SchemataGeneratorTests {
     func twoMutationsInSameFunctionProduceTwoCases() {
         let source = makeParsedSource("func f() { let a = true; let b = false }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result.contains("case \"swift-mutation-testing_0\""))
         #expect(result.contains("case \"swift-mutation-testing_1\""))
     }
@@ -46,7 +46,7 @@ struct SchemataGeneratorTests {
     func mutationsInTwoFunctionsEachGetOwnSwitch() {
         let source = makeParsedSource("func f() { let x = true } func g() { let y = false }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         let switchCount = result.components(separatedBy: "switch __swiftMutationTestingID").count - 1
         #expect(switchCount == 2)
     }
@@ -55,7 +55,7 @@ struct SchemataGeneratorTests {
     func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile + "\n"))
         #expect(result.components(separatedBy: "private var __swiftMutationTestingID").count == 2)
     }
@@ -64,7 +64,7 @@ struct SchemataGeneratorTests {
     func everyCaseRecordsItsActivationFirst() {
         let source = makeParsedSource("func f() { let x = true }\nfunc g() { let y = false }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         let lines = result.components(separatedBy: "\n")
         let caseLines = lines.indices.filter { lines[$0].hasPrefix("case \"swift-mutation-testing_") }
 
@@ -79,7 +79,7 @@ struct SchemataGeneratorTests {
         let mutations = ArithmeticOperatorReplacement().mutations(in: source).enumerated().map {
             (index: $0.offset, point: $0.element)
         }
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
 
         let activation = SupportDeclarations.activationCall
         #expect(result.contains("case \"swift-mutation-testing_0\":\n(\(activation), a - b ).1\n"))
@@ -96,7 +96,7 @@ struct SchemataGeneratorTests {
             utf8Offset: 11, originalText: "store()", mutatedText: "", replacement: real.replacement,
             description: "remove store()"
         )
-        let result = generator.generate(source: source, mutations: [(index: 0, point: removal)])
+        let result = generator.generate(source: source, mutations: [(index: 0, point: removal)]).content
 
         let activation = SupportDeclarations.activationCall
         #expect(result.contains("case \"swift-mutation-testing_0\":\nlet _ = \(activation)\n \n"))
@@ -109,7 +109,7 @@ struct SchemataGeneratorTests {
         let mutations = NegateConditional().mutations(in: source).enumerated().map {
             (index: $0.offset, point: $0.element)
         }
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
 
         #expect(result.contains("let _ = \(SupportDeclarations.activationCall)\nreturn if !(c) { 1 } else { 2 } \n"))
         #expect(result.contains("default:\nreturn if c { 1 } else { 2 } \n"))
@@ -121,17 +121,37 @@ struct SchemataGeneratorTests {
         let mutations = NegateConditional().mutations(in: source).enumerated().map {
             (index: $0.offset, point: $0.element)
         }
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
 
         let schema = result.components(separatedBy: SupportDeclarations.perFile)[0]
         #expect(schema.contains("let _ = \(SupportDeclarations.activationCall)\nif !(c) { print(1) } \n"))
         #expect(!schema.contains("return"))
     }
 
+    @Test("Given a mutation outside every function body, when generated, then it is returned as discarded")
+    func aMutationOutsideAnyBodyIsDiscarded() {
+        let source = makeParsedSource("let flag = true\nfunc f() { let x = true }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations)
+
+        #expect(mutations.count == 2)
+        #expect(result.discarded.map(\.line) == [1])
+        #expect(result.content.contains("case \"swift-mutation-testing_1\":"))
+        #expect(!result.content.contains("case \"swift-mutation-testing_0\":"))
+    }
+
+    @Test("Given every mutation placed, when generated, then nothing is discarded")
+    func placedMutationsAreNotDiscarded() {
+        let source = makeParsedSource("func f() { let x = true }")
+        let result = generator.generate(source: source, mutations: mutationsWithIndices(source))
+
+        #expect(result.discarded.isEmpty)
+    }
+
     @Test("Given no mutations in function, when generated, then returns original content unchanged")
     func emptyMutationsReturnsOriginalContent() {
         let source = makeParsedSource("func f() { let x = 1 }")
-        let result = generator.generate(source: source, mutations: [])
+        let result = generator.generate(source: source, mutations: []).content
         #expect(result == source.file.content)
     }
 
@@ -139,7 +159,7 @@ struct SchemataGeneratorTests {
     func mutantIDUsesCorrectFormat() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source, startIndex: 5)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result.contains("swift-mutation-testing_5"))
     }
 
@@ -148,7 +168,7 @@ struct SchemataGeneratorTests {
         let source = makeParsedSource("let x = true")
         let mutations = mutationsWithIndices(source)
         #expect(!mutations.isEmpty)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(result == source.file.content)
     }
 
@@ -156,7 +176,7 @@ struct SchemataGeneratorTests {
     func generatedContentIsParseableBySwiftSyntax() {
         let source = makeParsedSource("func f() { let x = true; let y = false }")
         let mutations = mutationsWithIndices(source)
-        let result = generator.generate(source: source, mutations: mutations)
+        let result = generator.generate(source: source, mutations: mutations).content
         #expect(!Parser.parse(source: result).hasError)
     }
 }

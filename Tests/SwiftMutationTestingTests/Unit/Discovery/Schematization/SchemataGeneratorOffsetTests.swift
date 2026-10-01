@@ -23,12 +23,12 @@ struct SchemataGeneratorOffsetTests {
             replacement: .booleanLiteral, description: "true → false"
         )
 
-        let result = SchemataGenerator().generate(source: source, mutations: [(index: 0, point: point)])
+        let result = SchemataGenerator().generate(source: source, mutations: [(index: 0, point: point)]).content
 
         #expect(result == "func f() {}")
     }
 
-    @Test("Given a mutation whose text runs past the body it belongs to, when generating, then the body is unchanged")
+    @Test("Given a mutation whose text runs past the body it belongs to, when generating, then it is discarded")
     func aMutationRunningPastTheBodyLeavesItUnchanged() {
         let code = "func f() -> Bool {\n    let flag = true\n    return flag\n}\n"
         let source = makeParsedSource(code)
@@ -43,8 +43,7 @@ struct SchemataGeneratorOffsetTests {
 
         let result = SchemataGenerator().generate(source: source, mutations: [(index: 0, point: point)])
 
-        let schema = result.components(separatedBy: SupportDeclarations.perFile)[0]
-        #expect(schema.contains("swift-mutation-testing_0"))
-        #expect(!schema.contains("false"))
+        #expect(result.content == code)
+        #expect(result.discarded.map(\.originalText) == [String(repeating: "x", count: 500)])
     }
 }
