@@ -17,7 +17,7 @@ enum SupportDeclarations {
     static func perFile(for path: String) -> String {
         let suffix = suffix(for: path)
         return """
-            import Foundation
+            internal import Foundation
 
             @usableFromInline
             internal enum __SwiftMutationTesting_\(suffix) {
