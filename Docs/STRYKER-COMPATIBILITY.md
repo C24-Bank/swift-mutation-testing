@@ -79,6 +79,7 @@ Each object in the `mutants` array describes one mutation point and its outcome.
 | `status` | enum (see below) | one of the schema's values | ✓ — see [status mapping](#status-mapping) |
 | `statusReason` | `string?` | `"crash"` for a mutant killed by a crash; `"killed without activation"`, `"crash without activation"` or `"timed out without activation"` when the mutated code never ran; omitted otherwise | ✓ |
 | `killedBy` | `string[]?` | the name of the test that killed the mutant, omitted when no test is named | ✓ |
+| `duration` | `integer?` | the time the mutant's test run took, in milliseconds; omitted for a result served from the cache, which ran no test | ✓ |
 | `description` | `string?` | `"<original> → <mutated>"` | ✓ |
 | `fingerprint` | — | the mutant's stable identity, see [Baselines](USAGE.MD#baselines) | ✓ — an extra property, which the schema allows |
 

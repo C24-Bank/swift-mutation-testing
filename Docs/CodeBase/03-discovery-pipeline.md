@@ -9,6 +9,7 @@
 ```swift
 struct DiscoveryPipeline: Sendable {
     static let allOperatorNames: [String]
+    static func operatorNames(upTo tier: OperatorTier) -> [String]
     func run(input: DiscoveryInput) async throws -> RunnerInput
 }
 ```
@@ -27,21 +28,35 @@ flowchart TD
     IR --> OUT
 ```
 
-`allOperatorNames` is the ordered list of all registered operator identifiers. `ConfigurationFileWriter` uses it to populate the operators section of the generated YAML.
+`allOperatorNames` is the ordered list of all registered operator identifiers. `ConfigurationFileWriter` uses it to populate the operators section of the generated YAML. `operatorNames(upTo:)` is the same list cut at a tier: the identifiers whose `OperatorTier` is at most the given one, in registry order.
 
-**Operator registry** (registration order is fixed):
+**Operator registry** (registration order is fixed; the tier comes from the campaign in `Docs/OPERATORS.md`):
 
-| Index | Identifier |
-|---|---|
-| 0 | `RelationalOperatorReplacement` |
-| 1 | `BooleanLiteralReplacement` |
-| 2 | `LogicalOperatorReplacement` |
-| 3 | `ArithmeticOperatorReplacement` |
-| 4 | `NegateConditional` |
-| 5 | `SwapTernary` |
-| 6 | `RemoveSideEffects` |
+| Index | Identifier | Tier |
+|---|---|---|
+| 0 | `RelationalOperatorReplacement` | `default` |
+| 1 | `BooleanLiteralReplacement` | `default` |
+| 2 | `LogicalOperatorReplacement` | `default` |
+| 3 | `ArithmeticOperatorReplacement` | `default` |
+| 4 | `NegateConditional` | `default` |
+| 5 | `SwapTernary` | `default` |
+| 6 | `RemoveSideEffects` | `default` |
 
-When `input.operators` is empty, all seven operators are active. Otherwise only the listed identifiers are used.
+When `input.operators` is empty, all seven operators are active. Otherwise only the listed identifiers are used. `ConfigurationResolver` always passes the full list, so the empty case is for callers that build a `DiscoveryInput` by hand.
+
+## Discovery/OperatorTier.swift
+
+```swift
+enum OperatorTier: String, Sendable, CaseIterable, Comparable {
+    case conservative
+    case `default`
+    case experimental
+
+    static let usage: String
+}
+```
+
+The three tiers, ordered: `conservative < default < experimental`. A tier selects the operators up to it, so `conservative` is the smallest set and `experimental` holds every operator. `usage` is the `UsageError` message for a name that is no tier.
 
 ---
 

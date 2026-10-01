@@ -94,6 +94,7 @@ struct ParsedArguments: Sendable {
 | `filter.excludePatterns` | `[]` | `--exclude <pattern>`, repeatable |
 | `filter.operators` | `[]` | `--operator <id>`, repeatable |
 | `filter.disabledMutators` | `[]` | `--disable-mutator <id>`, repeatable |
+| `filter.operatorTier` | `nil` | `--operator-tier <tier>` |
 | `gate.minScore` | `nil` | `--min-score <0-100>` |
 | `gate.baseline` | `nil` | `--baseline <path>` |
 | `gate.maxScoreDrop` | `nil` | `--max-score-drop <points>`, `0` allowed |
@@ -201,10 +202,10 @@ Merges `ParsedArguments` (CLI, higher priority) with `[String: String]` from the
 
 For Xcode projects, throws `UsageError` if `scheme` or `destination` is absent in both sources. SPM projects are auto-detected when a `Package.swift` exists and no `.xcodeproj`/`.xcworkspace` is found.
 
-**Operator resolution** (`resolveOperators`):
+**Operator resolution** (`resolveOperators`), which always yields the full list of identifiers to run:
 
-1. If `--operator` flags were passed, use only those identifiers
-2. Otherwise start from all operators, then remove any disabled via `--disable-mutator` (CLI) or `mutators` block with `active: false` (file)
+1. An explicit list — `--operator` (CLI) or `operators` (file), CLI first — is used as is, whatever the operators' tiers
+2. Otherwise the tier is resolved — `--operator-tier`, else `operator-tier`, else `.default`; a name that is no tier is a `UsageError` — and `DiscoveryPipeline.operatorNames(upTo:)` gives its set, minus the identifiers disabled by `--disable-mutator` (CLI), `disabled-mutators` or the `mutators` block with `active: false` (file), both removed together
 
 **Gate resolution** (`resolveGate`): each policy comes from its flag or, failing that, from `min-score`, `max-score-drop` and `max-new-survivors` in the file. `baseline` and `--write-baseline` are resolved against the project path unless absolute. Throws `UsageError` when `min-score` is outside 0–100, a maximum is negative, a file value is not a number, `max-score-drop` or `max-new-survivors` is set without a baseline, or the baseline file does not exist.
 

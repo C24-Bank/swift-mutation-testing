@@ -44,6 +44,7 @@ Narrowing the scope:
 | One module or folder | `--sources-path Sources/MyModule` — a **directory**. A single file finds 0 mutants and reports 100% |
 | Skip generated or vendored code | `--exclude /Generated/` — matched as a plain substring of the file path, not as a glob; repeatable |
 | A few operators | `--operator RelationalOperatorReplacement --operator NegateConditional` |
+| Every operator, including the experimental ones | `--operator-tier experimental`; the default tier is `default`, see `Docs/OPERATORS.md` |
 | One test target | `--target MyPackageTests` |
 
 Test files (`Tests/`, `*Tests.swift`, `Mocks/`, `.build/`) are never mutated.
