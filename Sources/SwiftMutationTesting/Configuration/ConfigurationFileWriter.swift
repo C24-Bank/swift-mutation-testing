@@ -161,7 +161,15 @@ struct ConfigurationFileWriter: Sendable {
     }
 
     private func mutatorsSection() -> [String] {
-        var lines = ["", "# Mutation operators — set active: false to disable", "mutators:"]
+        var lines = [
+            "",
+            "# Operators up to this tier run: conservative, default or experimental.",
+            "# See https://github.com/ericodx/swift-mutation-testing/blob/main/Docs/OPERATORS.md",
+            "# operator-tier: default",
+            "",
+            "# Mutation operators — set active: false to disable",
+            "mutators:",
+        ]
         for name in DiscoveryPipeline.allOperatorNames {
             lines.append("  - name: \(name)")
             lines.append("    active: true")

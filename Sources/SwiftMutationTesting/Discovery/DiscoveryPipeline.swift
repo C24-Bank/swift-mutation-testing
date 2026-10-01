@@ -1,15 +1,19 @@
 struct DiscoveryPipeline: Sendable {
-    private static let registry: [(name: String, operator: any MutationOperator)] = [
-        (name: "RelationalOperatorReplacement", operator: RelationalOperatorReplacement()),
-        (name: "BooleanLiteralReplacement", operator: BooleanLiteralReplacement()),
-        (name: "LogicalOperatorReplacement", operator: LogicalOperatorReplacement()),
-        (name: "ArithmeticOperatorReplacement", operator: ArithmeticOperatorReplacement()),
-        (name: "NegateConditional", operator: NegateConditional()),
-        (name: "SwapTernary", operator: SwapTernary()),
-        (name: "RemoveSideEffects", operator: RemoveSideEffects()),
+    private static let registry: [(name: String, tier: OperatorTier, operator: any MutationOperator)] = [
+        (name: "RelationalOperatorReplacement", tier: .default, operator: RelationalOperatorReplacement()),
+        (name: "BooleanLiteralReplacement", tier: .default, operator: BooleanLiteralReplacement()),
+        (name: "LogicalOperatorReplacement", tier: .default, operator: LogicalOperatorReplacement()),
+        (name: "ArithmeticOperatorReplacement", tier: .default, operator: ArithmeticOperatorReplacement()),
+        (name: "NegateConditional", tier: .default, operator: NegateConditional()),
+        (name: "SwapTernary", tier: .default, operator: SwapTernary()),
+        (name: "RemoveSideEffects", tier: .default, operator: RemoveSideEffects()),
     ]
 
     static let allOperatorNames: [String] = registry.map(\.name)
+
+    static func operatorNames(upTo tier: OperatorTier) -> [String] {
+        registry.filter { $0.tier <= tier }.map(\.name)
+    }
 
     func run(input: DiscoveryInput) async throws -> RunnerInput {
         let sourceFiles = try FileDiscoveryStage().run(input: input)
