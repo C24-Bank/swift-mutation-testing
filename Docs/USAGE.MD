@@ -191,7 +191,7 @@ mutators:
 | `sonar-output` | String | — | Path for SonarQube generic coverage report |
 | `sarif-output` | String | — | Path for the SARIF 2.1.0 report of undetected mutants |
 | `markdown-output` | String | — | Path for a Markdown summary, for CI job summaries |
-| `keep-logs` | String | — | Directory for per-mutant test output logs |
+| `keep-logs` | String | — | Directory for per-mutant test output logs, and for `baseline.log` when the unmutated suite fails |
 | `sources-path` | String | project root | Root directory for Swift source file discovery |
 | `exclude` | List | `[]` | Glob patterns for source files to skip |
 | `disabled-mutators` | List | `[]` | Operator identifiers to skip — deny-list alternative to the `mutators` block |
@@ -280,7 +280,7 @@ swift-mutation-testing [project-path] [options]
 | `--build-timeout <seconds>` | Build timeout (default: 120). Sandboxes never inherit `.build`, so every build is cold |
 | `--concurrency <n>` | Parallel workers (default: CPUs − 1). Simulator destinations only |
 | `--no-cache` | Disable result caching — no verdict is read from the cache, and none is written back |
-| `--keep-logs <dir>` | Write each mutant's captured test output to `<dir>/<mutant-id>.log` |
+| `--keep-logs <dir>` | Write each mutant's captured test output to `<dir>/<mutant-id>.log`, and a failing baseline's output to `<dir>/baseline.log` |
 | `--output <path>` | Write Stryker-compatible JSON report |
 | `--html-output <path>` | Write interactive HTML report |
 | `--sonar-output <path>` | Write SonarQube generic coverage report |
