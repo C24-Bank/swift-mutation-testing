@@ -28,6 +28,13 @@ struct SupportDeclarationsTests {
         #expect(nonImports.allSatisfy { !$0.description.contains("private ") })
     }
 
+    @Test("Given the per-file declarations, when read, then Foundation is imported with an explicit internal level")
+    func foundationIsImportedInternally() {
+        let block = SupportDeclarations.perFile(for: path)
+
+        #expect(block.hasPrefix("internal import Foundation\n"))
+    }
+
     @Test("Given two files, when their declarations are named, then the names differ and are stable")
     func namesFollowTheFile() {
         let other = "/project/Sources/Bar.swift"
