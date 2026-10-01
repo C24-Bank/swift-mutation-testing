@@ -21,15 +21,17 @@ struct SchemataGenerator: Sendable {
         }
 
         var content = source.file.content
+        var edits = Edits()
 
         for group in sortedGroups {
             let scope = group.scope
+            let statementsStart = edits.current(scope.statementsStartOffset)
 
             guard
                 let originalStatements = extract(
-                    from: source.file.content,
-                    start: scope.statementsStartOffset,
-                    end: scope.statementsEndOffset
+                    from: content,
+                    start: statementsStart,
+                    end: edits.current(scope.statementsEndOffset)
                 )
             else {
                 discarded += group.mutations.map(\.point)
@@ -44,7 +46,7 @@ struct SchemataGenerator: Sendable {
                     let mutated = apply(
                         entry.point,
                         to: originalStatements,
-                        startOffset: scope.statementsStartOffset
+                        at: edits.current(entry.point.utf8Offset) - statementsStart
                     )
                 else {
                     discarded.append(entry.point)
@@ -58,9 +60,13 @@ struct SchemataGenerator: Sendable {
             let switchBody = buildSwitchBody(cases: cases, defaultStatements: originalStatements, shape: scope.shape)
             content = replaceRange(
                 in: content,
-                start: scope.bodyStartOffset,
-                end: scope.bodyEndOffset,
+                start: edits.current(scope.bodyStartOffset),
+                end: edits.current(scope.bodyEndOffset),
                 with: switchBody
+            )
+            edits.record(
+                start: scope.bodyStartOffset,
+                delta: switchBody.utf8.count - (scope.bodyEndOffset - scope.bodyStartOffset)
             )
         }
 
@@ -69,6 +75,18 @@ struct SchemataGenerator: Sendable {
         }
 
         return SchemaGeneration(content: content + "\n\n" + SupportDeclarations.perFile + "\n", discarded: discarded)
+    }
+
+    private struct Edits {
+        private var deltas: [(start: Int, delta: Int)] = []
+
+        func current(_ originalOffset: Int) -> Int {
+            deltas.filter { $0.start < originalOffset }.reduce(originalOffset) { $0 + $1.delta }
+        }
+
+        mutating func record(start: Int, delta: Int) {
+            deltas.append((start: start, delta: delta))
+        }
     }
 
     private func mutantID(_ index: Int) -> String {
@@ -82,12 +100,10 @@ struct SchemataGenerator: Sendable {
         return String(data: data.subdata(in: start ..< end), encoding: .utf8)!
     }
 
-    private func apply(_ mutation: MutationPoint, to statementsText: String, startOffset: Int) -> String? {
+    private func apply(_ mutation: MutationPoint, to statementsText: String, at relativeOffset: Int) -> String? {
         let statementsData = statementsText.data(using: .utf8)!
         let originalData = mutation.originalText.data(using: .utf8)!
         let mutatedData = mutation.mutatedText.data(using: .utf8)!
-
-        let relativeOffset = mutation.utf8Offset - startOffset
 
         guard relativeOffset >= 0, relativeOffset + originalData.count <= statementsData.count
         else { return nil }
