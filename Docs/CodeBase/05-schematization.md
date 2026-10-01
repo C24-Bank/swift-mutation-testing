@@ -126,7 +126,7 @@ enum FunctionBodyShape: Sendable, Equatable {
 | Case | Body | Recorded by `TypeScopeVisitor` when |
 |---|---|---|
 | `.statements` | zero, several, or one statement that is not an expression (`return x`) | anything else |
-| `.expression` | exactly one expression statement, `{ a + b }` or `{ print(1) }` | the single item is an `ExprSyntax` other than `if`/`switch` |
+| `.expression` | exactly one expression in a body that returns a value, `{ a + b }` | the single item is an `ExprSyntax` other than `if`/`switch`, and the body is a function with a return type or a `get` accessor; a `Void` function, an `init`, a `deinit` or a setter with one expression — `{ print(1) }`, `{ self.init() }` — is `.statements`, since nothing is returned and `self.init` cannot sit inside a tuple |
 | `.conditional(returnsValue:)` | exactly one `if` or `switch` *expression* | the single item is an `IfExprSyntax` or `SwitchExprSyntax` whose every branch is itself one expression (an `if` needs its `else`; a nested `if`/`switch` is checked the same way) — a `switch` whose cases `return` is a statement and the body is `.statements`; `returnsValue` is `true` for a function with a return type other than `Void`/`()` and for a `get` accessor, `false` for `init`, `deinit`, setters and observers |
 
 `SchemataGenerator` uses the shape to place the activation call without breaking an implicit return.
