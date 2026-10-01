@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1",
+  "files": {
+    "/Sources/B.swift": {
+      "mutants": [
+        {"id": "b0", "mutatorName": "OperatorA", "status": "Timeout", "duration": 1000, "fingerprint": "fb0", "originalText": "+", "replacement": "-", "location": {"start": {"line": 1, "column": 1}, "end": {"line": 1, "column": 2}}},
+        {"id": "b1", "mutatorName": "OperatorA", "status": "Killed", "duration": 100, "fingerprint": "fb1", "originalText": "-", "replacement": "+", "location": {"start": {"line": 2, "column": 1}, "end": {"line": 2, "column": 2}}},
+        {"id": "b2", "mutatorName": "OperatorB", "status": "Survived", "duration": 300, "fingerprint": "fb2", "originalText": "a, b", "replacement": "b, a", "location": {"start": {"line": 3, "column": 1}, "end": {"line": 3, "column": 5}}}
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "files": {
+    "/Sources/A.swift": {
+      "mutants": [
+        {"id": "a0", "mutatorName": "OperatorA", "status": "Killed", "duration": 100, "fingerprint": "fa0", "originalText": ">", "replacement": ">=", "location": {"start": {"line": 1, "column": 1}, "end": {"line": 1, "column": 2}}},
+        {"id": "a1", "mutatorName": "OperatorA", "status": "Survived", "duration": 200, "fingerprint": "fa1", "originalText": "<", "replacement": "<=", "location": {"start": {"line": 2, "column": 1}, "end": {"line": 2, "column": 2}}},
+        {"id": "a2", "mutatorName": "OperatorA", "status": "CompileError", "fingerprint": "fa2", "originalText": "==", "replacement": "!=", "location": {"start": {"line": 3, "column": 1}, "end": {"line": 3, "column": 3}}},
+        {"id": "a3", "mutatorName": "OperatorB", "status": "Killed", "duration": 50, "fingerprint": "fa3", "originalText": "true", "replacement": "false", "location": {"start": {"line": 4, "column": 1}, "end": {"line": 4, "column": 5}}},
+        {"id": "a4", "mutatorName": "OperatorB", "status": "NoCoverage", "fingerprint": "fa4", "originalText": "false", "replacement": "true", "location": {"start": {"line": 5, "column": 1}, "end": {"line": 5, "column": 6}}}
+      ]
+    }
+  }
+}

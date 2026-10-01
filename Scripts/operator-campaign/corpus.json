@@ -1,0 +1,32 @@
+[
+  {
+    "name": "swift-algorithms",
+    "repository": "https://github.com/apple/swift-algorithms.git",
+    "sha": "87e50f483c54e6efd60e885f7f5aa946cee68023",
+    "arguments": []
+  },
+  {
+    "name": "swift-argument-parser",
+    "repository": "https://github.com/apple/swift-argument-parser.git",
+    "sha": "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+    "arguments": []
+  },
+  {
+    "name": "swift-log",
+    "repository": "https://github.com/apple/swift-log.git",
+    "sha": "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
+    "arguments": []
+  },
+  {
+    "name": "swift-cpd",
+    "repository": "https://github.com/ericodx/swift-cpd.git",
+    "sha": "b88a4015b99b7cbd3d5cc60f6a2f1566c0b1a1dd",
+    "arguments": []
+  },
+  {
+    "name": "swift-mutation-testing",
+    "repository": ".",
+    "sha": "7dcc7f9c5c34db5f1d8d59e46eec94209a91e063",
+    "arguments": ["--exclude", "/Fixtures/"]
+  }
+]
