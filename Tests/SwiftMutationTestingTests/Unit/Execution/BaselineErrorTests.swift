@@ -20,6 +20,14 @@ struct BaselineErrorTests {
         #expect(error.errorDescription?.contains("#filePath") == true)
     }
 
+    @Test("Given testsFailed, when errorDescription accessed, then tells where the suite's output can be kept")
+    func testsFailedMentionsKeepLogs() {
+        let error = BaselineError.testsFailed(tests: ["FooTests.testBar"])
+
+        #expect(error.errorDescription?.contains("--keep-logs <dir>") == true)
+        #expect(error.errorDescription?.contains("baseline.log") == true)
+    }
+
     @Test("Given didNotFinish, when errorDescription accessed, then names the limit and suggests --timeout")
     func didNotFinishNamesTimeout() {
         let error = BaselineError.didNotFinish(seconds: 30)
