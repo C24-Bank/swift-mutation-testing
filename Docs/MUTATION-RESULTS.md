@@ -195,7 +195,7 @@ func isAdult(age: Int) -> Bool {
 
 // Schematized source (embedded in the sandbox)
 func isAdult(age: Int) -> Bool {
-    switch __swiftMutationTestingID {
+    switch __swiftMutationTestingID_<hash> {
     case "swift-mutation-testing_0":
         return age > 18   // mutant 0: >= → >
     case "swift-mutation-testing_1":
@@ -206,7 +206,7 @@ func isAdult(age: Int) -> Bool {
 }
 ```
 
-Each schematized file declares its own private `__swiftMutationTestingID`, which reads `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]` once. Each test run injects a different mutant ID into that environment variable — via the `.xctestrun` plist for Xcode projects, or via the process environment for SPM packages.
+Each schematized file declares its own `__swiftMutationTestingID_<hash>` — the hash names the file — which reads `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]` once. Each test run injects a different mutant ID into that environment variable — via the `.xctestrun` plist for Xcode projects, or via the process environment for SPM packages.
 
 ### What makes a mutant incompatible
 

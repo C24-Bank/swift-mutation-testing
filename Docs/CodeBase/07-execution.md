@@ -66,7 +66,7 @@ struct ApplicationVerifier: Sendable {
 }
 ```
 
-Proves, before the build, that the sandbox holds what discovery produced. For each schematized file, the sandbox copy — at the original's path relative to the project — must exist, differ from the original, and contain `SupportDeclarations.perFile`; otherwise `schemaNotApplied` or `supportMissing`. Then every schematizable mutant must have `case "<id>":` in its file's copy, and every incompatible mutant must have `mutatedSourceContent` that differs from its original file; the ids that fail are thrown together as `mutantsNotApplied`. `MutantExecutor` runs it on the whole input, and `FallbackExecutor` on each per-file sandbox.
+Proves, before the build, that the sandbox holds what discovery produced. For each schematized file, the sandbox copy — at the original's path relative to the project — must exist, differ from the original, and contain `SupportDeclarations.perFile(for:)` its path; otherwise `schemaNotApplied` or `supportMissing`. Then every schematizable mutant must have `case "<id>":` in its file's copy, and every incompatible mutant must have `mutatedSourceContent` that differs from its original file; the ones that fail are thrown together as `mutantsNotApplied`, each as `<id> (<file>:<line>)`. `MutantExecutor` runs it on the whole input, and `FallbackExecutor` on each per-file sandbox.
 
 ---
 
@@ -74,7 +74,7 @@ Proves, before the build, that the sandbox holds what discovery produced. For ea
 
 ```swift
 enum IntegrityError: Error, Equatable, LocalizedError {
-    case mutantsNotApplied(ids: [String])
+    case mutantsNotApplied(mutants: [String])
     case schemaNotApplied(path: String)
     case supportMissing(path: String)
     case activationNeverObserved(killed: Int)

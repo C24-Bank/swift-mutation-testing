@@ -17,7 +17,7 @@ struct SchemaGeneration: Sendable {
 }
 ```
 
-Rewrites a source file to embed all its schematizable mutations into `switch __swiftMutationTestingID` blocks. Returns the complete rewritten source as `content`, and as `discarded` the mutations it could not place: a point inside no function body, a body whose statements could not be extracted, or a mutation whose text does not fit inside the body it belongs to. A discarded mutation gets no `case`, so `ApplicationVerifier` finds it missing from the sandbox and stops the run rather than letting a mutant that is not in the build be judged. Uses force-unwrapped UTF-8 conversions because Swift source code is guaranteed to be valid UTF-8.
+Rewrites a source file to embed all its schematizable mutations into `switch __swiftMutationTestingID_<hash>` blocks, the hash naming the file. Returns the complete rewritten source as `content`, and as `discarded` the mutations it could not place: a point inside no function body, a body whose statements could not be extracted, or a mutation whose text does not fit inside the body it belongs to. A discarded mutation gets no `case`, so `ApplicationVerifier` finds it missing from the sandbox and stops the run rather than letting a mutant that is not in the build be judged. Uses force-unwrapped UTF-8 conversions because Swift source code is guaranteed to be valid UTF-8.
 
 ```mermaid
 flowchart TD
@@ -37,9 +37,9 @@ Groups are processed in reverse `bodyStartOffset` order so that earlier replacem
 
 ```swift
 {
-switch __swiftMutationTestingID {
+switch __swiftMutationTestingID_<hash> {
 case "swift-mutation-testing_<n>":
-let _ = __SwiftMutationTesting.activated()
+let _ = __SwiftMutationTesting_<hash>.activated()
 <mutated statements>
 default:
 <original statements>
@@ -47,9 +47,9 @@ default:
 }
 ```
 
-Every `case` starts by recording that it ran (`SupportDeclarations.activationCall`). The scope's `FunctionBodyShape` decides how: a body that is one expression keeps each case a single expression, `(__SwiftMutationTesting.activated(), <mutated expression>).1`, because such a body is an implicit return and the `switch` is then an expression; a body that is one `if` or `switch` expression in a value-returning scope gets `return` in front of every branch, `default` included. A blank mutated body — a removed sole statement — records the activation alone. The reasoning is in [Architecture — Activation Marker](../Architecture/05-schematization.md#activation-marker).
+Every `case` starts by recording that it ran (`SupportDeclarations.activationCall(for:)`). The scope's `FunctionBodyShape` decides how: a body that is one expression keeps each case a single expression, `(__SwiftMutationTesting_<hash>.activated(), <mutated expression>).1`, because such a body is an implicit return and the `switch` is then an expression; a body that is one `if` or `switch` expression in a value-returning scope gets `return` in front of every branch, `default` included. A blank mutated body — a removed sole statement — records the activation alone. The reasoning is in [Architecture — Activation Marker](../Architecture/05-schematization.md#activation-marker).
 
-Mutant IDs follow `"swift-mutation-testing_<index>"` where `index` is the global sequential index assigned by `MutantIndexingStage`. When at least one body was rewritten, the file ends with `SupportDeclarations.perFile`.
+Mutant IDs follow `"swift-mutation-testing_<index>"` where `index` is the global sequential index assigned by `MutantIndexingStage`. Scopes are rewritten innermost first, and an enclosing scope reads its statements from the content already rewritten, with its offsets shifted by the edits inside it, so a nested function keeps its own `switch` inside every branch of the enclosing one. When at least one body was rewritten, the file ends with `SupportDeclarations.perFile(for:)`.
 
 ---
 
@@ -147,7 +147,7 @@ struct SchematizedFile: Sendable, Codable {
 | `originalPath` | Absolute path of the original source file |
 | `schematizedContent` | Source text with all schematizable mutations embedded |
 
-`schematizedContent` ends with `SupportDeclarations.perFile`, so the file declares the `__swiftMutationTestingID` its schema reads. Nothing else in the sandbox declares it.
+`schematizedContent` ends with `SupportDeclarations.perFile(for:)`, so the file declares the `__swiftMutationTestingID_<hash>` its schema reads. Nothing else in the sandbox declares it.
 
 ---
 
@@ -155,12 +155,14 @@ struct SchematizedFile: Sendable, Codable {
 
 ```swift
 enum SupportDeclarations {
-    static let activationCall: String  // "__SwiftMutationTesting.activated()"
-    static let perFile: String
+    static func suffix(for path: String) -> String          // eight hex digits of SHA-256(path)
+    static func identifier(for path: String) -> String      // "__swiftMutationTestingID_<suffix>"
+    static func activationCall(for path: String) -> String  // "__SwiftMutationTesting_<suffix>.activated()"
+    static func perFile(for path: String) -> String
 }
 ```
 
-The block `SchemataGenerator` appends to every file it changes: `import Foundation`, a `private enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `nonisolated private var __swiftMutationTestingID` that returns the id. `activationCall` is the text of the call the generator writes into each `case`. It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
+The block `SchemataGenerator` appends to every file it changes, named after the file by `suffix(for:)`: `import Foundation`, a `@usableFromInline internal enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `@usableFromInline nonisolated internal var __swiftMutationTestingID_<suffix>` that returns the id. `identifier(for:)` is the name the generator writes after `switch`, `activationCall(for:)` the text of the call it writes into each `case`. It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
 
 ---
 

@@ -21,7 +21,7 @@ flowchart TD
 
 ## SchemataGenerator
 
-`SchemataGenerator` rewrites each function body to contain a `switch __swiftMutationTestingID` block. Mutations are grouped by the innermost enclosing scope. For each group:
+`SchemataGenerator` rewrites each function body to contain a `switch __swiftMutationTestingID_<hash>` block, the hash naming the file (see [Per-file support declarations](#per-file-support-declarations)). Mutations are grouped by the innermost enclosing scope, and groups are rewritten innermost first: a nested function's body gets its own `switch`, and the enclosing body is read *after* that rewrite, so its `default` branch — and every one of its `case` branches, each a copy of the body with one mutation applied — carries the nested `switch` inside it. Offsets of the enclosing scope are shifted by the edits already made inside it. For each group:
 
 1. Extract the original statement text (from `statementsStartOffset` to `statementsEndOffset`)
 2. For each mutant in the group, apply the mutation to produce a mutated copy of the statements
@@ -30,7 +30,7 @@ flowchart TD
 
 ```swift
 {
-    switch __swiftMutationTestingID {
+    switch __swiftMutationTestingID_<hash> {
     case "swift-mutation-testing_0":
         return a - b
     case "swift-mutation-testing_1":
@@ -69,22 +69,29 @@ FunctionBodyScope
 
 ## Per-file support declarations
 
-Every schematized file ends with the same block, appended by `SchemataGenerator` (`SupportDeclarations.perFile`):
+Every schematized file ends with a block of its own, appended by `SchemataGenerator` (`SupportDeclarations.perFile(for:)`), where `<hash>` is the first eight hex digits of the SHA-256 of the file's path:
 
 ```swift
 import Foundation
 
-private enum __SwiftMutationTesting {
-    nonisolated static let id: String =
+@usableFromInline
+internal enum __SwiftMutationTesting_<hash> {
+    @usableFromInline nonisolated static let id: String =
         ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
+    nonisolated(unsafe) static var activationRecorded = false
+
+    @usableFromInline nonisolated static func activated() { … }
 }
 
-nonisolated private var __swiftMutationTestingID: String { __SwiftMutationTesting.id }
+@usableFromInline nonisolated internal var __swiftMutationTestingID_<hash>: String {
+    __SwiftMutationTesting_<hash>.id
+}
 ```
 
 Each piece of it is there for a reason:
 
-- **`private`, once per file.** A single `internal` declaration in one module — what a shared `__SMTSupport.swift` used to be — is invisible to schematized files in any other module, so their schema did not compile and their mutants fell to one build each. A file-scope `private` declaration is visible exactly where the schema is, cannot clash with the same declaration in another file, and needs no file of its own — which also matters for Xcode projects, which compile only the files their `project.pbxproj` lists.
+- **One block per file, named after the file.** A single `internal` declaration in one module — what a shared `__SMTSupport.swift` used to be — is invisible to schematized files in any other module, so their schema did not compile and their mutants fell to one build each. A block in every schematized file is visible exactly where the schema is and needs no file of its own — which also matters for Xcode projects, which compile only the files their `project.pbxproj` lists. The hash in the names keeps two files of one module from declaring the same thing.
+- **`@usableFromInline internal`, not `private`.** An `@inlinable` body — every public function of `swift-algorithms`, for one — may only reference declarations that are `public` or `@usableFromInline`; a `private` block made every schema in such a file fail to build, and its mutants fell to one build each. `@usableFromInline` requires `internal`, which is why the names must differ per file.
 - **A `static let`, not a global.** A stored global declared in `main.swift` is initialized when top-level code reaches its line; a function called before that reads uninitialized memory and crashes. A static stored property is initialized on first use wherever it is declared, so the block can sit at the end of any file, `main.swift` included, without shifting the line numbers of the code above it.
 - **Read once.** `ProcessInfo.processInfo.environment` builds a dictionary of the whole environment; reading it once per file, instead of on every function call, keeps the schema's cost to a string comparison.
 - **`nonisolated`.** Under Swift 6.2's default `MainActor` isolation, which app targets opt into, an unmarked global or static is main-actor isolated and a nonisolated function cannot read it. Both declarations opt out, and the same block compiles in Swift 5 mode, Swift 6 mode and under default isolation.
@@ -102,11 +109,11 @@ flowchart TD
     ACT --> XCTESTRUN[Temporary .xctestrun\nwith env vars set]
     XCTESTRUN --> XCB[xcodebuild test-without-building\n-xctestrun <path>]
     XCB --> BINARY[Test binary reads\n__SWIFT_MUTATION_TESTING_ACTIVE\nat startup]
-    BINARY --> SWITCH[switch __swiftMutationTestingID\nroutes to active mutant]
+    BINARY --> SWITCH[switch __swiftMutationTestingID_<hash>\nroutes to active mutant]
     SWITCH --> MARK[the case writes the marker file\nonce per file]
 ```
 
-When no environment variable is set (baseline run or passive execution), `__swiftMutationTestingID` returns `""`, which matches no `case` and the `default` branch executes — the original code runs unmodified.
+When no environment variable is set (baseline run or passive execution), `__swiftMutationTestingID_<hash>` returns `""`, which matches no `case` and the `default` branch executes — the original code runs unmodified.
 
 ## Activation Marker
 
@@ -116,8 +123,8 @@ How the call sits in the `case` depends on the body's shape, recorded by `TypeSc
 
 | Body | Case | Why |
 |---|---|---|
-| Statements | `let _ = __SwiftMutationTesting.activated()` then the statements | A second statement is harmless; `let _ =` keeps result builders (`@ViewBuilder`) from rejecting a bare call |
-| One expression, `func add(_ a: Int, _ b: Int) -> Int { a + b }` | `(__SwiftMutationTesting.activated(), a - b).1` | The body is an implicit return, so the whole `switch` is an expression and each branch must stay one expression. The tuple evaluates the activation first and has the expression's type, `try`, `await`, closures and `Never` included |
+| Statements | `let _ = __SwiftMutationTesting_<hash>.activated()` then the statements | A second statement is harmless; `let _ =` keeps result builders (`@ViewBuilder`) from rejecting a bare call |
+| One expression, `func add(_ a: Int, _ b: Int) -> Int { a + b }` | `(__SwiftMutationTesting_<hash>.activated(), a - b).1` | The body is an implicit return, so the whole `switch` is an expression and each branch must stay one expression. The tuple evaluates the activation first and has the expression's type, `try`, `await`, closures and `Never` included |
 | One `if` or `switch` expression in a value-returning body | `let _ = …` then `return if …`, and `return` in `default` too | An `if` expression cannot sit in a tuple; an explicit `return` makes the outer `switch` a statement again |
 | One `if` or `switch` in a `Void` body, `init` or setter | `let _ = …` then the statement | Nothing to return |
 

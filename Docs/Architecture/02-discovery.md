@@ -77,7 +77,7 @@ Embeds all schematizable mutations into the source files via `SchemataGenerator`
 | Input | `[IndexedMutationPoint]`, `[ParsedSource]` |
 | Output | `[SchematizedFile]`, `[MutantDescriptor]` — schematized files and schematizable mutant descriptors |
 
-For each file, the stage processes only the schematizable indexed points. Mutations are embedded into the source via `SchemataGenerator`, which rewrites function bodies to contain `switch __swiftMutationTestingID` blocks. See [Schematization](05-schematization.md) for a detailed breakdown.
+For each file, the stage processes only the schematizable indexed points. Mutations are embedded into the source via `SchemataGenerator`, which rewrites function bodies to contain `switch __swiftMutationTestingID_<hash>` blocks, the hash naming the file. See [Schematization](05-schematization.md) for a detailed breakdown.
 
 ### IncompatibleRewritingStage
 

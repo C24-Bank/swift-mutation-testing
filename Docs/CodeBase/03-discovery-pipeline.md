@@ -217,7 +217,7 @@ struct IndexedMutationPoint: Sendable {
 |---|---|
 | `index` | Position in the run's ordering, assigned by `MutantIndexingStage` |
 | `mutation` | The original mutation point |
-| `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID` is compared against in the schema |
+| `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID_<hash>` is compared against in the schema |
 | `isSchematizable` | `true` if the mutation falls inside a function body (determined by `TypeScopeVisitor`) |
 | `fingerprint` | The mutant's `MutantFingerprint`, stable across runs |
 
@@ -240,7 +240,7 @@ flowchart TD
     SCHEMA --> RESULT["([SchematizedFile], [MutantDescriptor])"]
 ```
 
-Every schematized file ends with `SupportDeclarations.perFile`, its own private `__swiftMutationTestingID`, appended by `SchemataGenerator` — see [05 — Schematization](05-schematization.md).
+Every schematized file ends with `SupportDeclarations.perFile(for:)`, its own `__swiftMutationTestingID_<hash>`, appended by `SchemataGenerator` — see [05 — Schematization](05-schematization.md).
 
 ---
 
