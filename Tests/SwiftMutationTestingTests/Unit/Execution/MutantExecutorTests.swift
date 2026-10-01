@@ -83,7 +83,7 @@ struct MutantExecutorTests {
         )
         let input = makeRunnerInput(projectPath: dir.path, mutants: [mutant])
 
-        await #expect(throws: IntegrityError.mutantsNotApplied(ids: ["m0"])) {
+        await #expect(throws: IntegrityError.mutantsNotApplied(mutants: ["m0 (Foo.swift:1)"])) {
             try await executor.execute(input)
         }
         #expect(await launcher.requests.isEmpty)

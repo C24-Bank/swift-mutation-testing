@@ -76,7 +76,7 @@ struct ApplicationVerifierTests {
         let project = try Project(schematized: schema(cases: ["m1"]))
         defer { project.cleanup() }
 
-        #expect(throws: IntegrityError.mutantsNotApplied(ids: ["m0", "m2"])) {
+        #expect(throws: IntegrityError.mutantsNotApplied(mutants: ["m0 (Foo.swift:1)", "m2 (Bar.swift:1)"])) {
             try verifier.verify(
                 schematizedFiles: [project.file],
                 mutants: [
@@ -98,7 +98,7 @@ struct ApplicationVerifierTests {
         let project = try Project(schematized: schema(cases: []))
         defer { project.cleanup() }
 
-        #expect(throws: IntegrityError.mutantsNotApplied(ids: ["m9"])) {
+        #expect(throws: IntegrityError.mutantsNotApplied(mutants: ["m9 (Foo.swift:1)"])) {
             try verifier.verify(
                 schematizedFiles: [project.file],
                 mutants: [project.mutant(id: "m9", schematizable: false, content: content)],
