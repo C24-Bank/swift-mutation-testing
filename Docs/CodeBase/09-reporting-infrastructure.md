@@ -559,7 +559,7 @@ struct ProcessRequest: Sendable {
 | `timeout` | Maximum execution time in seconds |
 | `stopRule` | When set, the runner ends the process as soon as a line of its output is what the rule stops at, and reports the rule's exit code instead of the process's own |
 
-**`OutputStopRule`** (`Infrastructure/OutputStopRule.swift`) names the kind of line to stop at and the exit code to report when one is seen. `.firstTestFailure` stops at a line `TestOutputParser.failingTest(in:)` reads as a failed test — the XCTest `Test Case '-[…]' failed` line, and Swift Testing's `✘ Test "…" recorded an issue` and `failed after` — with exit code 1, which is what both libraries exit with on a failure anyway. A line that merely quotes such text, such as the `started` line of a parameterized test whose argument is a failure line, does not stop the run: the rule asks the same parser that would name the kill, so a stop happens exactly where a kill would be read.
+**`OutputStopRule`** (`Infrastructure/OutputStopRule.swift`) names the kind of line to stop at and the exit code to report when one is seen. `.firstTestFailure` stops at a line `TestOutputParser.failingTest(in:)` reads as a failed test — the XCTest `Test Case '-[…]' failed` line, at the start of the line, and Swift Testing's `✘ Test "…" recorded an issue` and `failed after` — with exit code 1, which is what both libraries exit with on a failure anyway. A line that merely quotes such text, such as the `started` line of a parameterized test whose argument is a failure line, does not stop the run: the rule asks the same parser that would name the kill, so a stop happens exactly where a kill would be read.
 
 ---
 
