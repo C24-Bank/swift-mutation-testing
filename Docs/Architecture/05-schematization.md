@@ -126,6 +126,7 @@ How the call sits in the `case` depends on the body's shape, recorded by `TypeSc
 | Statements | `let _ = __SwiftMutationTesting_<hash>.activated()` then the statements | A second statement is harmless; `let _ =` keeps result builders (`@ViewBuilder`) from rejecting a bare call |
 | One expression, `func add(_ a: Int, _ b: Int) -> Int { a + b }` | `(__SwiftMutationTesting_<hash>.activated(), a - b).1` | The body is an implicit return, so the whole `switch` is an expression and each branch must stay one expression. The tuple evaluates the activation first and has the expression's type, `try`, `await`, closures and `Never` included |
 | One `if` or `switch` expression in a value-returning body | `let _ = …` then `return if …`, and `return` in `default` too | An `if` expression cannot sit in a tuple; an explicit `return` makes the outer `switch` a statement again |
+| One `if` or `switch` *statement* — a branch that `return`s, an `if` without `else` | treated as statements | `return switch …` would turn the statement into an expression, and `return` cannot leave a `switch` expression; `TypeScopeVisitor` calls a conditional an expression only when every branch is one expression |
 | One `if` or `switch` in a `Void` body, `init` or setter | `let _ = …` then the statement | Nothing to return |
 
 What the marker decides:
