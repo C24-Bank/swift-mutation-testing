@@ -341,8 +341,11 @@ func run(corpusPath: String, outDirectory: URL, toolPath: String) throws {
 
     for project in corpus {
         let path: String
+        var sha = project.sha
         if project.repository == "." {
             path = FileManager.default.currentDirectoryPath
+            sha = try capture("/usr/bin/git", ["rev-parse", "HEAD"]).output
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
             let checkout = checkouts.appendingPathComponent(project.name)
             print("Cloning \(project.repository) at \(project.sha)")
@@ -361,7 +364,7 @@ func run(corpusPath: String, outDirectory: URL, toolPath: String) throws {
         try write(result.output, to: outDirectory.appendingPathComponent("\(project.name).txt").path)
 
         let meta: [String: Any] = [
-            "name": project.name, "repository": project.repository, "sha": project.sha,
+            "name": project.name, "repository": project.repository, "sha": sha,
             "tool": toolVersion, "swift": swiftVersion,
             "machine": "\(machineModel()), \(ProcessInfo.processInfo.operatingSystemVersionString)",
             "date": ISO8601DateFormatter().string(from: started),
