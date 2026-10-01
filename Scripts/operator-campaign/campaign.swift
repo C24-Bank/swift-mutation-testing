@@ -369,10 +369,12 @@ func run(corpusPath: String, outDirectory: URL, toolPath: String) throws {
             "machine": "\(machineModel()), \(ProcessInfo.processInfo.operatingSystemVersionString)",
             "date": ISO8601DateFormatter().string(from: started),
             "wallSeconds": Int(Date().timeIntervalSince(started)), "exitCode": Int(result.exitCode),
+            "signaled": result.signaled,
         ]
         let data = try JSONSerialization.data(withJSONObject: meta, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: outDirectory.appendingPathComponent("\(project.name).meta.json"))
-        print("  exit \(result.exitCode) after \(Int(Date().timeIntervalSince(started))) s")
+        let ending = result.signaled ? "signal" : "exit"
+        print("  \(ending) \(result.exitCode) after \(Int(Date().timeIntervalSince(started))) s")
     }
 }
 
@@ -388,7 +390,9 @@ struct CampaignError: Error, CustomStringConvertible {
     init(_ description: String) { self.description = description }
 }
 
-func capture(_ executable: String, _ arguments: [String]) throws -> (exitCode: Int32, output: String) {
+func capture(
+    _ executable: String, _ arguments: [String]
+) throws -> (exitCode: Int32, output: String, signaled: Bool) {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)
     process.arguments = arguments
@@ -398,10 +402,13 @@ func capture(_ executable: String, _ arguments: [String]) throws -> (exitCode: I
     try process.run()
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
     process.waitUntilExit()
-    return (process.terminationStatus, String(decoding: data, as: UTF8.self))
+    return (
+        process.terminationStatus, String(decoding: data, as: UTF8.self),
+        process.terminationReason == .uncaughtSignal
+    )
 }
 
-func check(_ result: (exitCode: Int32, output: String), _ step: String) throws {
+func check(_ result: (exitCode: Int32, output: String, signaled: Bool), _ step: String) throws {
     guard result.exitCode == 0 else { throw CampaignError("\(step) failed:\n\(result.output)") }
 }
 
