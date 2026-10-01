@@ -99,6 +99,30 @@ struct SwapTernaryTests {
 
     // MARK: - Rewriting
 
+    @Test("Given a comment above the statement, when visited, then the original text starts at the statement")
+    func aCommentAboveTheStatementIsNotPartOfTheMutation() {
+        let source = makeParsedSource("func f() {\n    // a note\n    let x = a ? b : c\n}")
+        let result = op.mutations(in: source)
+
+        #expect(result.count == 1)
+        #expect(result[0].originalText == "a ? b : c")
+        #expect(result[0].mutatedText == "a ? c : b")
+    }
+
+    @Test("Given a ternary assigned over several lines under a comment, when schematized, then it is not discarded")
+    func aCommentedMultilineAssignmentIsPlaced() {
+        let code = "init(name: String) {\n    // strip it\n    self.name =\n      name.first == \"_\"\n"
+            + "      ? String(name.dropFirst(1))\n      : name\n}"
+        let source = makeParsedSource(code)
+        let mutations = op.mutations(in: source).enumerated().map { (index: $0.offset, point: $0.element) }
+
+        let generation = SchemataGenerator().generate(source: source, mutations: mutations)
+
+        #expect(mutations.count == 1)
+        #expect(generation.discarded.isEmpty)
+        #expect(generation.content.contains("name.first == \"_\" ? name : String(name.dropFirst(1))"))
+    }
+
     @Test("Given a compound condition, when the mutation is applied, then the result compiles as one ternary")
     func rewritingACompoundConditionLeavesNoTail() {
         let code = #"func f() { let x = sha == ":0" ? a : b }"#
