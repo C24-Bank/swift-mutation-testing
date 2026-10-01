@@ -180,7 +180,7 @@ struct TestExecutionStage: Sendable {
         var launched = try await launchSPM(
             mutant: mutant, in: context, timeout: timeout,
             run: SPMRun(
-                filter: context.configuration.build.testTarget, bundles: context.bundles, activationFile: marker.path
+                filter: context.testFilter, bundles: context.bundles, activationFile: marker.path
             )
         )
         let outcome = SPMResultParser().parse(exitCode: launched.exitCode, output: launched.output)

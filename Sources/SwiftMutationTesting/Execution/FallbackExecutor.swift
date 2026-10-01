@@ -72,10 +72,14 @@ struct FallbackExecutor: Sendable {
             }
         }
 
+        let selection = TestTargetSelection.make(
+            target: configuration.build.testTarget, bundleURLs: TestBundleInvocation.bundleURLs(in: sandbox)
+        )
         let context = TestExecutionContext(
             artifact: artifact, sandbox: sandbox, pool: pool,
             configuration: configuration,
-            bundles: TestBundle.all(in: sandbox)
+            bundles: selection.bundleURLs.map { TestBundle(url: $0, libraries: TestBundle.allLibraries) },
+            testFilter: selection.filter
         )
 
         let stageResults = try await TestExecutionStage(deps: deps).execute(mutants: fileMutants, in: context)
