@@ -37,3 +37,6 @@ jobs:
 
       - name: Run tests
         run: swift test --no-parallel
+
+      - name: Check the campaign aggregation
+        run: swift Scripts/operator-campaign/campaign.swift check
