@@ -21,7 +21,7 @@ struct ApplicationVerifier: Sendable {
                 content != (try? String(contentsOfFile: original, encoding: .utf8))
             else { throw IntegrityError.schemaNotApplied(path: file.originalPath) }
 
-            guard content.contains(SupportDeclarations.perFile) else {
+            guard content.contains(SupportDeclarations.perFile(for: file.originalPath)) else {
                 throw IntegrityError.supportMissing(path: file.originalPath)
             }
 

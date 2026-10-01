@@ -57,7 +57,9 @@ struct SchemataGenerator: Sendable {
 
             guard !cases.isEmpty else { continue }
 
-            let switchBody = buildSwitchBody(cases: cases, defaultStatements: originalStatements, shape: scope.shape)
+            let switchBody = buildSwitchBody(
+                cases: cases, defaultStatements: originalStatements, shape: scope.shape, path: source.file.path
+            )
             content = replaceRange(
                 in: content,
                 start: edits.current(scope.bodyStartOffset),
@@ -74,7 +76,8 @@ struct SchemataGenerator: Sendable {
             return SchemaGeneration(content: content, discarded: discarded)
         }
 
-        return SchemaGeneration(content: content + "\n\n" + SupportDeclarations.perFile + "\n", discarded: discarded)
+        let support = SupportDeclarations.perFile(for: source.file.path)
+        return SchemaGeneration(content: content + "\n\n" + support + "\n", discarded: discarded)
     }
 
     private struct Edits {
@@ -116,13 +119,14 @@ struct SchemataGenerator: Sendable {
     private func buildSwitchBody(
         cases: [(id: String, statements: String)],
         defaultStatements: String,
-        shape: FunctionBodyShape
+        shape: FunctionBodyShape,
+        path: String
     ) -> String {
         var result = "{\n"
-        result += "switch __swiftMutationTestingID {\n"
+        result += "switch \(SupportDeclarations.identifier(for: path)) {\n"
 
         for (id, statements) in cases {
-            result += "case \"\(id)\":\n\(caseBody(statements, shape: shape))\n"
+            result += "case \"\(id)\":\n\(caseBody(statements, shape: shape, path: path))\n"
         }
 
         result += "default:\n\(defaultBody(defaultStatements, shape: shape))\n"
@@ -131,8 +135,8 @@ struct SchemataGenerator: Sendable {
         return result
     }
 
-    private func caseBody(_ statements: String, shape: FunctionBodyShape) -> String {
-        let activation = SupportDeclarations.activationCall
+    private func caseBody(_ statements: String, shape: FunctionBodyShape, path: String) -> String {
+        let activation = SupportDeclarations.activationCall(for: path)
         let isBlank = statements.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         switch shape {

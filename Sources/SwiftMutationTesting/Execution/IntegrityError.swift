@@ -26,7 +26,7 @@ enum IntegrityError: Error, Equatable, LocalizedError {
                 + "so none of its mutants is in the build. The run is stopped"
 
         case .supportMissing(let path):
-            return "the sandbox copy of '\(path)' does not declare __swiftMutationTestingID, "
+            return "the sandbox copy of '\(path)' does not declare \(SupportDeclarations.identifier(for: path)), "
                 + "so its schema could not compile. The run is stopped"
         }
     }
