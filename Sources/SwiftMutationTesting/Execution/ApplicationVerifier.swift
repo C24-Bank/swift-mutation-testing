@@ -28,12 +28,16 @@ struct ApplicationVerifier: Sendable {
             written[original] = content
         }
 
-        let missing = mutants.filter { !isApplied($0, written: written) }.map(\.id)
+        let missing = mutants.filter { !isApplied($0, written: written) }.map(Self.label)
 
-        guard missing.isEmpty else { throw IntegrityError.mutantsNotApplied(ids: missing) }
+        guard missing.isEmpty else { throw IntegrityError.mutantsNotApplied(mutants: missing) }
     }
 
     // MARK: - Private
+
+    private static func label(_ mutant: MutantDescriptor) -> String {
+        "\(mutant.id) (\(URL(fileURLWithPath: mutant.filePath).lastPathComponent):\(mutant.line))"
+    }
 
     private func isApplied(_ mutant: MutantDescriptor, written: [String: String]) -> Bool {
         guard mutant.isSchematizable else {
