@@ -52,6 +52,8 @@ final class SwapTernaryVisitor: MutationSyntaxVisitor {
     }
 
     private func joined(_ elements: ArraySlice<ExprSyntax>) -> String {
-        elements.map(\.description).joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = elements.first else { return "" }
+        let rest = elements.dropFirst().map(\.description).joined()
+        return (first.with(\.leadingTrivia, []).description + rest).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
