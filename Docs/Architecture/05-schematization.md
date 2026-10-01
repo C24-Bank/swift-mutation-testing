@@ -72,7 +72,7 @@ FunctionBodyScope
 Every schematized file ends with a block of its own, appended by `SchemataGenerator` (`SupportDeclarations.perFile(for:)`), where `<hash>` is the first eight hex digits of the SHA-256 of the file's path:
 
 ```swift
-import Foundation
+internal import Foundation
 
 @usableFromInline
 internal enum __SwiftMutationTesting_<hash> {
@@ -95,7 +95,7 @@ Each piece of it is there for a reason:
 - **A `static let`, not a global.** A stored global declared in `main.swift` is initialized when top-level code reaches its line; a function called before that reads uninitialized memory and crashes. A static stored property is initialized on first use wherever it is declared, so the block can sit at the end of any file, `main.swift` included, without shifting the line numbers of the code above it.
 - **Read once.** `ProcessInfo.processInfo.environment` builds a dictionary of the whole environment; reading it once per file, instead of on every function call, keeps the schema's cost to a string comparison.
 - **`nonisolated`.** Under Swift 6.2's default `MainActor` isolation, which app targets opt into, an unmarked global or static is main-actor isolated and a nonisolated function cannot read it. Both declarations opt out, and the same block compiles in Swift 5 mode, Swift 6 mode and under default isolation.
-- **`import Foundation` at the end.** An import may appear anywhere at file scope, and a repeated import is allowed, so the block needs no knowledge of what the file already imports.
+- **`internal import Foundation` at the end.** An import may appear anywhere at file scope, and a repeated import is allowed, so the block needs no knowledge of what the file already imports. The access level is explicit because a module that imports Foundation as `internal` elsewhere — `swift-argument-parser` does, in every file — rejects an import whose level is left implicit as ambiguous; `internal` is accepted in Swift 5 and Swift 6 modes alike, next to a `public import` in another file, and the block's `@usableFromInline` bodies are not inlined, so an internal import serves them.
 
 The block is part of `SchematizedFile.schematizedContent`. That is what makes the retry after a failed schema build correct for free: the narrowed schema comes from the same generator and carries the same declarations.
 
