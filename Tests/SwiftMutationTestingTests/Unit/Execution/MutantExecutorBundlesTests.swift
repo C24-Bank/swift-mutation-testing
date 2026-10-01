@@ -55,6 +55,37 @@ struct MutantExecutorBundlesTests {
         )
     }
 
+    @Test("Given --target naming a test target, when executed, then only its bundle runs, with no filter")
+    func aTargetNamingABundleRunsThatBundleAlone() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = try project(in: dir, suiteAt: nil)
+        let launcher = TwoBundleLauncher(killers: ["CoreBTests": "even()"])
+
+        let results = try await execute(in: dir, sourceFile: sourceFile, launcher: launcher, testTarget: "CoreBTests")
+
+        #expect(results.map(\.status) == [.killed(by: "even()")])
+        #expect(await launcher.runs == [.init(bundle: "CoreBTests", filter: nil, mutantID: "m0")])
+    }
+
+    @Test("Given --target naming no test target, when executed, then every bundle runs with it as a filter")
+    func aTargetNamingNoBundleFiltersEveryBundle() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = try project(in: dir, suiteAt: nil)
+        let launcher = TwoBundleLauncher(killers: ["CoreBTests": "even()"])
+
+        let results = try await execute(in: dir, sourceFile: sourceFile, launcher: launcher, testTarget: "Slow")
+
+        #expect(results.map(\.status) == [.killed(by: "even()")])
+        #expect(
+            await launcher.runs == [
+                .init(bundle: "CoreATests", filter: "Slow", mutantID: "m0"),
+                .init(bundle: "CoreBTests", filter: "Slow", mutantID: "m0"),
+            ]
+        )
+    }
+
     @Test("Given a bundle that reports no tests, when probed, then no mutant is run against it")
     func aBundleWithoutTestsIsDropped() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
@@ -101,9 +132,11 @@ struct MutantExecutorBundlesTests {
         return sourceFile
     }
 
-    private func execute(in dir: URL, sourceFile: URL, launcher: TwoBundleLauncher) async throws -> [ExecutionResult] {
+    private func execute(
+        in dir: URL, sourceFile: URL, launcher: TwoBundleLauncher, testTarget: String? = nil
+    ) async throws -> [ExecutionResult] {
         try await MutantExecutor(
-            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, testTarget: testTarget),
             launcher: launcher
         ).execute(
             makeRunnerInput(
