@@ -10,7 +10,8 @@ struct MutantExecutorIntegrityTests {
     func anUnappliedSchemaStopsTheRunBeforeTheBuild() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
-        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        let fileName = "Foo-\(UUID().uuidString).swift"
+        let sourceFile = dir.appendingPathComponent(fileName)
         try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
         let launcher = RecordingProcessLauncher(responses: [(0, "")])
         let executor = MutantExecutor(
@@ -22,13 +23,17 @@ struct MutantExecutorIntegrityTests {
             mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
         )
 
-        let sandboxesBefore = try? FileManager.default.contentsOfDirectory(atPath: SandboxName.directory.path)
-
         await #expect(throws: IntegrityError.schemaNotApplied(path: sourceFile.path)) {
             try await executor.execute(input)
         }
-        let sandboxesAfter = try? FileManager.default.contentsOfDirectory(atPath: SandboxName.directory.path)
         #expect(await launcher.requests.isEmpty)
-        #expect(sandboxesAfter == sandboxesBefore)
+        #expect(!sandboxContainsCopy(of: fileName))
+    }
+
+    private func sandboxContainsCopy(of fileName: String) -> Bool {
+        let sandboxes =
+            (try? FileManager.default.contentsOfDirectory(at: SandboxName.directory, includingPropertiesForKeys: nil))
+            ?? []
+        return sandboxes.contains { FileManager.default.fileExists(atPath: $0.appendingPathComponent(fileName).path) }
     }
 }
