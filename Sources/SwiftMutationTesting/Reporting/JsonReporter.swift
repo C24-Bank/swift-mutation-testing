@@ -46,8 +46,13 @@ struct JsonReporter: Sendable {
             statusReason: result.reportStatusReason,
             description: descriptor.description,
             killedBy: killedBy(from: result.status),
+            duration: milliseconds(of: result.testDuration),
             fingerprint: descriptor.fingerprint
         )
+    }
+
+    private func milliseconds(of seconds: Double) -> Int? {
+        seconds > 0 ? Int((seconds * 1000).rounded()) : nil
     }
 
     private func killedBy(from status: ExecutionStatus) -> [String]? {
