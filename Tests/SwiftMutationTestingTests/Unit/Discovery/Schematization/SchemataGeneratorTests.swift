@@ -51,6 +51,33 @@ struct SchemataGeneratorTests {
         #expect(switchCount == 2)
     }
 
+    @Test("Given a nested function with mutations in both bodies, when generated, then both keep their cases")
+    func nestedFunctionKeepsItsCasesInsideTheEnclosingOnes() {
+        let source = makeParsedSource("func f() -> Bool { func g() -> Bool { return true }; return g() && false }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations)
+
+        #expect(result.discarded.isEmpty)
+        for entry in mutations {
+            #expect(result.content.contains("case \"swift-mutation-testing_\(entry.index)\":"))
+        }
+        let switches = result.content.components(separatedBy: "switch __swiftMutationTestingID").count - 1
+        let innerCases = result.content.components(separatedBy: "case \"swift-mutation-testing_0\":").count - 1
+        #expect(switches == 3, "the inner switch is copied into the outer case and the outer default")
+        #expect(innerCases == 2)
+    }
+
+    @Test("Given a mutation after a nested function, when generated, then it is applied at its own place")
+    func mutationAfterANestedFunctionLandsOnItsOwnText() {
+        let source = makeParsedSource("func f() -> Bool { func g() -> Bool { return true }; return g() && false }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations)
+        let outerCases = result.content.components(separatedBy: "default:").dropLast().joined()
+
+        #expect(outerCases.contains("g() || false") || outerCases.contains("g() && true"))
+        #expect(!result.content.contains("return true || false"))
+    }
+
     @Test("Given generated content, when checked, then it ends with its own private __swiftMutationTestingID")
     func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }")
