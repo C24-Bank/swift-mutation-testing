@@ -8,11 +8,16 @@
 
 ```swift
 struct SchemataGenerator: Sendable {
-    func generate(source: ParsedSource, mutations: [(id: String, point: MutationPoint)]) -> String
+    func generate(source: ParsedSource, mutations: [(index: Int, point: MutationPoint)]) -> SchemaGeneration
+}
+
+struct SchemaGeneration: Sendable {
+    let content: String
+    let discarded: [MutationPoint]
 }
 ```
 
-Rewrites a source file to embed all its schematizable mutations into `switch __swiftMutationTestingID` blocks. Returns the complete rewritten source as a `String`. Uses force-unwrapped UTF-8 conversions because Swift source code is guaranteed to be valid UTF-8.
+Rewrites a source file to embed all its schematizable mutations into `switch __swiftMutationTestingID` blocks. Returns the complete rewritten source as `content`, and as `discarded` the mutations it could not place: a point inside no function body, a body whose statements could not be extracted, or a mutation whose text does not fit inside the body it belongs to. A discarded mutation gets no `case`, so `ApplicationVerifier` finds it missing from the sandbox and stops the run rather than letting a mutant that is not in the build be judged. Uses force-unwrapped UTF-8 conversions because Swift source code is guaranteed to be valid UTF-8.
 
 ```mermaid
 flowchart TD

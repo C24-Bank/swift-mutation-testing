@@ -136,7 +136,7 @@ The warning keeps the verdict because a rerun would say the same thing; the repo
 
 ## Application Check
 
-Before the first build, `ApplicationVerifier` proves that the sandbox holds what discovery produced: every schematized file differs from its original and ends with the support declarations, every schematizable mutant has its `case` in the sandbox copy, and every incompatible mutant's content differs from the original. Anything missing ends the run with an `IntegrityError` naming it, before a build is paid for. The check runs again for each per-file sandbox of the fallback path.
+`SchemataGenerator` returns the mutations it could not place (`SchemaGeneration.discarded`) and writes no `case` for them. Before the first build, `ApplicationVerifier` proves that the sandbox holds what discovery produced: every schematized file differs from its original and ends with the support declarations, every schematizable mutant has its `case` in the sandbox copy, and every incompatible mutant's content differs from the original. Anything missing ends the run with an `IntegrityError` naming it, before a build is paid for. The check runs again for each per-file sandbox of the fallback path.
 
 ---
 
