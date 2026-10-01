@@ -262,27 +262,54 @@ struct TestOutputParserTests {
     }
 
     @Test(
-        "Given a line that names a failure, when matched against the stop markers, then it stops the run",
+        "Given a line that names a failure, when matched against the stop rule, then it stops the run",
         arguments: [
             "Test Case '-[CalculatorTests testAddition]' failed (0.002 seconds).",
             #"✘ Test "a check" recorded an issue at File.swift:3:9: Expectation failed"#,
             #"✘ Test "a check" failed after 0.001 seconds with 1 issue."#,
         ]
     )
-    func aFailureLineIsAStopMarker(line: String) {
+    func aFailureLineStopsTheRun(line: String) {
         #expect(OutputStopRule.firstTestFailure.matches(line))
     }
 
     @Test(
-        "Given a line that is not a failure, when matched against the stop markers, then the run goes on",
+        "Given a line that is not a failure, when matched against the stop rule, then the run goes on",
         arguments: [
             "Test Case '-[CalculatorTests testAddition]' passed (0.002 seconds).",
             #"✘ Test "a check" recorded a known issue at File.swift:3:9"#,
             "✔ Test run with 944 tests in 91 suites passed after 14.093 seconds.",
             "Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds",
+            #"◇ Test case passing 1 argument l → "✘ Test "a" recorded an issue at F.swift:3:9" to "t" started."#,
+            #"◇ Test case passing 1 argument l → "✘ Test "a" failed after 0.1 seconds with 1 issue." to "t" started."#,
+            #"◇ Test case passing 1 argument l → "Test Case '-[A b]' failed (0.1 seconds)." to "t" started."#,
         ]
     )
-    func aNonFailureLineIsNotAStopMarker(line: String) {
+    func aNonFailureLineLetsTheRunGoOn(line: String) {
         #expect(!OutputStopRule.firstTestFailure.matches(line))
+    }
+
+    @Test("Given an XCTest failure line indented by the tool that printed it, when parsed, then the test is named")
+    func anIndentedXCTestFailureIsStillNamed() {
+        #expect(TestOutputParser().failingTests(in: "    Test Case '-[A b]' failed (0.1 seconds).") == ["A.b"])
+    }
+
+    @Test("Given a line that quotes an XCTest failure after other text, when parsed, then no test is named")
+    func aQuotedXCTestFailureNamesNothing() {
+        let line = #"◇ Test case passing 1 argument l → "Test Case '-[A b]' failed (0.1 seconds)." to "t" started."#
+
+        #expect(TestOutputParser().failingTests(in: line).isEmpty)
+    }
+
+    @Test("Given a quoted failure before a real one, when matched, then the rule stops at the real one")
+    func aQuotedFailureDoesNotHideTheRealOne() {
+        let output = """
+            ◇ Test case passing 1 argument l → "✘ Test "a" recorded an issue at F.swift:3:9" to "t" started.
+            ✔ Test "t" passed after 0.001 seconds.
+            ✘ Test "another check" recorded an issue at File.swift:9:9: Expectation failed
+            """
+
+        #expect(OutputStopRule.firstTestFailure.matches(output))
+        #expect(TestOutputParser().failingTests(in: output) == ["another check"])
     }
 }
