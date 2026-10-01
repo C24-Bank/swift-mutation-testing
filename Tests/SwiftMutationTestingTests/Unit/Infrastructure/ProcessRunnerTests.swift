@@ -62,6 +62,18 @@ struct ProcessRunnerTests {
         #expect(result.exitCode == 1)
     }
 
+    @Test("Given a stop rule, when a line only quotes a failure, then the process runs to its own end")
+    func aQuotedFailureDoesNotStopTheProcess() async throws {
+        let runner = ProcessRunner(onTimeout: { pid in kill(-pid, SIGTERM) })
+        let line = #"◇ Test case passing 1 argument l → "✘ Test "a" recorded an issue at F.swift:3:9" to "t" started."#
+        let script = "echo '\(line)'; sleep 1; echo done; exit 0"
+
+        let result = try await runner.launchCapturing(shell(script, timeout: 20).stopping(at: .firstTestFailure))
+
+        #expect(result.exitCode == 0)
+        #expect(result.output.hasSuffix("done\n"))
+    }
+
     @Test("Given a stop rule, when no marker is printed, then the process runs to its own end")
     func noMarkerLetsTheProcessFinish() async throws {
         let runner = ProcessRunner(onTimeout: { pid in kill(-pid, SIGTERM) })

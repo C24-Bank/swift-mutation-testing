@@ -1,6 +1,4 @@
 struct TestOutputParser: Sendable {
-    static let failureMarkers = ["]' failed (", " recorded an issue", " failed after "]
-
     enum Result: Sendable {
         case killed(by: String)
         case crashed
@@ -11,7 +9,7 @@ struct TestOutputParser: Sendable {
         var hasTestOutput = false
 
         for line in output.components(separatedBy: "\n") {
-            if let name = extractFailingTest(from: line) {
+            if let name = failingTest(in: line) {
                 return .killed(by: name)
             }
 
@@ -38,14 +36,14 @@ struct TestOutputParser: Sendable {
         var seen: Set<String> = []
 
         return output.components(separatedBy: "\n").compactMap { line in
-            guard let name = extractFailingTest(from: line), seen.insert(name).inserted else {
+            guard let name = failingTest(in: line), seen.insert(name).inserted else {
                 return nil
             }
             return name
         }
     }
 
-    private func extractFailingTest(from line: String) -> String? {
+    func failingTest(in line: String) -> String? {
         if let name = extractXCTestFailure(from: line) {
             return name
         }
@@ -60,16 +58,11 @@ struct TestOutputParser: Sendable {
     private func extractXCTestFailure(from line: String) -> String? {
         let prefix = "Test Case '-["
         let suffix = "]' failed"
+        let line = line.drop(while: { $0 == " " || $0 == "\t" })
 
-        guard line.contains(prefix), line.contains(suffix) else { return nil }
+        guard line.hasPrefix(prefix), let end = line.range(of: suffix)?.lowerBound else { return nil }
 
-        guard
-            let start = line.range(of: prefix)?.upperBound,
-            let end = line.range(of: suffix)?.lowerBound,
-            start < end
-        else { return nil }
-
-        let inner = String(line[start ..< end])
+        let inner = String(line[line.index(line.startIndex, offsetBy: prefix.count) ..< end])
         let parts = inner.split(separator: " ", maxSplits: 1)
 
         guard parts.count == 2 else { return nil }

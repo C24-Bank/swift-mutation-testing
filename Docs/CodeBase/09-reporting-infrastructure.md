@@ -557,9 +557,9 @@ struct ProcessRequest: Sendable {
 | `additionalEnvironment` | Key-value pairs merged into the existing environment |
 | `workingDirectoryURL` | Working directory for the process |
 | `timeout` | Maximum execution time in seconds |
-| `stopRule` | When set, the runner ends the process as soon as its output contains one of the rule's markers, and reports the rule's exit code instead of the process's own |
+| `stopRule` | When set, the runner ends the process as soon as a line of its output is what the rule stops at, and reports the rule's exit code instead of the process's own |
 
-**`OutputStopRule`** (`Infrastructure/OutputStopRule.swift`) is a list of marker strings and the exit code to report when one is seen. `.firstTestFailure` carries `TestOutputParser.failureMarkers` — the XCTest `]' failed (` line, and Swift Testing's `recorded an issue` and `failed after` — with exit code 1, which is what both libraries exit with on a failure anyway.
+**`OutputStopRule`** (`Infrastructure/OutputStopRule.swift`) names the kind of line to stop at and the exit code to report when one is seen. `.firstTestFailure` stops at a line `TestOutputParser.failingTest(in:)` reads as a failed test — the XCTest `Test Case '-[…]' failed` line, and Swift Testing's `✘ Test "…" recorded an issue` and `failed after` — with exit code 1, which is what both libraries exit with on a failure anyway. A line that merely quotes such text, such as the `started` line of a parameterized test whose argument is a failure line, does not stop the run: the rule asks the same parser that would name the kill, so a stop happens exactly where a kill would be read.
 
 ---
 
@@ -671,16 +671,20 @@ It exists for the tests. They used to capture output by pointing file descriptor
 
 ```swift
 struct OutputStopRule: Sendable, Equatable {
+    enum Line: Sendable, Equatable {
+        case testFailure
+    }
+
     static let firstTestFailure: OutputStopRule
 
-    let markers: [String]
+    let line: Line
     let exitCode: Int32
 
     func matches(_ text: String) -> Bool
 }
 ```
 
-A list of strings that, once seen in a process's output, mean there is no point letting it run on — and the exit code to report when that happens. `.firstTestFailure` carries `TestOutputParser.failureMarkers` and exit code 1.
+The kind of line that, once seen in a process's output, means there is no point letting it run on — and the exit code to report when that happens. `matches` looks at the text line by line. `.firstTestFailure` stops at a line `TestOutputParser.failingTest(in:)` names a failed test from, with exit code 1.
 
 ## Infrastructure/OutputWatcher.swift
 

@@ -91,8 +91,6 @@ Intermediate result from `TestResultResolver`/`ResultParser`/`SPMResultParser`, 
 
 ```swift
 struct TestOutputParser: Sendable {
-    static let failureMarkers: [String]
-
     enum Result: Sendable {
         case killed(by: String)
         case crashed
@@ -101,6 +99,7 @@ struct TestOutputParser: Sendable {
 
     func parse(_ output: String) -> Result
     func failingTests(in output: String) -> [String]
+    func failingTest(in line: String) -> String?
 }
 ```
 
