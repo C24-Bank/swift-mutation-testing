@@ -227,7 +227,21 @@ struct JsonReporterTests {
         #expect(endColumn == startColumn + "+".count)
     }
 
-    private func reportedMutant(status: ExecutionStatus) throws -> [String: Any]? {
+    @Test("Given a mutant whose tests took 1.2345 seconds, when report called, then its duration is 1235 milliseconds")
+    func durationIsWrittenInMilliseconds() throws {
+        let mutant = try reportedMutant(status: .killed(by: "t"), testDuration: 1.2345)
+
+        #expect(mutant?["duration"] as? Int == 1235)
+    }
+
+    @Test("Given a mutant served from the cache, with no test duration, when report called, then it has no duration")
+    func aCachedMutantHasNoDuration() throws {
+        let mutant = try reportedMutant(status: .survived, testDuration: 0)
+
+        #expect(mutant?["duration"] == nil)
+    }
+
+    private func reportedMutant(status: ExecutionStatus, testDuration: Double = 0) throws -> [String: Any]? {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -236,7 +250,8 @@ struct JsonReporterTests {
         let summary = RunnerSummary(
             results: [
                 makeExecutionResult(
-                    id: "1", filePath: "/abs/MyApp/Sources/Calc.swift", line: 3, column: 24, status: status)
+                    id: "1", filePath: "/abs/MyApp/Sources/Calc.swift", line: 3, column: 24, status: status,
+                    testDuration: testDuration)
             ],
             totalDuration: 0
         )
