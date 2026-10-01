@@ -334,14 +334,100 @@ struct ConfigurationResolverTests {
         #expect(result.filter.operators == ["NegateConditional"])
     }
 
-    @Test("Given no operators anywhere, when resolved, then operators defaults to empty array")
-    func operatorsDefaultsToEmpty() throws {
+    @Test("Given no operators and no tier anywhere, when resolved, then the default tier's operators run")
+    func operatorsDefaultToTheDefaultTier() throws {
         let result = try resolver.resolve(
             cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d")),
             fileValues: [:]
         )
 
-        #expect(result.filter.operators.isEmpty)
+        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .default))
+    }
+
+    @Test("Given --operator-tier via CLI, when resolved, then the operators up to that tier run")
+    func operatorTierFromCLI() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(
+                build: .init(scheme: "App", destination: "d"),
+                filter: .init(operatorTier: "experimental")
+            ),
+            fileValues: [:]
+        )
+
+        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .experimental))
+    }
+
+    @Test("Given operator-tier in file, when resolved, then the operators up to that tier run")
+    func operatorTierFromFile() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d")),
+            fileValues: ["operator-tier": "conservative"]
+        )
+
+        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .conservative))
+    }
+
+    @Test("Given --operator-tier via CLI and operator-tier in file, when resolved, then the CLI tier wins")
+    func cliOperatorTierOverridesFile() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(
+                build: .init(scheme: "App", destination: "d"),
+                filter: .init(operatorTier: "experimental")
+            ),
+            fileValues: ["operator-tier": "conservative"]
+        )
+
+        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .experimental))
+    }
+
+    @Test("Given a tier that does not exist, when resolved, then throws UsageError naming the three tiers")
+    func anUnknownOperatorTierIsAUsageError() throws {
+        let error = #expect(throws: UsageError.self) {
+            try resolver.resolve(
+                cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d")),
+                fileValues: ["operator-tier": "stable"]
+            )
+        }
+
+        #expect(error?.message == "--operator-tier must be 'conservative', 'default' or 'experimental'")
+    }
+
+    @Test("Given --operator and --operator-tier, when resolved, then the explicit list runs, whatever its tier")
+    func explicitOperatorsIgnoreTheTier() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(
+                build: .init(scheme: "App", destination: "d"),
+                filter: .init(operators: ["RemoveSideEffects"], operatorTier: "conservative")
+            ),
+            fileValues: [:]
+        )
+
+        #expect(result.filter.operators == ["RemoveSideEffects"])
+    }
+
+    @Test("Given operators and disabled-mutators both in file, when resolved, then the explicit list runs")
+    func fileOperatorsOverrideFileDisabledMutators() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d")),
+            fileValues: ["operators": "NegateConditional", "disabled-mutators": "NegateConditional"]
+        )
+
+        #expect(result.filter.operators == ["NegateConditional"])
+    }
+
+    @Test("Given --disable-mutator via CLI and disabled-mutators in file, when resolved, then both leave the tier's set")
+    func cliAndFileDisabledMutatorsAreBothRemoved() throws {
+        let result = try resolver.resolve(
+            cliArguments: ParsedArguments(
+                build: .init(scheme: "App", destination: "d"),
+                filter: .init(disabledMutators: ["RemoveSideEffects"], operatorTier: "experimental")
+            ),
+            fileValues: ["disabled-mutators": "SwapTernary"]
+        )
+
+        let expected = DiscoveryPipeline.operatorNames(upTo: .experimental)
+            .filter { $0 != "RemoveSideEffects" && $0 != "SwapTernary" }
+        #expect(result.filter.operators == expected)
     }
 
     @Test("Given concurrency only in file, when resolved, then configuration uses file concurrency")

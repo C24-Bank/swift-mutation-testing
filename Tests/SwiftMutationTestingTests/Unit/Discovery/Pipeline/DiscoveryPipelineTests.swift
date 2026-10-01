@@ -19,6 +19,21 @@ struct DiscoveryPipelineTests {
         #expect(!result.mutants.isEmpty)
     }
 
+    @Test("Given the experimental tier, when the operators up to it are listed, then every operator is there, in registry order")
+    func theExperimentalTierHoldsEveryOperator() {
+        #expect(DiscoveryPipeline.operatorNames(upTo: .experimental) == DiscoveryPipeline.allOperatorNames)
+    }
+
+    @Test("Given each tier, when the operators up to it are listed, then the lower tier's set is inside the higher one's")
+    func lowerTiersAreInsideHigherOnes() {
+        let conservative = DiscoveryPipeline.operatorNames(upTo: .conservative)
+        let standard = DiscoveryPipeline.operatorNames(upTo: .default)
+        let experimental = DiscoveryPipeline.operatorNames(upTo: .experimental)
+
+        #expect(conservative.allSatisfy { standard.contains($0) })
+        #expect(standard.allSatisfy { experimental.contains($0) })
+    }
+
     @Test("Given non-existent sources path, when run, then throws")
     func nonExistentSourcesPathThrows() async {
         let input = makeDiscoveryInput(projectPath: "/nonexistent", sourcesPath: "/nonexistent/does/not/exist")

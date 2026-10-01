@@ -226,6 +226,18 @@ struct ConfigurationFileWriterTests {
         #expect(!content.contains("# output:"))
     }
 
+    @Test("Given any project, when write called, then the operator tier is offered as a commented line with its docs")
+    func operatorTierIsOfferedAsAComment() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try writer.write(to: dir.path, project: .empty)
+
+        let content = try String(contentsOf: dir.appendingPathComponent(".swift-mutation-testing.yml"), encoding: .utf8)
+        #expect(content.contains("# operator-tier: default"))
+        #expect(content.contains("Docs/OPERATORS.md"))
+    }
+
     @Test("Given any project, when write called, then mutators section lists all operators as active")
     func mutatorsSectionListsAllOperators() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
