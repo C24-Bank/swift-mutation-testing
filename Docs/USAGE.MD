@@ -179,7 +179,7 @@ mutators:
 |---|---|---|---|
 | `scheme` | String | — | Xcode scheme to build and test (required for Xcode projects, omit for SPM) |
 | `destination` | String | — | `xcodebuild` destination specifier (required for Xcode projects, omit for SPM) |
-| `test-target` | String | — | Limit test execution to this target (`-only-testing`) |
+| `test-target` | String | — | Limit test execution to this target: on a package, the test target whose bundle runs — `Tests/<target>/` builds `<target>.xctest`; on an Xcode project, `-only-testing` |
 | `testing-framework` | String | `swift-testing` | `xctest` or `swift-testing` |
 | `timeout` | Number | `120` (Xcode) / `30` (SPM) | Per-mutant test timeout in seconds. The first, parallel pass allows twice this |
 | `build-timeout` | Number | `120` | Build timeout in seconds |
@@ -274,7 +274,7 @@ swift-mutation-testing [project-path] [options]
 |---|---|
 | `--scheme <scheme>` | Xcode scheme to build and test (required for Xcode, omit for SPM) |
 | `--destination <destination>` | `xcodebuild` destination specifier (required for Xcode, omit for SPM) |
-| `--target <test-target>` | Limit test execution to this target |
+| `--target <test-target>` | Limit test execution to this test target: its bundle on a package, `-only-testing` on an Xcode project |
 | `--testing-framework <fw>` | `xctest` or `swift-testing` — which library a mutant's tests are run with (default: `swift-testing`). Auto-detected by `init`; on an SPM package the probe drops a library that has no tests anyway |
 | `--timeout <seconds>` | Per-mutant test timeout (default: 120 Xcode, 30 SPM) |
 | `--build-timeout <seconds>` | Build timeout (default: 120). Sandboxes never inherit `.build`, so every build is cold |
