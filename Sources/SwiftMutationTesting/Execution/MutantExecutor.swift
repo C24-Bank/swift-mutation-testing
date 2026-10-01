@@ -459,6 +459,7 @@ struct MutantExecutor: Sendable {
             throw BaselineError.didNotFinish(seconds: configuration.build.timeout)
 
         case .testsFailed, .crashed, .unviable, .buildFailed:
+            MutantLogWriter(directory: configuration.reporting.keepLogsPath)?.write(baselineOutput: output)
             let failing = TestOutputParser().failingTests(in: output)
             throw failing.isEmpty
                 ? BaselineError.runFailed(output: output)
