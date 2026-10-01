@@ -1,12 +1,14 @@
 struct SchemataGenerator: Sendable {
-    func generate(source: ParsedSource, mutations: [(index: Int, point: MutationPoint)]) -> String {
+    func generate(source: ParsedSource, mutations: [(index: Int, point: MutationPoint)]) -> SchemaGeneration {
         let visitor = TypeScopeVisitor()
         visitor.walk(source.syntax)
 
         var groupedByScope: [Int: (scope: FunctionBodyScope, mutations: [(index: Int, point: MutationPoint)])] = [:]
+        var discarded: [MutationPoint] = []
 
         for entry in mutations {
             guard let scope = visitor.innermostScope(containing: entry.point.utf8Offset) else {
+                discarded.append(entry.point)
                 continue
             }
 
@@ -29,19 +31,29 @@ struct SchemataGenerator: Sendable {
                     start: scope.statementsStartOffset,
                     end: scope.statementsEndOffset
                 )
-            else { continue }
+            else {
+                discarded += group.mutations.map(\.point)
+                continue
+            }
 
             let sortedMutations = group.mutations.sorted { $0.index < $1.index }
             var cases: [(id: String, statements: String)] = []
 
             for entry in sortedMutations {
-                let mutated = apply(
-                    entry.point,
-                    to: originalStatements,
-                    startOffset: scope.statementsStartOffset
-                )
+                guard
+                    let mutated = apply(
+                        entry.point,
+                        to: originalStatements,
+                        startOffset: scope.statementsStartOffset
+                    )
+                else {
+                    discarded.append(entry.point)
+                    continue
+                }
                 cases.append((id: mutantID(entry.index), statements: mutated))
             }
+
+            guard !cases.isEmpty else { continue }
 
             let switchBody = buildSwitchBody(cases: cases, defaultStatements: originalStatements, shape: scope.shape)
             content = replaceRange(
@@ -52,9 +64,11 @@ struct SchemataGenerator: Sendable {
             )
         }
 
-        guard content != source.file.content else { return content }
+        guard content != source.file.content else {
+            return SchemaGeneration(content: content, discarded: discarded)
+        }
 
-        return content + "\n\n" + SupportDeclarations.perFile + "\n"
+        return SchemaGeneration(content: content + "\n\n" + SupportDeclarations.perFile + "\n", discarded: discarded)
     }
 
     private func mutantID(_ index: Int) -> String {
@@ -68,7 +82,7 @@ struct SchemataGenerator: Sendable {
         return String(data: data.subdata(in: start ..< end), encoding: .utf8)!
     }
 
-    private func apply(_ mutation: MutationPoint, to statementsText: String, startOffset: Int) -> String {
+    private func apply(_ mutation: MutationPoint, to statementsText: String, startOffset: Int) -> String? {
         let statementsData = statementsText.data(using: .utf8)!
         let originalData = mutation.originalText.data(using: .utf8)!
         let mutatedData = mutation.mutatedText.data(using: .utf8)!
@@ -76,7 +90,7 @@ struct SchemataGenerator: Sendable {
         let relativeOffset = mutation.utf8Offset - startOffset
 
         guard relativeOffset >= 0, relativeOffset + originalData.count <= statementsData.count
-        else { return statementsText }
+        else { return nil }
 
         var result = statementsData
         result.replaceSubrange(relativeOffset ..< relativeOffset + originalData.count, with: mutatedData)

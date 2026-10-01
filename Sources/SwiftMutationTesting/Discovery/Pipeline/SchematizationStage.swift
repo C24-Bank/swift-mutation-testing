@@ -11,7 +11,7 @@ struct SchematizationStage: Sendable {
             guard let source = sourceByPath[filePath] else { continue }
 
             let mutations = entries.map { (index: $0.index, point: $0.mutation) }
-            let content = generator.generate(source: source, mutations: mutations)
+            let content = generator.generate(source: source, mutations: mutations).content
             schematizedFiles.append(SchematizedFile(originalPath: filePath, schematizedContent: content))
 
             let sourceHash = MutantCacheKey.hash(of: source.file.content)

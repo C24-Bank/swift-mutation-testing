@@ -537,7 +537,7 @@ struct MutantExecutor: Sendable {
             entries.append((index: index, point: MutationPoint(descriptor)))
         }
 
-        return SchemataGenerator().generate(source: source, mutations: entries)
+        return SchemataGenerator().generate(source: source, mutations: entries).content
     }
 
     private func mutantIndex(from id: String) -> Int? {
