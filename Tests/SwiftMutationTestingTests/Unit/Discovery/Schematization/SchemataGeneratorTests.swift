@@ -51,6 +51,16 @@ struct SchemataGeneratorTests {
         #expect(switchCount == 2)
     }
 
+    @Test("Given an initializer whose body is one call to another, when generated, then the call is not wrapped")
+    func aDelegatingInitializerIsNotWrappedInATuple() {
+        let source = makeParsedSource("struct S { init() {}; init(c: Bool) { self.init(); print(true) } }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations).content
+
+        #expect(!result.contains(").1"))
+        #expect(result.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\n"))
+    }
+
     @Test("Given a body that is one switch statement with returns, when generated, then nothing is returned from it")
     func aSwitchStatementBodyIsNotReturned() {
         let source = makeParsedSource(
