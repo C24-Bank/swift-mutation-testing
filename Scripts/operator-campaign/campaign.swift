@@ -443,6 +443,8 @@ func option(_ name: String, in arguments: [String]) -> String? {
 
 // MARK: - Entry point
 
+setbuf(stdout, nil)
+
 do {
     let arguments = Array(CommandLine.arguments.dropFirst())
     guard let command = arguments.first else { throw CampaignError("usage: campaign.swift run|aggregate|sample …") }
