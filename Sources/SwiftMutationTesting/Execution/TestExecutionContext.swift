@@ -3,6 +3,11 @@ struct TestExecutionContext: Sendable {
     let sandbox: Sandbox
     let pool: SimulatorPool
     let configuration: RunnerConfiguration
-    var libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
-    var targetedSuites: Set<String> = []
+    var bundles: [TestBundle] = []
+    var targetedSuites: [String: TargetedSuite] = [:]
+
+    func bundles(declaring suite: TargetedSuite) -> [TestBundle] {
+        let own = bundles.filter { $0.name == suite.testTarget }
+        return own.isEmpty ? bundles : own
+    }
 }

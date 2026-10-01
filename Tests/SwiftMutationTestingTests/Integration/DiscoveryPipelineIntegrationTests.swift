@@ -18,17 +18,15 @@ struct DiscoveryPipelineIntegrationTests {
         #expect(files.contains("Logic.swift"))
     }
 
-    @Test("Given CalcApp fixture, when run, then schematized content never declares __swiftMutationTestingID")
-    func schematizedContentDoesNotDeclareIDVariable() async throws {
+    @Test("Given CalcApp fixture, when run, then every schematized file declares its own __swiftMutationTestingID")
+    func everySchematizedFileDeclaresItsOwnIDVariable() async throws {
         let input = makeInput()
         let result = try await pipeline.run(input: input)
 
+        #expect(!result.schematizedFiles.isEmpty)
         for file in result.schematizedFiles {
-            #expect(!file.schematizedContent.contains("var __swiftMutationTestingID"))
+            #expect(file.schematizedContent.hasSuffix(SupportDeclarations.perFile + "\n"))
         }
-
-        #expect(result.supportFileContent.contains("__swiftMutationTestingID"))
-        #expect(result.supportFileContent.contains("__SWIFT_MUTATION_TESTING_ACTIVE"))
     }
 
     @Test("Given CalcApp fixture, when run, then function-body mutations produce schematized files")
@@ -92,17 +90,6 @@ struct DiscoveryPipelineIntegrationTests {
 
         #expect(result.mutants.count == 1)
         #expect(result.mutants[0].originalText == "+")
-    }
-
-    @Test("Given CalcApp fixture, when run, then __SMTSupport.swift produces no mutants")
-    func smtSupportFileProducesNoMutants() async throws {
-        let input = makeInput()
-        let result = try await pipeline.run(input: input)
-
-        let supportMutants = result.mutants.filter {
-            URL(fileURLWithPath: $0.filePath).lastPathComponent == "__SMTSupport.swift"
-        }
-        #expect(supportMutants.isEmpty)
     }
 
     @Test("Given CalcApp fixture, when run, then mutant IDs use correct sequential format")

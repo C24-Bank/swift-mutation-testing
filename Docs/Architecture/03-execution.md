@@ -15,15 +15,18 @@ flowchart TD
     ALLCACHED -- yes --> RETURN[return cached results]
     ALLCACHED -- no --> SF[SandboxFactory\ncreate sandbox]
     SF --> REG[SandboxCleaner.register]
-    REG --> BS[BuildStage\nbuild-for-testing]
+    REG --> VERIFY[ApplicationVerifier\nevery mutant in the sandbox?]
+    VERIFY -- no --> INTEGRITY[throw IntegrityError]
+    VERIFY -- yes --> BS[BuildStage\nbuild-for-testing]
     BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
     RETRY -- gave up --> FBP[FallbackExecutor\none build per schematized file]
-    BS -- success --> PROBE[probe each testing library once\nbaseline + which libraries have tests]
+    BS -- success --> PROBE[probe each test bundle and library once\nbaseline + which have tests]
     RETRY -- rebuilt --> PROBE
     PROBE -- fails --> ABORT[throw BaselineError]
     PROBE -- passes --> TES[TestExecutionStage\ntwo passes, see below]
     TES --> TR[TestResultResolver]
-    TR --> CACHE[CacheStore]
+    TR --> CLASSIFY[marker not written?\nsurvived → noCoverage]
+    CLASSIFY --> CACHE[CacheStore]
     FBP --> CACHE
     IN -- incompatible mutants --> IME[IncompatibleMutantExecutor\nwarm sandboxes, incremental rebuild per mutant]
     IME --> CACHE
@@ -37,7 +40,7 @@ flowchart TD
 Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<pid>-<UUID>/` before every build. Supports both Xcode and SPM projects.
 
 **Factory methods:**
-- `create(projectPath:schematizedFiles:supportFileContent:)` — full sandbox with schematized files and support file injection (normal path)
+- `create(projectPath:schematizedFiles:)` — full sandbox with schematized files (normal path)
 - `createClean(projectPath:)` — clean sandbox without mutations (used by `IncompatibleMutantExecutor` for SPM shared sandbox)
 - `create(projectPath:mutatedFilePath:mutatedContent:)` — sandbox with a single mutated file (incompatible mutants, Xcode path)
 
@@ -46,11 +49,12 @@ Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<
 - For `.xcodeproj`: creates fresh `xcuserdata`, copies `xcshareddata`, symlinks everything else
 - For source files in `schematizedFiles`: writes the schematized content directly
 - For all other files: creates symlinks to the originals (fast, space-efficient)
-- Writes `__SMTSupport.swift` (or appends to the first schematized file if no `Sources/` directory exists)
 - Disables SwiftLint `PBXShellScriptBuildPhase` entries by patching `project.pbxproj`
 - Inserts `break` statements into empty `switch case` bodies to prevent compiler errors in schematized code
 
 The original project is never touched. Cleanup removes the entire `xmr-*` directory when execution completes.
+
+Right after the sandbox is created, and before anything is built, `ApplicationVerifier` checks that it holds every mutant: each schematized copy differs from its original and ends with the per-file support declarations, each schematizable mutant has its `case` in the copy, and each incompatible mutant has content that differs from the original. A mutant that did not make it ends the run with `IntegrityError` — a verdict on a mutation that is not in the build says nothing. See [Application Check](05-schematization.md#application-check).
 
 ## SandboxCleaner
 
@@ -111,7 +115,7 @@ Before the first mutant runs, the suite is run once with no mutant selected. `__
 
 The run continues only if that suite passes. A suite that already fails without a mutation kills every mutant it reaches, so every verdict it produces is worthless — and nothing in the report would reveal it. `MutantExecutor` throws `BaselineError` instead, naming the failing tests, the timeout that stopped the suite, or the output it failed with.
 
-**The baseline and the library probe are the same run.** When the package built to a test bundle, each testing library is invoked once against the unmutated sandbox, and that single invocation answers both questions: a library reporting no tests — exit 69 from SwiftPM's helper, `Executed 0 tests` from `xctest` — is dropped from every mutant's run, and a library that does have tests must pass them. Only when no bundle was produced does the baseline fall back to a separate `swift test --skip-build`. The probe runs the suite to the end; mutants stop at their first failing test.
+**The baseline and the library probe are the same run.** A package builds one test bundle per test target. Each bundle is invoked once with each testing library against the unmutated sandbox, and that single invocation answers both questions: a bundle and library reporting no tests — exit 69 from SwiftPM's helper, `Executed 0 tests` from `xctest` — is dropped from every mutant's run, and one that does have tests must pass them. A bundle with tests in neither library is dropped altogether. Only when no bundle was produced does the baseline fall back to a separate `swift test --skip-build`. The probe runs the suite to the end; mutants stop at their first failing test.
 
 The Xcode path does not validate a baseline yet and has the same exposure.
 
@@ -145,10 +149,12 @@ flowchart TD
 
 **Per-mutant execution, SPM path:** the mutant id travels in the environment rather than in a plist, and the bundle is invoked directly instead of through `swift test`. Two things happen before the whole suite is asked:
 
-1. If a suite is named after the mutated file — `FooTests` for `Foo.swift`, and it declares a type of that name — it runs alone first. A failure there settles the verdict, and the rest of the suite is not run.
-2. Otherwise, or if that run let the mutant live, the whole suite runs, invoking only the libraries the probe found tests in.
+1. If a suite is named after the mutated file — `FooTests` for `Foo.swift`, and it declares a type of that name — it runs alone first, in the bundle of the test target that declares it. A failure there settles the verdict, and the rest of the suite is not run.
+2. Otherwise, or if that run let the mutant live, the whole suite runs: every bundle in name order, each with only the libraries the probe found tests in, stopping at the first failing test.
 
 Either run stops at its first failing test: a mutant is killed by one test, and `TestOutputParser` reports that one. See `ProcessRunner` in [09 — Reporting & Infrastructure](../CodeBase/09-reporting-infrastructure.md) for the mechanism.
+
+Both paths hand each test process an activation marker path. A passing suite whose marker was never written is reported as `noCoverage` rather than `survived`; a kill or a timeout without the marker keeps its verdict and becomes an integrity warning. See [Activation Marker](05-schematization.md#activation-marker).
 
 **Two passes.** The first runs every mutant with `concurrency` workers and a limit of twice `--timeout`; a mutant still running at that point is not recorded, it is set aside. Once the group drains, the stragglers run again with a quarter of the workers and the configured `--timeout`, and that second outcome is the one reported. A verdict that settles under load is the verdict the mutant gets alone, so the wider limit only spares the second run — and the second pass has no contention to blame for a timeout.
 
@@ -248,6 +254,8 @@ Cache is stored at `<project>/.swift-mutation-testing-cache/results.json`. A cac
 | Test file **removed** | invalidated if killer matches | invalidated | kept (permanent) |
 
 `.unviable` is permanent because it is a property of the mutant: a mutant that does not compile stays uncompilable however the tests change. Everything else is a statement about what happened when the tests ran, and is re-measured — including `.killedByCrash`, which used to be grouped with `.unviable` and so could never be cleared once recorded.
+
+Each entry also remembers whether the mutated code ran, so a cached `noCoverage` stays `noCoverage` and a cached kill without activation is still reported as a warning. The format is versioned (`formatVersion` 2 since activation was added); a cache in an older format is discarded once, with a warning.
 
 Source changes are handled separately, by the key rather than by the diff: `MutantCacheKey.fileContentHash` is the hash of the unmutated file, so editing the code under test produces different keys and the old verdicts are simply not found.
 

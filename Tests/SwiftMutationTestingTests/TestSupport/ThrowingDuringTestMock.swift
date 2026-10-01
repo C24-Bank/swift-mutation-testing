@@ -15,6 +15,7 @@ actor ThrowingDuringTestMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.first == "test" {
             testCallCount += 1
             if testCallCount > 1 {

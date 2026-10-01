@@ -23,6 +23,7 @@ actor RecordingProcessLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         requests.append(request)
         let response = responses[min(callIndex, responses.count - 1)]
         callIndex += 1

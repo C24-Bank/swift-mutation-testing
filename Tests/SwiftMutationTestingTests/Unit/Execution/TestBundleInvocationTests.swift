@@ -11,7 +11,7 @@ struct TestBundleInvocationTests {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
-        #expect(TestBundleInvocation.bundleURL(in: Sandbox(rootURL: dir)) == nil)
+        #expect(TestBundleInvocation.bundleURLs(in: Sandbox(rootURL: dir)).isEmpty)
     }
 
     @Test("Given a built bundle, when looked up, then it is found")
@@ -25,9 +25,54 @@ struct TestBundleInvocationTests {
             withIntermediateDirectories: true
         )
 
-        let found = TestBundleInvocation.bundleURL(in: Sandbox(rootURL: dir))
+        let found = TestBundleInvocation.bundleURLs(in: Sandbox(rootURL: dir))
 
-        #expect(found?.lastPathComponent == "PkgTests.xctest")
+        #expect(found.map(\.lastPathComponent) == ["PkgTests.xctest"])
+    }
+
+    @Test("Given several built bundles, when looked up, then they are listed in name order and nothing else is")
+    func listsEveryBundleInNameOrder() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let products = dir.appendingPathComponent(".build/out/Products/Debug")
+        for name in ["ZTests.xctest", "ATests.xctest", "libCore.dylib", "MTests.xctest"] {
+            try FileManager.default.createDirectory(
+                at: products.appendingPathComponent(name), withIntermediateDirectories: true
+            )
+        }
+
+        let found = TestBundleInvocation.bundleURLs(in: Sandbox(rootURL: dir))
+
+        #expect(found.map(\.lastPathComponent) == ["ATests.xctest", "MTests.xctest", "ZTests.xctest"])
+    }
+
+    @Test("Given an activation file, when requests are built, then every test process is told where to write it")
+    func everyRequestCarriesTheActivationFile() throws {
+        let invocation = TestBundleInvocation(
+            bundleURL: URL(fileURLWithPath: "/sandbox/.build/out/Products/Debug/PkgTests.xctest"),
+            framework: .swiftTesting
+        )
+
+        let requests = invocation.requests(
+            filter: nil, mutantID: "m0", workingDirectory: URL(fileURLWithPath: "/sandbox"), timeout: 30,
+            activationFile: "/sandbox/.xmr-activation/m0-1"
+        )
+
+        #expect(requests.count == 2)
+        #expect(
+            requests.allSatisfy {
+                $0.additionalEnvironment[ActivationMarker.environmentVariable] == "/sandbox/.xmr-activation/m0-1"
+                    && $0.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] == "m0"
+            }
+        )
+    }
+
+    @Test("Given no activation file, when requests are built, then the variable is not set")
+    func withoutAnActivationFileTheVariableIsAbsent() {
+        let environment = TestBundleInvocation.environment(mutantID: "m0", activationFile: nil)
+
+        #expect(environment == ["__SWIFT_MUTATION_TESTING_ACTIVE": "m0"])
     }
 
     @Test("Given XCTest, when a request is built, then xctest runs the bundle with the mutant selected")

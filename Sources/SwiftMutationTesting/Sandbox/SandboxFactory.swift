@@ -3,8 +3,7 @@ import Foundation
 struct SandboxFactory: Sendable {
     func create(
         projectPath: String,
-        schematizedFiles: [SchematizedFile],
-        supportFileContent: String
+        schematizedFiles: [SchematizedFile]
     ) async throws -> Sandbox {
         let sandboxURL = try makeSandboxRoot()
         let projectURL = URL(fileURLWithPath: projectPath).resolvingSymlinksInPath()
@@ -20,13 +19,6 @@ struct SandboxFactory: Sendable {
             destination: sandboxURL,
             schematizedPaths: schematizedPaths,
             mutatedMapping: nil
-        )
-
-        try injectSupportFile(
-            content: supportFileContent,
-            into: sandboxURL,
-            schematizedFiles: schematizedFiles,
-            projectURL: projectURL
         )
 
         try disableSwiftLintBuildPhases(in: sandboxURL)
@@ -157,7 +149,7 @@ struct SandboxFactory: Sendable {
         let canonicalPath = source.resolvingSymlinksInPath().path
 
         if let content = schematizedPaths[canonicalPath] {
-            try fixEmptySwitchCaseBodies(content).write(to: destination, atomically: true, encoding: .utf8)
+            try content.write(to: destination, atomically: true, encoding: .utf8)
             return
         }
 
@@ -233,89 +225,4 @@ struct SandboxFactory: Sendable {
         return items.first { $0.pathExtension == "xcodeproj" }
     }
 
-    private func fixEmptySwitchCaseBodies(_ content: String) -> String {
-        let lines = content.components(separatedBy: "\n")
-        var result: [String] = []
-
-        for idx in 0 ..< lines.count {
-            result.append(lines[idx])
-
-            let trimmed = lines[idx].trimmingCharacters(in: .whitespaces)
-
-            guard trimmed.hasPrefix("case \""), trimmed.hasSuffix(":") else { continue }
-
-            var nextIdx = idx + 1
-            while nextIdx < lines.count, lines[nextIdx].trimmingCharacters(in: .whitespaces).isEmpty {
-                nextIdx += 1
-            }
-
-            guard nextIdx < lines.count else { continue }
-
-            let next = lines[nextIdx].trimmingCharacters(in: .whitespaces)
-            guard next.hasPrefix("case ") || next.hasPrefix("default") || next == "}" else { continue }
-
-            let indent = String(lines[idx].prefix { $0 == " " || $0 == "\t" })
-            result.append(indent + "    break")
-        }
-
-        return result.joined(separator: "\n")
-    }
-
-    private func injectSupportFile(
-        content: String,
-        into sandboxURL: URL,
-        schematizedFiles: [SchematizedFile],
-        projectURL: URL
-    ) throws {
-        guard !content.isEmpty else { return }
-
-        let computedForm =
-            "var __swiftMutationTestingID: String {\n"
-            + "    ProcessInfo.processInfo.environment[\"__SWIFT_MUTATION_TESTING_ACTIVE\"] ?? \"\"\n"
-            + "}"
-        let storedForm =
-            "nonisolated(unsafe) var __swiftMutationTestingID: String"
-            + " = ProcessInfo.processInfo.environment[\"__SWIFT_MUTATION_TESTING_ACTIVE\"] ?? \"\""
-        let content = content.replacingOccurrences(of: computedForm, with: storedForm)
-
-        let sourcesURL = sandboxURL.appendingPathComponent("Sources")
-
-        if FileManager.default.fileExists(atPath: sourcesURL.path) {
-            let targetURL = firstSourcesTargetDirectory(in: sourcesURL) ?? sourcesURL
-            try content.write(
-                to: targetURL.appendingPathComponent("__SMTSupport.swift"),
-                atomically: true,
-                encoding: .utf8
-            )
-            return
-        }
-
-        guard let firstFile = schematizedFiles.first else { return }
-
-        let originalPath = URL(fileURLWithPath: firstFile.originalPath).resolvingSymlinksInPath().path
-        let projectPath = projectURL.path
-
-        guard originalPath.hasPrefix(projectPath) else { return }
-
-        let relative = String(originalPath.dropFirst(projectPath.count + 1))
-        let sandboxFileURL = sandboxURL.appendingPathComponent(relative)
-        let resolvedURL = sandboxFileURL.resolvingSymlinksInPath()
-        let existing = (try? String(contentsOf: resolvedURL, encoding: .utf8)) ?? ""
-
-        try (existing + "\n" + content).write(to: sandboxFileURL, atomically: true, encoding: .utf8)
-    }
-
-    private func firstSourcesTargetDirectory(in sourcesURL: URL) -> URL? {
-        let items =
-            (try? FileManager.default.contentsOfDirectory(
-                at: sourcesURL,
-                includingPropertiesForKeys: [.isDirectoryKey]
-            )) ?? []
-
-        return
-            items
-            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .first
-    }
 }

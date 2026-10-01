@@ -177,7 +177,8 @@ actor CacheStore {
     init(storePath: String, noCache: Bool = false)
     func result(for key: MutantCacheKey) -> ExecutionStatus?
     func killerTestFile(for key: MutantCacheKey) -> String?
-    func store(status: ExecutionStatus, for key: MutantCacheKey, killerTestFile: String? = nil)
+    func activated(for key: MutantCacheKey) -> Bool?
+    func store(status: ExecutionStatus, for key: MutantCacheKey, killerTestFile: String? = nil, activated: Bool? = nil)
     func load() throws
     func persist() throws
     func loadMetadata() throws -> CacheMetadata?
@@ -192,9 +193,9 @@ Persists execution results across runs with granular per-file invalidation. All 
 | Constant | Value |
 |---|---|
 | `directoryName` | `".swift-mutation-testing-cache"` |
-| `formatVersion` | `1` — bump whenever the shape of `results.json` or `metadata.json` changes |
+| `formatVersion` | `2` — bump whenever the shape of `results.json` or `metadata.json` changes. `2` added `activated`, so caches written before the activation marker existed are discarded once |
 
-Cache is stored at `<project>/.swift-mutation-testing-cache/results.json` as a JSON array of `CacheEntry` values (key + status + killerTestFile).
+Cache is stored at `<project>/.swift-mutation-testing-cache/results.json` as a JSON array of `CacheEntry` values (key + status + killerTestFile + activated).
 
 `load()` is a no-op if the cache file does not exist. `persist()` creates the directory if needed and writes atomically.
 
@@ -209,7 +210,8 @@ Up to 1.5.0 any decode failure ended the run. 1.4.0 added `filePath` to `MutantC
 | Method | Description |
 |---|---|
 | `killerTestFile(for:)` | Returns the stored killer test file path for a cached entry |
-| `store(status:for:killerTestFile:)` | Stores an execution result with optional killer test file metadata |
+| `activated(for:)` | Returns whether the mutated code ran when the cached verdict was recorded, `nil` when that was not measured |
+| `store(status:for:killerTestFile:activated:)` | Stores an execution result with optional killer test file and activation metadata |
 | `changedTestFiles(current:)` | Compares current per-file test hashes against stored metadata to produce a `TestFileDiff` |
 | `invalidate(diff:)` | Removes cached entries based on status-aware rules (see Architecture docs) |
 | `persistMetadata(_:)` | Writes `CacheMetadata` (format version and test file hashes) to disk alongside the results cache |

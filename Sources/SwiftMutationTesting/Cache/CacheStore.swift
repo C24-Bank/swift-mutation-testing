@@ -7,15 +7,17 @@ actor CacheStore {
         self.noCache = noCache
         self.entries = [:]
         self.killerTestFiles = [:]
+        self.activations = [:]
     }
 
     static let directoryName = ".swift-mutation-testing-cache"
-    static let formatVersion = 1
+    static let formatVersion = 2
 
     private let storePath: String
     private let noCache: Bool
     private var entries: [MutantCacheKey: ExecutionStatus]
     private var killerTestFiles: [MutantCacheKey: String]
+    private var activations: [MutantCacheKey: Bool]
 
     private var metadataPath: String {
         let url = URL(fileURLWithPath: storePath)
@@ -26,6 +28,7 @@ actor CacheStore {
         let key: MutantCacheKey
         let status: ExecutionStatus
         let killerTestFile: String?
+        let activated: Bool?
     }
 
     struct CacheMetadata: Codable, Sendable {
@@ -47,13 +50,25 @@ actor CacheStore {
         noCache ? nil : killerTestFiles[key]
     }
 
-    func store(status: ExecutionStatus, for key: MutantCacheKey, killerTestFile: String? = nil) {
+    func activated(for key: MutantCacheKey) -> Bool? {
+        noCache ? nil : activations[key]
+    }
+
+    func store(
+        status: ExecutionStatus,
+        for key: MutantCacheKey,
+        killerTestFile: String? = nil,
+        activated: Bool? = nil
+    ) {
         guard !noCache else { return }
         guard status != .timeout else { return }
 
         entries[key] = status
         if let killerTestFile {
             killerTestFiles[key] = killerTestFile
+        }
+        if let activated {
+            activations[key] = activated
         }
     }
 
@@ -76,9 +91,13 @@ actor CacheStore {
             entries[entry.key] = entry.status
         }
         killerTestFiles = [:]
+        activations = [:]
         for entry in loaded {
             if let file = entry.killerTestFile {
                 killerTestFiles[entry.key] = file
+            }
+            if let activated = entry.activated {
+                activations[entry.key] = activated
             }
         }
     }
@@ -87,7 +106,9 @@ actor CacheStore {
         guard !noCache else { return }
 
         let cacheEntries = entries.map {
-            CacheEntry(key: $0.key, status: $0.value, killerTestFile: killerTestFiles[$0.key])
+            CacheEntry(
+                key: $0.key, status: $0.value, killerTestFile: killerTestFiles[$0.key], activated: activations[$0.key]
+            )
         }
         let data = try JSONEncoder().encode(cacheEntries)
         let url = URL(fileURLWithPath: storePath)
@@ -135,22 +156,24 @@ actor CacheStore {
 
             case .killed:
                 guard let file = killerTestFiles[key] else {
-                    entries.removeValue(forKey: key)
-                    killerTestFiles.removeValue(forKey: key)
+                    forget(key)
                     continue
                 }
 
                 if changedFiles.contains(file) {
-                    entries.removeValue(forKey: key)
-                    killerTestFiles.removeValue(forKey: key)
+                    forget(key)
                 }
 
             case .survived, .noCoverage, .timeout, .killedByCrash:
-
-                entries.removeValue(forKey: key)
-                killerTestFiles.removeValue(forKey: key)
+                forget(key)
             }
         }
+    }
+
+    private func forget(_ key: MutantCacheKey) {
+        entries.removeValue(forKey: key)
+        killerTestFiles.removeValue(forKey: key)
+        activations.removeValue(forKey: key)
     }
 
     func changedTestFiles(current: [String: String]) throws -> TestFileDiff {

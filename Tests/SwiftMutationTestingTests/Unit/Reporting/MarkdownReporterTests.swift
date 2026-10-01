@@ -11,10 +11,18 @@ struct MarkdownReporterTests {
     func formatsARunWithoutAGate() {
         let summary = RunnerSummary(
             results: [
-                makeExecutionResult(id: "1", filePath: "/p/Sources/B.swift", line: 3, status: .killed(by: "t")),
-                makeExecutionResult(id: "2", filePath: "/p/Sources/B.swift", line: 9, status: .timeout),
-                makeExecutionResult(id: "3", filePath: "/p/Sources/A.swift", line: 4, status: .survived),
-                makeExecutionResult(id: "4", filePath: "/p/Sources/A.swift", line: 2, status: .noCoverage),
+                makeExecutionResult(
+                    id: "1", filePath: "/p/Sources/B.swift", line: 3, status: .killed(by: "t"), activated: true
+                ),
+                makeExecutionResult(
+                    id: "2", filePath: "/p/Sources/B.swift", line: 9, status: .timeout, activated: true
+                ),
+                makeExecutionResult(
+                    id: "3", filePath: "/p/Sources/A.swift", line: 4, status: .survived, activated: true
+                ),
+                makeExecutionResult(
+                    id: "4", filePath: "/p/Sources/A.swift", line: 2, status: .noCoverage, activated: false
+                ),
                 makeExecutionResult(id: "5", filePath: "/p/Sources/A.swift", line: 1, status: .unviable),
             ],
             totalDuration: 0

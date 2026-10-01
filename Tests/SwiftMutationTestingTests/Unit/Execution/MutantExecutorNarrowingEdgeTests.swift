@@ -209,7 +209,8 @@ struct MutantExecutorNarrowingEdgeTests {
                 projectPath: directory.path,
                 projectType: .spm,
                 schematizedFiles: [
-                    SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")
+                    SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false"),
+                    SchematizedFile(originalPath: notText.path, schematizedContent: "let y = false"),
                 ],
                 mutants: [
                     makeMutantDescriptor(

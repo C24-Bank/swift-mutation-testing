@@ -50,8 +50,8 @@ struct DiscoveryPipelineTests {
         let result = try await pipeline.run(input: input)
 
         #expect(!result.schematizedFiles.isEmpty)
-        #expect(result.supportFileContent.contains("__swiftMutationTestingID"))
-        #expect(result.supportFileContent.contains("__SWIFT_MUTATION_TESTING_ACTIVE"))
+        #expect(result.schematizedFiles[0].schematizedContent.contains("private var __swiftMutationTestingID"))
+        #expect(result.schematizedFiles[0].schematizedContent.contains("__SWIFT_MUTATION_TESTING_ACTIVE"))
     }
 
     @Test("Given RunnerInput contract, when run, then all fields map from DiscoveryInput")

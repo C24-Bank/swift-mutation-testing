@@ -32,7 +32,6 @@ struct DiscoveryPipeline: Sendable {
             concurrency: input.concurrency,
             noCache: input.noCache,
             schematizedFiles: schematizedFiles,
-            supportFileContent: SchematizationStage.supportFileContent,
             mutants: allDescriptors
         )
     }

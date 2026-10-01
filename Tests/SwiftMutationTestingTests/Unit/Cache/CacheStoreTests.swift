@@ -623,4 +623,45 @@ struct CacheStoreTests {
             try await store.load()
         }
     }
+
+    @Test("Given a verdict stored with its activation, when persisted and reloaded, then the activation is kept")
+    func activationRoundTrips() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let path = dir.appendingPathComponent("results.json").path
+        let ran = makeMutantCacheKey(utf8Offset: 1)
+        let neverRan = makeMutantCacheKey(utf8Offset: 2)
+        let unknown = makeMutantCacheKey(utf8Offset: 3)
+
+        let first = CacheStore(storePath: path)
+        await first.store(status: .survived, for: ran, activated: true)
+        await first.store(status: .noCoverage, for: neverRan, activated: false)
+        await first.store(status: .unviable, for: unknown)
+        try await first.persist()
+
+        let second = CacheStore(storePath: path)
+        try await second.load()
+
+        #expect(await second.activated(for: ran) == true)
+        #expect(await second.activated(for: neverRan) == false)
+        #expect(await second.activated(for: unknown) == nil)
+        #expect(await second.result(for: neverRan) == .noCoverage)
+    }
+
+    @Test("Given an invalidated verdict, when its activation is asked for, then it is gone too")
+    func invalidationForgetsTheActivation() async {
+        let store = CacheStore(storePath: "/unused/results.json")
+        let key = makeMutantCacheKey()
+        await store.store(status: .survived, for: key, activated: true)
+
+        await store.invalidate(diff: TestFileDiff(added: ["Tests/New.swift"], modified: [], removed: []))
+
+        #expect(await store.result(for: key) == nil)
+        #expect(await store.activated(for: key) == nil)
+    }
+
+    @Test("Given the activation was added to the format, when checked, then the format version is 2")
+    func formatVersionIsTwo() {
+        #expect(CacheStore.formatVersion == 2)
+    }
 }

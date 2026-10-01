@@ -51,6 +51,35 @@ struct XCTestRunPlistTests {
         #expect(envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] == "id_0")
     }
 
+    @Test(
+        "Given an activation file, when activating a mutant, then every target is told where to write it",
+        arguments: [true, false]
+    )
+    func activatingInjectsTheActivationFile(newFormat: Bool) throws {
+        let plistDict: [String: Any] =
+            newFormat
+            ? ["TestConfigurations": [["TestTargets": [["BlueprintName": "AppTests"]]] as [String: Any]]]
+            : ["__xctestrun_metadata__": ["FormatVersion": 1], "AppTests": ["BlueprintName": "AppTests"]]
+        let data = try PropertyListSerialization.data(fromPropertyList: plistDict, format: .xml, options: 0)
+        let plist = try #require(XCTestRunPlist(data))
+
+        let result = plist.activating("id_2", activationFile: "/sandbox/.xmr-activation/id_2-1")
+        let resultDict = try #require(
+            PropertyListSerialization.propertyList(from: result, options: [], format: nil) as? [String: Any]
+        )
+        let target: [String: Any]
+        if newFormat {
+            let configs = try #require(resultDict["TestConfigurations"] as? [[String: Any]])
+            target = try #require((configs[0]["TestTargets"] as? [[String: Any]])?[0])
+        } else {
+            target = try #require(resultDict["AppTests"] as? [String: Any])
+        }
+        let envVars = try #require(target["EnvironmentVariables"] as? [String: String])
+
+        #expect(envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] == "id_2")
+        #expect(envVars[ActivationMarker.environmentVariable] == "/sandbox/.xmr-activation/id_2-1")
+    }
+
     @Test("Given legacy-format plist, when activating mutant, then env var is injected into target dict")
     func activatingInjectsEnvVarInLegacyFormat() throws {
         let plistDict: [String: Any] = [

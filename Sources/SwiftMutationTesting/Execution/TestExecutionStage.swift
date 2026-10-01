@@ -75,7 +75,8 @@ struct TestExecutionStage: Sendable {
         if let cached = await deps.cacheStore.result(for: key) {
             let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
             let result = ExecutionResult(
-                descriptor: mutant, status: cached, testDuration: 0, killerTestFile: killerTestFile
+                descriptor: mutant, status: cached, testDuration: 0, killerTestFile: killerTestFile,
+                activated: await deps.cacheStore.activated(for: key)
             )
             let index = await deps.counter.increment()
             await deps.reporter.report(
@@ -113,9 +114,10 @@ struct TestExecutionStage: Sendable {
             return try await measureSPM(mutant, in: context, timeout: timeout)
         }
 
-        let plistData = plist.activating(mutant.id)
+        let marker = ActivationMarker(for: mutant.id, in: context.sandbox)
+        let plistData = plist.activating(mutant.id, activationFile: marker.path)
         let slot = try await context.pool.acquire()
-        let launched: TestLaunchResult
+        var launched: TestLaunchResult
         do {
             launched = try await launch(plistData: plistData, slot: slot, in: context, timeout: timeout)
         } catch {
@@ -124,6 +126,7 @@ struct TestExecutionStage: Sendable {
         }
 
         await context.pool.release(slot)
+        launched.activated = marker.wasWritten()
 
         let outcome = try await ResultParser(launcher: deps.launcher).parse(
             exitCode: launched.exitCode,
@@ -158,17 +161,30 @@ struct TestExecutionStage: Sendable {
         in context: TestExecutionContext,
         timeout: Double
     ) async throws -> (TestRunOutcome, TestLaunchResult) {
+        var activated = false
+
         if let suite = TargetedSuites.suite(for: mutant.filePath, among: context.targetedSuites) {
-            let targeted = try await launchSPM(mutant: mutant, in: context, timeout: timeout, filter: suite)
+            let marker = ActivationMarker(for: mutant.id, in: context.sandbox)
+            var targeted = try await launchSPM(
+                mutant: mutant, in: context, timeout: timeout,
+                run: SPMRun(filter: suite.name, bundles: context.bundles(declaring: suite), activationFile: marker.path)
+            )
             let outcome = SPMResultParser().parse(exitCode: targeted.exitCode, output: targeted.output)
+            activated = marker.wasWritten()
+            targeted.activated = activated
 
             if outcome.isKill { return (outcome, targeted) }
         }
 
-        let launched = try await launchSPM(
-            mutant: mutant, in: context, timeout: timeout, filter: context.configuration.build.testTarget
+        let marker = ActivationMarker(for: mutant.id, in: context.sandbox)
+        var launched = try await launchSPM(
+            mutant: mutant, in: context, timeout: timeout,
+            run: SPMRun(
+                filter: context.configuration.build.testTarget, bundles: context.bundles, activationFile: marker.path
+            )
         )
         let outcome = SPMResultParser().parse(exitCode: launched.exitCode, output: launched.output)
+        launched.activated = marker.wasWritten() || activated
         return (outcome, launched)
     }
 
@@ -179,17 +195,22 @@ struct TestExecutionStage: Sendable {
         launched: TestLaunchResult,
         in context: TestExecutionContext
     ) async -> ExecutionResult {
-        let status = outcome.asExecutionStatus
+        let status = Self.classify(outcome.asExecutionStatus, activated: launched.activated)
         let duration = launched.duration
 
         MutantLogWriter(directory: context.configuration.reporting.keepLogsPath)?
-            .write(mutant: mutant, status: status, duration: duration, output: launched.output)
+            .write(
+                mutant: mutant, status: status, duration: duration, output: launched.output,
+                activated: launched.activated
+            )
         let killerTestFile = resolveKillerTestFile(status: status)
         let result = ExecutionResult(
             descriptor: mutant, status: status, testDuration: duration,
-            killerTestFile: killerTestFile
+            killerTestFile: killerTestFile, activated: launched.activated
         )
-        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
+        await deps.cacheStore.store(
+            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated
+        )
         let index = await deps.counter.increment()
         await deps.reporter.report(
             .mutantFinished(
@@ -200,20 +221,30 @@ struct TestExecutionStage: Sendable {
         return result
     }
 
+    static func classify(_ status: ExecutionStatus, activated: Bool) -> ExecutionStatus {
+        status == .survived && !activated ? .noCoverage : status
+    }
+
     private func resolveKillerTestFile(status: ExecutionStatus) -> String? {
         guard case .killed(let testName) = status else { return nil }
         return deps.killerTestFileResolver.resolve(testName: testName)
+    }
+
+    private struct SPMRun {
+        let filter: String?
+        let bundles: [TestBundle]
+        let activationFile: String
     }
 
     private func launchSPM(
         mutant: MutantDescriptor,
         in context: TestExecutionContext,
         timeout: Double,
-        filter: String?
+        run: SPMRun
     ) async throws -> TestLaunchResult {
         let start = Date()
-        let captured = try await run(
-            spmRequests(mutant: mutant, in: context, timeout: timeout, filter: filter),
+        let captured = try await self.run(
+            spmRequests(mutant: mutant, in: context, timeout: timeout, run: run),
             deadline: start.addingTimeInterval(timeout)
         )
 
@@ -254,23 +285,26 @@ struct TestExecutionStage: Sendable {
         mutant: MutantDescriptor,
         in context: TestExecutionContext,
         timeout: Double,
-        filter: String?
+        run: SPMRun
     ) -> [ProcessRequest] {
         let configuration = context.configuration
 
-        if let bundleURL = TestBundleInvocation.bundleURL(in: context.sandbox) {
-            return TestBundleInvocation(bundleURL: bundleURL, framework: configuration.build.testingFramework)
-                .requests(
-                    filter: filter,
-                    mutantID: mutant.id,
-                    workingDirectory: context.sandbox.rootURL,
-                    timeout: timeout,
-                    libraries: context.libraries
-                )
+        guard run.bundles.isEmpty else {
+            return run.bundles.flatMap { bundle in
+                TestBundleInvocation(bundleURL: bundle.url, framework: configuration.build.testingFramework)
+                    .requests(
+                        filter: run.filter,
+                        mutantID: mutant.id,
+                        workingDirectory: context.sandbox.rootURL,
+                        timeout: timeout,
+                        libraries: bundle.libraries,
+                        activationFile: run.activationFile
+                    )
+            }
         }
 
         var arguments = ["test", "--skip-build"]
-        if let filter {
+        if let filter = run.filter {
             arguments += ["--filter", filter]
         }
 
@@ -279,7 +313,9 @@ struct TestExecutionStage: Sendable {
                 executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
                 arguments: arguments,
                 environment: nil,
-                additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": mutant.id],
+                additionalEnvironment: TestBundleInvocation.environment(
+                    mutantID: mutant.id, activationFile: run.activationFile
+                ),
                 workingDirectoryURL: context.sandbox.rootURL,
                 timeout: timeout
             ).stopping(at: .firstTestFailure)

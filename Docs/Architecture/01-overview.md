@@ -86,7 +86,7 @@ flowchart LR
     end
     subgraph Execution
         SF[SandboxFactory] --> BS[BuildStage]
-        BS --> PROBE["probe each testing library once\nbaseline + which libraries have tests"]
+        BS --> PROBE["probe each test bundle and library once\nbaseline + which have tests"]
         PROBE --> TES["TestExecutionStage\ntwo passes"]
         BS -- build failed --> RETRY[retryExcludingErrors]
         RETRY -- gave up --> FBP[FallbackExecutor\nper-file rebuild]
@@ -121,7 +121,7 @@ flowchart LR
 | No mutant results are lost or duplicated | `MutationCounter` tracks total; `withThrowingTaskGroup` accounts for every task |
 | Mutant positions are accurate | UTF-8 offsets are preserved from AST through to final report |
 | A cancelled task never permanently holds a simulator slot | `withTaskCancellationHandler` in `SimulatorPool.acquire` releases the slot on cancel |
-| `schematizedContent` never contains the `__swiftMutationTestingID` global | Global lives exclusively in `__SMTSupport.swift`, injected by `SandboxFactory` |
+| Every schematized file declares its own private `__swiftMutationTestingID` | `SchemataGenerator` ends every file it schematizes with `SupportDeclarations.perFile`; there is no shared support file, so a second module or a regenerated schema needs nothing else |
 
 ## Exit Codes
 

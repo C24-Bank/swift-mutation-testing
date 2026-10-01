@@ -73,10 +73,14 @@ Each mutant in the JSON report (`files["/Sources/Foo.swift"].mutants[]`) carries
 | `Killed` | A test failed with the mutant active. `statusReason: "crash"` means the process crashed instead | None |
 | `Timeout` | The suite never finished, even when rerun alone. Counts as detected | None, unless there are many: check `--timeout` |
 | `Survived` | The suite passed with the mutant active | **Write a test** (step 5) |
-| `NoCoverage` | No test ran the mutated code | Write a test that reaches the code first |
+| `NoCoverage` | The suite passed and the mutated code never ran — measured, not guessed: every mutant records when its code executes | Write a test that reaches the code first |
 | `CompileError` | The mutant did not compile | None. It is a property of the operator, not of the tests, and it is outside the score |
 
 A 100% score means every mutant that compiled was detected. It does not mean the code is right.
+
+Two lines can follow the summary. `Integrity warnings (N)` lists mutants that were **killed or timed out without their code running**: the test that failed did not fail because of the mutation, so treat those as flaky or broken tests, not as mutants to fix; in the JSON they carry `statusReason: "killed without activation"` (or `crash …`, `timed out …`). `Activation not measured: N incompatible mutants` means those mutants have no instrumentation, so for them a passing suite reads `survived` even if the code never ran.
+
+The run stops with exit code `1`, before reporting anything, when a mutant did not reach the build (`… not applied to the sandbox`) or when mutants were killed but no mutant's code was ever seen running. Both mean the verdicts could not be trusted; the message says which. Report the error to the user rather than working around it.
 
 ## 4. Prioritizing
 
@@ -109,7 +113,7 @@ What each operator's survivor usually means:
 
 Never make a survivor go away by changing production code to avoid the mutation, by weakening an operator, or by excluding the file. The survivor is information about the tests, and the fix belongs in the tests.
 
-When a test fails in a way you do not understand, rerun with `--keep-logs <dir>`: each mutant's full test output lands in `<dir>/<mutant-id>.log`.
+When a test fails in a way you do not understand, rerun with `--keep-logs <dir>`: each mutant's full test output lands in `<dir>/<mutant-id>.log`, with an `activated:` line in the header saying whether the mutated code ran during that test run.
 
 ## 6. Mutants that cannot be killed
 

@@ -22,7 +22,9 @@ flowchart TD
     CACHE -- yes --> RETURN[return cached results]
     CACHE -- no --> SANDBOX[SandboxFactory.create\nschematized sandbox]
     SANDBOX --> REG[SandboxCleaner.register]
-    REG --> BUILD[BuildStage.build / buildSPM]
+    REG --> VERIFY[ApplicationVerifier.verify]
+    VERIFY -- a mutant is missing --> ABORTI[throw IntegrityError\nrun ends]
+    VERIFY -- every mutant present --> BUILD[BuildStage.build / buildSPM]
     BUILD -- success --> POOL[SimulatorPool.setUp]
     BUILD -- timedOut --> ABORT[throw BuildError\nrun ends]
     BUILD -- compilationFailed --> RETRY[retryExcludingErrors\nregenerate the schema without\nthe mutants the compiler blamed]
@@ -33,7 +35,9 @@ flowchart TD
     PROBE -- a library fails, crashes or hangs --> ABORTB[throw BaselineError\nrun ends]
     PROBE -- passes --> NORMAL[TestExecutionStage\nschematizable mutants]
     NORMAL --> INCOMPAT[IncompatibleMutantExecutor\nincompatible mutants]
-    INCOMPAT --> TEARDOWN[pool.tearDown\nsandbox.cleanup\nSandboxCleaner.deregister\ncacheStore.persist]
+    INCOMPAT --> OBSERVED{kills, but no mutant's\ncode ever seen running?}
+    OBSERVED -- yes --> ABORTI
+    OBSERVED -- no --> TEARDOWN[pool.tearDown\nsandbox.cleanup\nSandboxCleaner.deregister\ncacheStore.persist]
     TEARDOWN --> RESULTS[["[ExecutionResult]"]]
 ```
 
@@ -44,6 +48,58 @@ flowchart TD
 **Fallback path:** triggered when `BuildStage` throws `compilationFailed`. Delegates to `FallbackExecutor`, which rebuilds one schematized file at a time. Mutants in files that still fail to compile are marked `.unviable`.
 
 **Incompatible path:** always runs after the schematizable path. Delegates to `IncompatibleMutantExecutor`.
+
+**Integrity:** `ApplicationVerifier` runs right after the sandbox is created and before anything is built, and `requireObservedActivation(in:)` runs over the results: when at least one measured mutant was killed and no measured mutant recorded activation, the run ends with `IntegrityError.activationNeverObserved` — the marker cannot be written here, or the suite fails on its own, and either way no verdict can be trusted. Both are static so a test can call them on their own.
+
+---
+
+## Execution/ApplicationVerifier.swift
+
+```swift
+struct ApplicationVerifier: Sendable {
+    func verify(
+        schematizedFiles: [SchematizedFile],
+        mutants: [MutantDescriptor],
+        sandbox: Sandbox,
+        projectPath: String
+    ) throws
+}
+```
+
+Proves, before the build, that the sandbox holds what discovery produced. For each schematized file, the sandbox copy — at the original's path relative to the project — must exist, differ from the original, and contain `SupportDeclarations.perFile`; otherwise `schemaNotApplied` or `supportMissing`. Then every schematizable mutant must have `case "<id>":` in its file's copy, and every incompatible mutant must have `mutatedSourceContent` that differs from its original file; the ids that fail are thrown together as `mutantsNotApplied`. `MutantExecutor` runs it on the whole input, and `FallbackExecutor` on each per-file sandbox.
+
+---
+
+## Execution/IntegrityError.swift
+
+```swift
+enum IntegrityError: Error, Equatable, LocalizedError {
+    case mutantsNotApplied(ids: [String])
+    case schemaNotApplied(path: String)
+    case supportMissing(path: String)
+    case activationNeverObserved(killed: Int)
+}
+```
+
+Every case ends the run with exit code `1`. The descriptions name the mutants (the first ten, then a count) or the file, and say why the run stopped rather than reporting.
+
+---
+
+## Execution/ActivationMarker.swift
+
+```swift
+struct ActivationMarker: Sendable {
+    static let environmentVariable: String  // "__SWIFT_MUTATION_TESTING_ACTIVATION_FILE"
+    static let directoryName: String        // ".xmr-activation"
+
+    let path: String
+
+    init(for mutantID: String, in sandbox: Sandbox)
+    func wasWritten() -> Bool
+}
+```
+
+One marker per test run: `<sandbox>/.xmr-activation/<mutant id>-<UUID>`, created by the test process the first time the mutant's `case` runs, and read once by `wasWritten()`, which removes the file. `TestBundleInvocation.environment(mutantID:activationFile:)` puts the path in the test process's environment on the SPM path; `XCTestRunPlist.activating(_:activationFile:)` puts it in every test target's `EnvironmentVariables` on the Xcode path.
 
 ---
 
@@ -115,11 +171,13 @@ A mutant whose run times out during that parallel pass is not recorded yet. Once
 
 Measured on `swift-cpd` (944 tests), the suite takes 14s alone, 15s with 8 workers and 24s with 15 on a 12P+4E machine, so a 30s limit under 15 workers turned a third of all mutants into stragglers: each one cost its 30s in the parallel pass and was then run again in series, and the 26 mutants that time out for real cost the full limit twice. Doubling the loaded limit settles almost every straggler in the parallel pass, and a quarter of the workers is a load the machine does not notice (8 workers cost 8% over running alone) while it cuts the second pass by the same factor.
 
-Before that pass, when the package was built to a test bundle, each testing library is run once against the unmutated sandbox. That single run answers two questions at once. A library that reports no tests — exit 69 from SwiftPM's helper, or `Executed 0 tests` from `xctest` — is left out of every mutant's run: on a Swift Testing-only package that links swift-syntax, the `xctest` pass costs 13.8s just to load the bundle and find nothing, against 1.7s for the Swift Testing pass, and it used to run for every surviving mutant. And a library that does have tests must pass them: a failure, a crash or a timeout on the unmutated code ends the run with a `BaselineError` naming the tests, since nothing a mutant does afterwards could be attributed to the mutant. Before this the baseline was a separate `swift test --skip-build` of the whole suite followed by the probe — three runs of the suite to answer two questions. When the package produced no bundle at all, `swift test --skip-build` is still the baseline, and both libraries are assumed present.
+Before that pass, when the package was built to test bundles — one per test target — each bundle is run once with each testing library against the unmutated sandbox. That single run answers two questions at once. A library that reports no tests — exit 69 from SwiftPM's helper, or `Executed 0 tests` from `xctest` — is left out of every mutant's run: on a Swift Testing-only package that links swift-syntax, the `xctest` pass costs 13.8s just to load the bundle and find nothing, against 1.7s for the Swift Testing pass, and it used to run for every surviving mutant. And a library that does have tests must pass them: a failure, a crash or a timeout on the unmutated code ends the run with a `BaselineError` naming the tests, since nothing a mutant does afterwards could be attributed to the mutant. Before this the baseline was a separate `swift test --skip-build` of the whole suite followed by the probe — three runs of the suite to answer two questions. A bundle that reports no tests in either library is dropped from every mutant's run as well; the list that survives the probe, `[TestBundle]`, is fixed before the pass. When the package produced no bundle at all, `swift test --skip-build` is still the baseline, and both libraries are assumed present.
 
 The probe runs the suite to the end; every mutant's run stops at its first failing test. See `ProcessRunner` in [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) for how, and why it is safe.
 
 **Targeted tests first.** On the SPM path a mutant in `Foo.swift` is first run against `FooTests` alone — `--filter FooTests` for Swift Testing, `-XCTest FooTests` for XCTest — and only if that does not kill it does the whole suite run. A kill in the targeted run is a kill in the full run, since the same test would fail there too, so the verdict is the full suite's by construction; everything else — survived, no tests matched, a timeout — falls through to the full run, which decides. `TargetedSuites.declared(in:)` reads the test files once, before the pass, and keeps only the names whose file declares a type of that name (`struct FooTests`, `final class FooTests: XCTestCase`, …), so a file named after a convention the project does not follow costs nothing: without that check every mutant would pay the helper's start-up — 1.7s on `swift-cpd` — to run zero tests. Measured on `swift-cpd` from the `killedBy` of a full run, 62% of kills (479 of 772) come from the file's own suite.
+
+The targeted run goes to the bundle of the test target that declares the suite, read from the test file's `Tests/<Target>/` directory. When that cannot be told — a test file outside `Tests/<Target>/` — every bundle gets the filter, and the ones without the suite report no tests and cost one process launch each. The full run goes through every bundle in name order and stops at the first failing test, whichever bundle it is in.
 
 **One mutant on the Xcode path:**
 
@@ -162,7 +220,7 @@ flowchart TD
     SLOT --> SUITE{is there a suite\nnamed after the file?}
     SUITE -- yes --> TARGETED[run that suite alone\nstops at the first failure]
     TARGETED -- killed --> PARSE[SPMResultParser]
-    TARGETED -- survived, no tests, timed out --> FULL[run the whole suite\nonly the libraries the probe found\nstops at the first failure]
+    TARGETED -- survived, no tests, timed out --> FULL[run the whole suite\nevery bundle, only the libraries the probe found\nstops at the first failure]
     SUITE -- no --> FULL
     FULL --> PARSE
     PARSE --> RELEASE[pool.release]
@@ -178,8 +236,10 @@ struct TestExecutionContext: Sendable {
     let sandbox: Sandbox
     let pool: SimulatorPool
     let configuration: RunnerConfiguration
-    var libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
-    var targetedSuites: Set<String> = []
+    var bundles: [TestBundle] = []
+    var targetedSuites: [String: TargetedSuite] = [:]
+
+    func bundles(declaring suite: TargetedSuite) -> [TestBundle]
 }
 ```
 
@@ -191,8 +251,10 @@ Bundles the execution-time dependencies required by `TestExecutionStage` and the
 | `sandbox` | The sandbox directory hosting derived data and temporary files |
 | `pool` | Simulator slot pool for acquiring/releasing parallel slots |
 | `configuration` | Full runner configuration (timeout, concurrency, testTarget, etc.) |
-| `libraries` | Which testing libraries a mutant's run has to invoke — narrowed by the probe, see below |
-| `targetedSuites` | Names of test suites that exist and are named after a source file, so a mutant in `Foo.swift` can run `FooTests` first |
+| `bundles` | The test bundles a mutant's run invokes, each with the libraries the probe found tests in. Empty when the package produced no bundle, in which case `swift test --skip-build` runs instead |
+| `targetedSuites` | The test suites that exist and are named after a source file, by name, each with the test target that declares it, so a mutant in `Foo.swift` can run `FooTests` first |
+
+`bundles(declaring:)` picks the bundle named after the suite's test target, and every bundle when the target is unknown or no bundle matches.
 
 ---
 
@@ -204,10 +266,11 @@ struct TestLaunchResult: Sendable {
     let output: String
     let xcresultPath: String
     let duration: Double
+    var activated: Bool = false
 }
 ```
 
-Raw result from a single `xcodebuild test-without-building` invocation.
+Raw result from a single test run — `xcodebuild test-without-building`, or the bundle invocations of the SPM path.
 
 | Field | Description |
 |---|---|
@@ -215,6 +278,7 @@ Raw result from a single `xcodebuild test-without-building` invocation.
 | `output` | Combined stdout + stderr |
 | `xcresultPath` | Absolute path to the `.xcresult` bundle |
 | `duration` | Wall-clock seconds from launch to termination |
+| `activated` | Whether the mutant's `case` wrote its activation marker during this run (or, on the SPM path, during the targeted or the full run) |
 
 ---
 
@@ -225,7 +289,7 @@ struct TestBundleInvocation: Sendable {
     static let noTestsExitCode: Int32 = 69
 
     static func reportsNoTests(exitCode: Int32, output: String) -> Bool
-    static func bundleURL(in sandbox: Sandbox) -> URL?
+    static func bundleURLs(in sandbox: Sandbox) -> [URL]
 
     let bundleURL: URL
     let framework: TestingFramework
@@ -250,6 +314,8 @@ Builds the process requests that run a package's test bundle directly, skipping 
 
 `__SWIFT_MUTATION_TESTING_ACTIVE` carries the mutant id; `DYLD_FRAMEWORK_PATH` and `DYLD_LIBRARY_PATH` point at the platform's frameworks so the helper can load the bundle.
 
+`bundleURLs(in:)` lists every `.xctest` under `.build/out/Products/Debug` in name order, one per test target; the order is what makes a run's output and its first failing test reproducible.
+
 `reportsNoTests` recognises a library that has nothing to run — exit code 69 from SwiftPM's helper, or `Executed 0 tests` from `xctest` — which is what the probe in `MutantExecutor` uses to drop a library from every mutant's run. `stoppingAtFirstFailure` attaches `OutputStopRule.firstTestFailure` to each request; the probe passes `false`, because its job is to run the suite to the end.
 
 **`DeveloperToolchain`** — resolves the active developer directory once per process:
@@ -273,18 +339,43 @@ enum DeveloperToolchain {
 
 ---
 
-## Execution/TargetedSuites.swift
+## Execution/TestBundle.swift
 
 ```swift
-enum TargetedSuites {
-    static let suffix = "Tests"
+struct TestBundle: Sendable, Equatable {
+    static let allLibraries: Set<TestingFramework>
 
-    static func declared(in testFilePaths: [String]) -> Set<String>
-    static func suite(for sourcePath: String, among suites: Set<String>) -> String?
+    let url: URL
+    var libraries: Set<TestingFramework>
+    var name: String { get }
+
+    static func all(in sandbox: Sandbox) -> [TestBundle]
 }
 ```
 
-Answers "which test suite is named after this source file, if any". `declared(in:)` reads the project's test files once, before the test pass, and keeps the name of each file that *declares a type of its own name* — `struct FooTests`, `final class FooTests: XCTestCase`, `actor FooTests`, `enum FooTests`. A file named `FooTests.swift` that declares `FooSpecs` does not count, and neither does a file that cannot be read as text.
+One built test bundle and the libraries a mutant's run invokes it with. `name` is the bundle's file name without `.xctest`, which is the test target's name. `all(in:)` lists every bundle with both libraries, for the fallback path, which does not probe.
+
+---
+
+## Execution/TargetedSuites.swift
+
+```swift
+struct TargetedSuite: Sendable, Hashable {
+    let name: String
+    let testTarget: String?
+}
+
+enum TargetedSuites {
+    static let suffix = "Tests"
+    static let testsDirectory = "Tests"
+
+    static func declared(in testFilePaths: [String]) -> [String: TargetedSuite]
+    static func suite(for sourcePath: String, among suites: [String: TargetedSuite]) -> TargetedSuite?
+    static func testTarget(of testFilePath: String) -> String?
+}
+```
+
+Answers "which test suite is named after this source file, if any, and which test target declares it". `declared(in:)` reads the project's test files once, before the test pass, and keeps the name of each file that *declares a type of its own name* — `struct FooTests`, `final class FooTests: XCTestCase`, `actor FooTests`, `enum FooTests`. A file named `FooTests.swift` that declares `FooSpecs` does not count, and neither does a file that cannot be read as text. `testTarget(of:)` is the directory right under the last `Tests` component of the path — `CoreATests` for `Tests/CoreATests/FooTests.swift` — and `nil` for a test file that is not laid out that way.
 
 That check is what makes the feature free for projects that do not follow the convention: `suite(for:among:)` returns `nil`, no targeted run is attempted, and no mutant pays the test helper's start-up to run zero tests.
 
@@ -477,7 +568,6 @@ struct RunnerInput: Sendable {
     let concurrency: Int
     let noCache: Bool
     let schematizedFiles: [SchematizedFile]
-    let supportFileContent: String
     let mutants: [MutantDescriptor]
 }
 ```
@@ -486,8 +576,7 @@ The value produced by `DiscoveryPipeline` and consumed by `MutantExecutor`.
 
 | Field | Description |
 |---|---|
-| `schematizedFiles` | One entry per source file containing schematizable mutations |
-| `supportFileContent` | `__swiftMutationTestingID` global declaration for injection |
+| `schematizedFiles` | One entry per source file containing schematizable mutations, each ending with its own support declarations |
 | `mutants` | All mutants, sorted by global index; `isSchematizable` distinguishes the two populations |
 
 ---
@@ -500,6 +589,7 @@ struct ExecutionResult: Sendable, Codable {
     let status: ExecutionStatus
     let testDuration: Double
     let killerTestFile: String?
+    let activated: Bool?
 }
 ```
 
@@ -509,6 +599,7 @@ struct ExecutionResult: Sendable, Codable {
 | `status` | Outcome of the test run |
 | `testDuration` | Wall-clock seconds for the test-without-building invocation; `0` for cache hits |
 | `killerTestFile` | Source file path of the test that killed this mutant; `nil` for non-killed statuses and cache hits without metadata |
+| `activated` | Whether the mutated code ran: `true`, `false`, or `nil` when it was not measured — incompatible mutants, and unviable ones, which never ran |
 
 ---
 

@@ -5,6 +5,5 @@ struct RunnerInput: Sendable {
     let concurrency: Int
     let noCache: Bool
     let schematizedFiles: [SchematizedFile]
-    let supportFileContent: String
     let mutants: [MutantDescriptor]
 }

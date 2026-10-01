@@ -18,6 +18,7 @@ actor EmptyBundleLauncher: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.first == "build" {
             let macOS = request.workingDirectoryURL
                 .appendingPathComponent(".build/out/Products/Debug/PkgTests.xctest/Contents/MacOS")

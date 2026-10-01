@@ -23,7 +23,7 @@
 - [ ] No mutant results are lost or duplicated
 - [ ] Mutant positions (file, line, column) are accurate in all reported results
 - [ ] A cancelled task never leaves a simulator slot permanently acquired from the pool
-- [ ] `schematizedContent` never contains the `__swiftMutationTestingID` global declaration
+- [ ] Every schematized file declares its own `private` `__swiftMutationTestingID`, and nothing else in the sandbox declares it
 - [ ] Swift 6 Strict Concurrency compatible
 - [ ] Pipeline stages remain stateless pure transformations
 

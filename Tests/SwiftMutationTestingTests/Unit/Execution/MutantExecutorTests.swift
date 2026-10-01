@@ -59,14 +59,15 @@ struct MutantExecutorTests {
         #expect(results[0].status == .unviable)
     }
 
-    @Test("Given incompatible mutant with nil content, when execute called, then returns unviable")
-    func incompatibleMutantWithNilContentIsUnviable() async throws {
+    @Test("Given incompatible mutant with nil content, when execute called, then the run stops before any build")
+    func incompatibleMutantWithNilContentStopsTheRun() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
         let executor = MutantExecutor(
             configuration: makeRunnerConfiguration(projectPath: dir.path),
-            launcher: MockProcessLauncher(exitCode: 1)
+            launcher: launcher
         )
         let mutant = makeMutantDescriptor(
             id: "m0",
@@ -82,10 +83,10 @@ struct MutantExecutorTests {
         )
         let input = makeRunnerInput(projectPath: dir.path, mutants: [mutant])
 
-        let results = try await executor.execute(input)
-
-        #expect(results.count == 1)
-        #expect(results[0].status == .unviable)
+        await #expect(throws: IntegrityError.mutantsNotApplied(ids: ["m0"])) {
+            try await executor.execute(input)
+        }
+        #expect(await launcher.requests.isEmpty)
     }
 
     @Test("Given noCache is false and all mutants cached, when execute called, then returns from cache")
@@ -300,7 +301,7 @@ struct MutantExecutorTests {
             replacementKind: .booleanLiteral,
             description: "true → false",
             isSchematizable: false,
-            mutatedSourceContent: nil,
+            mutatedSourceContent: "let y = false",
             sourceContentHash: "test-hash",
             fingerprint: "fingerprint"
         )
@@ -462,6 +463,45 @@ struct MutantExecutorTests {
         let barResult = results.first { $0.descriptor.id == "m1" }
         #expect(fooResult?.status == .survived)
         #expect(barResult?.status == .survived)
+    }
+
+    @Test("Given SPM build fails on one file, when the schema is retried, then the console says which mutants left it")
+    func spmRetryIsReported() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let fooFile = dir.appendingPathComponent("Foo.swift")
+        let barFile = dir.appendingPathComponent("Bar.swift")
+        try "let x = true".write(to: fooFile, atomically: true, encoding: .utf8)
+        try "let y = true".write(to: barFile, atomically: true, encoding: .utf8)
+
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, quiet: false),
+            launcher: SPMRetryExcludingErrorsMock()
+        )
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [
+                SchematizedFile(originalPath: fooFile.path, schematizedContent: "let x = false"),
+                SchematizedFile(originalPath: barFile.path, schematizedContent: "let y = false"),
+            ],
+            mutants: [
+                makeMutantDescriptor(
+                    id: "m0", filePath: fooFile.path, isSchematizable: true, mutatedSourceContent: "let x = false"
+                ),
+                makeMutantDescriptor(
+                    id: "m1", filePath: barFile.path, isSchematizable: true, mutatedSourceContent: "let y = false"
+                ),
+            ]
+        )
+
+        let output = await captureOutput {
+            _ = try? await executor.execute(input)
+        }
+
+        #expect(output.contains("  ⚠ Schema did not build: retrying without 1 mutant, to be built on its own"))
+        #expect(output.contains("  ✓ Built in"))
     }
 
     @Test("Given SPM build error on line inside first case block, when retry, then only that mutant is excluded")
@@ -930,7 +970,11 @@ struct MutantExecutorTests {
         )
 
         _ = try? await executor.execute(
-            makeRunnerInput(projectPath: dir.path, mutants: [makeMutantDescriptor(id: "m0")])
+            makeRunnerInput(
+                projectPath: dir.path,
+                schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+                mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+            )
         )
 
         #expect(await launcher.timeouts(forCommandStartingWith: "build-for-testing") == [240])

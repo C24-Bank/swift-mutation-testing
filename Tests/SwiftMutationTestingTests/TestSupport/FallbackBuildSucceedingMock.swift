@@ -17,6 +17,7 @@ actor FallbackBuildSucceedingMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         captureCount += 1
         if captureCount == 1 { return (1, "") }
         if let idx = request.arguments.firstIndex(of: "-derivedDataPath"),

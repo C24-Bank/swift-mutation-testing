@@ -138,4 +138,32 @@ struct TypeScopeVisitorTests {
 
         #expect(scope.bodyStartOffset > outerScope.bodyStartOffset)
     }
+
+    @Test(
+        "Given a body, when walked, then its shape says whether it is one expression, one conditional or statements",
+        arguments: [
+            ("func f(_ a: Int, _ b: Int) -> Int { a + b }", FunctionBodyShape.expression),
+            ("func f() { print(1) }", .expression),
+            ("func f() -> Int { return 1 }", .statements),
+            ("func f() -> Int { let x = 1; return x }", .statements),
+            ("func f() {}", .statements),
+            ("func f(_ c: Bool) -> Int { if c { 1 } else { 2 } }", .conditional(returnsValue: true)),
+            ("func f(_ n: Int) -> String { switch n { default: \"n\" } }", .conditional(returnsValue: true)),
+            ("func f(_ c: Bool) { if c { print(1) } }", .conditional(returnsValue: false)),
+            ("func f(_ c: Bool) -> Void { if c { print(1) } }", .conditional(returnsValue: false)),
+            ("func f(_ c: Bool) -> () { if c { print(1) } }", .conditional(returnsValue: false)),
+            ("struct S { var v: Int { get { if true { 1 } else { 2 } } } }", .conditional(returnsValue: true)),
+            ("struct S { var v: Int { get { 1 } } }", .expression),
+            (
+                "struct S { var v: Int { get { 1 } set { if true { print(newValue) } } } }",
+                .conditional(returnsValue: false)
+            ),
+            ("struct S { var x = 0; init(c: Bool) { if c { x = 1 } } }", .conditional(returnsValue: false)),
+        ]
+    )
+    func bodyShapeIsRecorded(code: String, expected: FunctionBodyShape) {
+        let visitor = makeTypeScopeVisitor(code)
+
+        #expect(visitor.scopes.last?.shape == expected)
+    }
 }

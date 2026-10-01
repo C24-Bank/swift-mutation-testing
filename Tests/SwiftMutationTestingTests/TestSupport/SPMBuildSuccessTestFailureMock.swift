@@ -19,6 +19,7 @@ actor SPMBuildSuccessTestFailureMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         if request.arguments.first == "test" { return (1, failureOutput) }
         return (0, "")
     }

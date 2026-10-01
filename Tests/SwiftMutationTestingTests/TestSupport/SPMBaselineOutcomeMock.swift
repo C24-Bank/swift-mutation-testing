@@ -23,6 +23,7 @@ actor SPMBaselineOutcomeMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         guard request.arguments.first == "test" else { return (0, "") }
 
         let selectedMutant = request.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""

@@ -47,6 +47,8 @@ struct TextReporter: Sendable {
             }
         }
 
+        lines.append(contentsOf: integritySection(summary))
+
         lines.append("")
         lines.append("Overall mutation score: \(String(format: "%.1f", summary.score))%")
         lines.append(summary.detectionLine)
@@ -57,9 +59,35 @@ struct TextReporter: Sendable {
                 + " / Unviable: \(summary.unviable.count)"
                 + " / NoCoverage: \(summary.noCoverage.count)"
         )
+        if !summary.activationNotMeasured.isEmpty {
+            lines.append("Activation not measured: \(summary.activationNotMeasured.count) incompatible mutants")
+        }
         lines.append("Total duration: \(formattedDuration(summary.totalDuration))")
 
         return lines.joined(separator: "\n")
+    }
+
+    static let integrityWarningsListed = 10
+
+    private func integritySection(_ summary: RunnerSummary) -> [String] {
+        let warnings = summary.integrityWarnings.sorted {
+            ($0.descriptor.filePath, $0.descriptor.line) < ($1.descriptor.filePath, $1.descriptor.line)
+        }
+        guard !warnings.isEmpty else { return [] }
+
+        var lines = [""]
+        lines.append("Integrity warnings (\(warnings.count)): killed or timed out without the mutated code running")
+        for result in warnings.prefix(Self.integrityWarningsListed) {
+            let desc = result.descriptor
+            lines.append(
+                "  \(relative(desc.filePath)):\(desc.line):\(desc.column)"
+                    + "   \(desc.operatorIdentifier)   \(result.reportStatusReason ?? "")"
+            )
+        }
+        if warnings.count > Self.integrityWarningsListed {
+            lines.append("  and \(warnings.count - Self.integrityWarningsListed) more — see the JSON report")
+        }
+        return lines
     }
 
     private func formattedDuration(_ seconds: Double) -> String {

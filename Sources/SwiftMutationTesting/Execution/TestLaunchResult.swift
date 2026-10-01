@@ -3,4 +3,5 @@ struct TestLaunchResult: Sendable {
     let output: String
     let xcresultPath: String
     let duration: Double
+    var activated: Bool = false
 }

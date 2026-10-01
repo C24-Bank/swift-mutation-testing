@@ -22,6 +22,7 @@ actor SequentialOutputMock: ProcessLaunching {
     func launchCapturing(
         _ request: ProcessRequest
     ) async throws -> (exitCode: Int32, output: String) {
+        request.recordActivation()
         let output = outputs[min(callIndex, outputs.count - 1)]
         callIndex += 1
         return (0, output)

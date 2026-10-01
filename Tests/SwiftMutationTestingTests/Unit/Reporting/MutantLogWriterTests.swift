@@ -100,7 +100,28 @@ struct MutantLogWriterTests {
 
         let contents = try String(contentsOf: dir.appendingPathComponent("m2.log"), encoding: .utf8)
 
-        #expect(contents.contains("status:   \(label)\n"))
+        #expect(contents.contains("status:    \(label)\n"))
+    }
+
+    @Test(
+        "Given what is known about activation, when written, then the header says whether the mutated code ran",
+        arguments: [
+            (true, "activated: yes, the mutated code ran"),
+            (false, "activated: no, the mutated code never ran"),
+            (nil, "activated: not measured"),
+        ] as [(Bool?, String)]
+    )
+    func headerSaysWhetherTheCodeRan(activated: Bool?, line: String) throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let writer = try #require(MutantLogWriter(directory: dir.path))
+
+        writer.write(
+            mutant: makeMutantDescriptor(id: "m3"), status: .survived, duration: 0, output: "", activated: activated
+        )
+
+        let contents = try String(contentsOf: dir.appendingPathComponent("m3.log"), encoding: .utf8)
+        #expect(contents.contains(line + "\n"))
     }
 
     @Test("Given an unwritable directory, when written, then the run is not disturbed")

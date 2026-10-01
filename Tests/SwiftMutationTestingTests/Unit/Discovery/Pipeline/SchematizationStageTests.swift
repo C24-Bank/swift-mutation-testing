@@ -24,18 +24,12 @@ struct SchematizationStageTests {
         #expect(descriptors[0].mutatedSourceContent == nil)
     }
 
-    @Test("Given schematized content, when checked, then does not contain var __swiftMutationTestingID declaration")
-    func schematizedContentDoesNotDeclareIDVariable() {
+    @Test("Given a schematized file, when checked, then it declares its own private __swiftMutationTestingID")
+    func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }", path: "a.swift")
         let indexed = makeIndexedMutationPoints(source: source, operators: [BooleanLiteralReplacement()])
         let (files, _) = stage.run(indexed: indexed, sources: [source])
-        #expect(!files[0].schematizedContent.contains("var __swiftMutationTestingID"))
-    }
-
-    @Test("Given any input, when checked, then supportFileContent declares __swiftMutationTestingID")
-    func supportFileContentDeclaresIDVariable() {
-        #expect(SchematizationStage.supportFileContent.contains("__swiftMutationTestingID"))
-        #expect(SchematizationStage.supportFileContent.contains("__SWIFT_MUTATION_TESTING_ACTIVE"))
+        #expect(files[0].schematizedContent.hasSuffix(SupportDeclarations.perFile + "\n"))
     }
 
     @Test("Given mutation point for unknown file path, when run, then skips it and returns empty")

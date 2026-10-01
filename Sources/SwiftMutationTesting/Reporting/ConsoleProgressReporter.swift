@@ -19,6 +19,13 @@ actor ConsoleProgressReporter: ProgressReporter {
         case .buildFinished(let duration):
             StandardOutput.write("  ✓ Built in \(String(format: "%.1f", duration))s")
 
+        case .schemaNarrowed(let excludedCount):
+            let mutants =
+                excludedCount == 1
+                ? "1 mutant, to be built on its own"
+                : "\(excludedCount) mutants, to be built one by one"
+            StandardOutput.write("  ⚠ Schema did not build: retrying without \(mutants)")
+
         case .workersReady(let count, let usesSimulators):
             let unit = usesSimulators ? "simulator" : "worker"
             StandardOutput.write("  ✓ \(count) \(unit)\(count == 1 ? "" : "s") ready")

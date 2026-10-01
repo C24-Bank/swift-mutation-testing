@@ -43,7 +43,7 @@ struct JsonReporter: Sendable {
                     line: descriptor.line, column: descriptor.column + descriptor.originalText.count)
             ),
             status: result.status.mutationReportStatus,
-            statusReason: result.status.mutationReportStatusReason,
+            statusReason: result.reportStatusReason,
             description: descriptor.description,
             killedBy: killedBy(from: result.status),
             fingerprint: descriptor.fingerprint

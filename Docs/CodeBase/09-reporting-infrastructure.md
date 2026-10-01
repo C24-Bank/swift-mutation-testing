@@ -34,6 +34,7 @@ Serialises progress output to stdout. Each `RunnerEvent` case maps to a formatte
 | `.loadedFromCache` | `✓ Loaded N mutants from cache` |
 | `.buildStarted` | blank line + `Building for testing...` |
 | `.buildFinished` | `✓ Built in X.Xs` |
+| `.schemaNarrowed` | `⚠ Schema did not build: retrying without N mutants, to be built one by one` |
 | `.workersReady` | `✓ N simulators ready` or `✓ N workers ready` + blank line + `Testing mutants...` |
 | `.mutantFinished` | `<icon> <index>/<total>  <operator>  <filename>:<line>` |
 
@@ -61,6 +62,7 @@ enum RunnerEvent: Sendable {
     case loadedFromCache(mutantCount: Int)
     case buildStarted
     case buildFinished(duration: Double)
+    case schemaNarrowed(excludedCount: Int)
     case workersReady(count: Int, usesSimulators: Bool)
     case mutantStarted(descriptor: MutantDescriptor, index: Int, total: Int)
     case mutantFinished(descriptor: MutantDescriptor, status: ExecutionStatus, index: Int, total: Int)
@@ -106,6 +108,27 @@ score      = detected / (detected + undetected) × 100
 
 `resultsByFile` groups results by `descriptor.filePath`, used by all reporters to produce per-file breakdowns.
 
+### Reporting/RunnerSummary+Integrity.swift
+
+```swift
+extension RunnerSummary {
+    var integrityWarnings: [ExecutionResult]
+    var activationNotMeasured: [ExecutionResult]
+}
+```
+
+`integrityWarnings` are the kills and timeouts whose mutated code never ran (`activated == false`); `activationNotMeasured` are the results with no measurement at all, which are the incompatible mutants that ran. `TextReporter` and `MarkdownReporter` print both.
+
+### Reporting/ExecutionResult+ReportStatusReason.swift
+
+```swift
+extension ExecutionResult {
+    var reportStatusReason: String?
+}
+```
+
+The `statusReason` the JSON report and the integrity list carry: `crash`, `crash without activation`, `killed without activation`, `timed out without activation`, or `nil`.
+
 ### Reporting/RunnerSummary+DetectionLine.swift
 
 ```swift
@@ -133,10 +156,12 @@ Prints a human-readable summary to stdout. Always active (not gated by a CLI fla
 Output sections:
 1. Per-file table: relative path, score %, killed/survived/timeout/unviable counts
 2. Survived mutants list: `<file>:<line>:<col>  <operator>` sorted by file then line
-3. Overall score line
-4. Detection line (`RunnerSummary.detectionLine`)
-5. Total killed / survived / timeouts / unviable / noCoverage counts
-6. Total duration
+3. Integrity warnings — kills and timeouts whose code never ran, the first `integrityWarningsListed` (10) with their reason, then a count — when there are any
+4. Overall score line
+5. Detection line (`RunnerSummary.detectionLine`)
+6. Total killed / survived / timeouts / unviable / noCoverage counts
+7. `Activation not measured: N incompatible mutants`, when N > 0
+8. Total duration
 
 `format(_:)` is exposed separately for testing.
 
@@ -281,7 +306,7 @@ Maps `ExecutionStatus` to the Stryker schema values used in `MutationReportMutan
 | Case | `status` | `statusReason` |
 |---|---|---|
 | `.killed` | `"Killed"` | `nil` |
-| `.killedByCrash` | `"Killed"` | `"crash"` |
+| `.killedByCrash` | `"Killed"` | `"crash"` — the JSON report uses `ExecutionResult.reportStatusReason`, which also names a missing activation |
 | `.survived` | `"Survived"` | `nil` |
 | `.unviable` | `"CompileError"` | `nil` |
 | `.timeout` | `"Timeout"` | `nil` |
@@ -359,7 +384,7 @@ struct MutationReportMutant: Sendable, Encodable {
 }
 ```
 
-`killedBy` is populated only for `.killed(by:)` status, as a one-element array: the schema types it `string[]`, and a mutant's run stops at its first failing test. `statusReason` is populated only for `.killedByCrash`. Both are omitted from the JSON when `nil`. `fingerprint` is the mutant's `MutantFingerprint`, an extra property the Stryker schema allows.
+`killedBy` is populated only for `.killed(by:)` status, as a one-element array: the schema types it `string[]`, and a mutant's run stops at its first failing test. `statusReason` comes from `ExecutionResult.reportStatusReason`. Both are omitted from the JSON when `nil`. `fingerprint` is the mutant's `MutantFingerprint`, an extra property the Stryker schema allows.
 
 ---
 
@@ -470,11 +495,13 @@ struct SonarRange: Sendable, Encodable {
 struct MutantLogWriter: Sendable {
     init?(directory: String?)
 
-    func write(mutant: MutantDescriptor, status: ExecutionStatus, duration: Double, output: String)
+    func write(
+        mutant: MutantDescriptor, status: ExecutionStatus, duration: Double, output: String, activated: Bool? = nil
+    )
 }
 ```
 
-Writes one `<mutant id>.log` per mutant into the directory given by `--keep-logs`, holding a header — id, operator, file and line, verdict, duration — followed by the whole test output that produced it. The initialiser fails when no directory was configured, so the call site is `MutantLogWriter(directory:)?.write(…)` and the feature costs nothing when it is off.
+Writes one `<mutant id>.log` per mutant into the directory given by `--keep-logs`, holding a header — id, operator, file and line, verdict, whether the mutated code ran, duration — followed by the whole test output that produced it. The initialiser fails when no directory was configured, so the call site is `MutantLogWriter(directory:)?.write(…)` and the feature costs nothing when it is off.
 
 The verdict in the header uses the tool's own labels (`Killed by <test>`, `Crash`, `Survived`, `Unviable`, `Timeout`, `NoCoverage`), not the Stryker values of `mutationReportStatus`: the log is read by someone chasing one mutant, and `Crash` says more there than `Killed`.
 

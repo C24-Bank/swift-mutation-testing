@@ -8,12 +8,15 @@ struct TestBundleInvocation: Sendable {
         exitCode == noTestsExitCode || output.contains("Executed 0 tests")
     }
 
-    static func bundleURL(in sandbox: Sandbox) -> URL? {
+    static func bundleURLs(in sandbox: Sandbox) -> [URL] {
         let products = sandbox.rootURL.appendingPathComponent(".build/out/Products/Debug")
         let candidates =
             (try? FileManager.default.contentsOfDirectory(at: products, includingPropertiesForKeys: nil)) ?? []
 
-        return candidates.first { $0.pathExtension == "xctest" }
+        return
+            candidates
+            .filter { $0.pathExtension == "xctest" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     let bundleURL: URL
@@ -25,13 +28,15 @@ struct TestBundleInvocation: Sendable {
         workingDirectory: URL,
         timeout: Double,
         libraries: Set<TestingFramework> = [.xctest, .swiftTesting],
-        stoppingAtFirstFailure: Bool = true
+        stoppingAtFirstFailure: Bool = true,
+        activationFile: String? = nil
     ) -> [ProcessRequest] {
+        let environment = Self.environment(mutantID: mutantID, activationFile: activationFile)
         let xctest = xctestRequest(
-            filter: filter, mutantID: mutantID, workingDirectory: workingDirectory, timeout: timeout
+            filter: filter, environment: environment, workingDirectory: workingDirectory, timeout: timeout
         )
         let swiftTesting = swiftTestingRequest(
-            filter: filter, mutantID: mutantID, workingDirectory: workingDirectory, timeout: timeout
+            filter: filter, environment: environment, workingDirectory: workingDirectory, timeout: timeout
         )
 
         let ordered: [(TestingFramework, ProcessRequest)] =
@@ -44,6 +49,14 @@ struct TestBundleInvocation: Sendable {
         }
     }
 
+    static func environment(mutantID: String, activationFile: String?) -> [String: String] {
+        var environment = ["__SWIFT_MUTATION_TESTING_ACTIVE": mutantID]
+        if let activationFile {
+            environment[ActivationMarker.environmentVariable] = activationFile
+        }
+        return environment
+    }
+
     // MARK: - Private
 
     private var executableURL: URL {
@@ -54,7 +67,7 @@ struct TestBundleInvocation: Sendable {
 
     private func xctestRequest(
         filter: String?,
-        mutantID: String,
+        environment: [String: String],
         workingDirectory: URL,
         timeout: Double
     ) -> ProcessRequest {
@@ -66,7 +79,7 @@ struct TestBundleInvocation: Sendable {
             executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
             arguments: ["xctest"] + arguments,
             environment: nil,
-            additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": mutantID],
+            additionalEnvironment: environment,
             workingDirectoryURL: workingDirectory,
             timeout: timeout
         )
@@ -74,7 +87,7 @@ struct TestBundleInvocation: Sendable {
 
     private func swiftTestingRequest(
         filter: String?,
-        mutantID: String,
+        environment: [String: String],
         workingDirectory: URL,
         timeout: Double
     ) -> ProcessRequest {
@@ -89,11 +102,12 @@ struct TestBundleInvocation: Sendable {
             executableURL: URL(fileURLWithPath: DeveloperToolchain.testingHelperPath),
             arguments: arguments,
             environment: nil,
-            additionalEnvironment: [
-                "__SWIFT_MUTATION_TESTING_ACTIVE": mutantID,
-                "DYLD_FRAMEWORK_PATH": DeveloperToolchain.frameworksPath,
-                "DYLD_LIBRARY_PATH": DeveloperToolchain.librariesPath,
-            ],
+            additionalEnvironment: environment.merging(
+                [
+                    "DYLD_FRAMEWORK_PATH": DeveloperToolchain.frameworksPath,
+                    "DYLD_LIBRARY_PATH": DeveloperToolchain.librariesPath,
+                ]
+            ) { current, _ in current },
             workingDirectoryURL: workingDirectory,
             timeout: timeout
         )

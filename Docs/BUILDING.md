@@ -66,6 +66,9 @@ The repository includes two small projects for local validation:
 
 - `Fixtures/CalcLibrary` is a Swift Package Manager fixture.
 - `Fixtures/CalcApp` is an Xcode project fixture.
+- `Fixtures/CalcModules` is a Swift Package Manager fixture with two library
+  targets and a test target for each. The multi-module integration test runs
+  it and checks that one build tests every mutant of both modules.
 
 Run the SPM fixture without a scheme or destination:
 

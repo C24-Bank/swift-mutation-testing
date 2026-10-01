@@ -77,7 +77,7 @@ Each object in the `mutants` array describes one mutation point and its outcome.
 | `location.end.line` | `integer >= 1` | same as start line | ✓ |
 | `location.end.column` | `integer >= 1` | `start.column + originalText.count` | ✓ |
 | `status` | enum (see below) | one of the schema's values | ✓ — see [status mapping](#status-mapping) |
-| `statusReason` | `string?` | `"crash"` for a mutant killed by a crash, omitted otherwise | ✓ |
+| `statusReason` | `string?` | `"crash"` for a mutant killed by a crash; `"killed without activation"`, `"crash without activation"` or `"timed out without activation"` when the mutated code never ran; omitted otherwise | ✓ |
 | `killedBy` | `string[]?` | the name of the test that killed the mutant, omitted when no test is named | ✓ |
 | `description` | `string?` | `"<original> → <mutated>"` | ✓ |
 | `fingerprint` | — | the mutant's stable identity, see [Baselines](USAGE.MD#baselines) | ✓ — an extra property, which the schema allows |
@@ -94,10 +94,10 @@ Every status we emit is a value the schema defines.
 
 | Our `ExecutionStatus` | Emitted `status` | `statusReason` |
 |---|---|---|
-| `killed(by:)` | `"Killed"` | — |
-| `killedByCrash` | `"Killed"` | `"crash"` |
+| `killed(by:)` | `"Killed"` | `"killed without activation"` when the mutated code never ran, otherwise — |
+| `killedByCrash` | `"Killed"` | `"crash"`, or `"crash without activation"` when the mutated code never ran |
 | `survived` | `"Survived"` | — |
-| `timeout` | `"Timeout"` | — |
+| `timeout` | `"Timeout"` | `"timed out without activation"` when the mutated code never ran, otherwise — |
 | `noCoverage` | `"NoCoverage"` | — |
 | `unviable` | `"CompileError"` | — |
 

@@ -27,9 +27,17 @@ struct FallbackExecutor: Sendable {
 
         let sandbox = try await SandboxFactory().create(
             projectPath: input.projectPath,
-            schematizedFiles: [file],
-            supportFileContent: input.supportFileContent
+            schematizedFiles: [file]
         )
+
+        do {
+            try ApplicationVerifier().verify(
+                schematizedFiles: [file], mutants: fileMutants, sandbox: sandbox, projectPath: input.projectPath
+            )
+        } catch {
+            try? sandbox.cleanup()
+            throw error
+        }
 
         await deps.reporter.report(.fallbackBuildStarted(filePath: file.originalPath))
 
@@ -66,7 +74,8 @@ struct FallbackExecutor: Sendable {
 
         let context = TestExecutionContext(
             artifact: artifact, sandbox: sandbox, pool: pool,
-            configuration: configuration
+            configuration: configuration,
+            bundles: TestBundle.all(in: sandbox)
         )
 
         let stageResults = try await TestExecutionStage(deps: deps).execute(mutants: fileMutants, in: context)
@@ -82,7 +91,8 @@ struct FallbackExecutor: Sendable {
             let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
             results.append(
                 ExecutionResult(
-                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile
+                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
+                    activated: await deps.cacheStore.activated(for: key)
                 ))
         }
 

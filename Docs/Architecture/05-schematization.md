@@ -67,60 +67,76 @@ FunctionBodyScope
 
 `isSchematizable(utf8Offset:)` is the Boolean interface used by `SchematizationStage` to classify each mutation point.
 
-## Support File
+## Per-file support declarations
 
-`SchematizationStage` generates a fixed support file content that declares the `__swiftMutationTestingID` global:
+Every schematized file ends with the same block, appended by `SchemataGenerator` (`SupportDeclarations.perFile`):
 
 ```swift
 import Foundation
 
-var __swiftMutationTestingID: String {
-    ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
-}
-```
-
-`SandboxFactory.injectSupportFile` places this content into the sandbox:
-
-```mermaid
-flowchart TD
-    A{Sources/ directory\nexists in sandbox?}
-    A -- yes --> B[Write to\nSources/__SMTSupport.swift]
-    A -- no --> C[Append to first\nschematized source file]
-```
-
-The declaration is intentionally a **computed property**, not a stored global. For Xcode targets that run on macOS (SPM, command-line, macOS app), a computed property is valid Swift 6. For Xcode targets (iOS, tvOS, watchOS), `SandboxFactory` transforms the computed form to a `nonisolated(unsafe)` stored variable at sandbox creation time to satisfy the Swift 6 actor isolation model:
-
-```swift
-// injected form (computed)
-var __swiftMutationTestingID: String {
-    ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
+private enum __SwiftMutationTesting {
+    nonisolated static let id: String =
+        ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
 }
 
-// transformed form (stored, for Xcode targets)
-nonisolated(unsafe) var __swiftMutationTestingID: String
-    = ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"] ?? ""
+nonisolated private var __swiftMutationTestingID: String { __SwiftMutationTesting.id }
 ```
 
-The global is **never** present in any `SchematizedFile.schematizedContent` — it is injected exclusively through `__SMTSupport.swift`.
+Each piece of it is there for a reason:
+
+- **`private`, once per file.** A single `internal` declaration in one module — what a shared `__SMTSupport.swift` used to be — is invisible to schematized files in any other module, so their schema did not compile and their mutants fell to one build each. A file-scope `private` declaration is visible exactly where the schema is, cannot clash with the same declaration in another file, and needs no file of its own — which also matters for Xcode projects, which compile only the files their `project.pbxproj` lists.
+- **A `static let`, not a global.** A stored global declared in `main.swift` is initialized when top-level code reaches its line; a function called before that reads uninitialized memory and crashes. A static stored property is initialized on first use wherever it is declared, so the block can sit at the end of any file, `main.swift` included, without shifting the line numbers of the code above it.
+- **Read once.** `ProcessInfo.processInfo.environment` builds a dictionary of the whole environment; reading it once per file, instead of on every function call, keeps the schema's cost to a string comparison.
+- **`nonisolated`.** Under Swift 6.2's default `MainActor` isolation, which app targets opt into, an unmarked global or static is main-actor isolated and a nonisolated function cannot read it. Both declarations opt out, and the same block compiles in Swift 5 mode, Swift 6 mode and under default isolation.
+- **`import Foundation` at the end.** An import may appear anywhere at file scope, and a repeated import is allowed, so the block needs no knowledge of what the file already imports.
+
+The block is part of `SchematizedFile.schematizedContent`. That is what makes the retry after a failed schema build correct for free: the narrowed schema comes from the same generator and carries the same declarations.
 
 ## Runtime Activation
 
-At test execution time, `XCTestRunPlist.activating(_:)` injects the mutant ID into the `.xctestrun` plist under `EnvironmentVariables.__SWIFT_MUTATION_TESTING_ACTIVE` for every test target in the run. A fresh copy of the `.xctestrun` is written for each mutant.
+At test execution time, `XCTestRunPlist.activating(_:activationFile:)` injects the mutant ID into the `.xctestrun` plist under `EnvironmentVariables.__SWIFT_MUTATION_TESTING_ACTIVE` for every test target in the run, and the SPM path puts the same variable in the test process's environment. A fresh copy of the `.xctestrun` is written for each mutant.
 
 ```mermaid
 flowchart TD
-    PLIST[BuildArtifact.plist] --> ACT[XCTestRunPlist.activating\nmutantID]
-    ACT --> XCTESTRUN[Temporary .xctestrun\nwith env var set]
+    PLIST[BuildArtifact.plist] --> ACT[XCTestRunPlist.activating\nmutantID + marker path]
+    ACT --> XCTESTRUN[Temporary .xctestrun\nwith env vars set]
     XCTESTRUN --> XCB[xcodebuild test-without-building\n-xctestrun <path>]
     XCB --> BINARY[Test binary reads\n__SWIFT_MUTATION_TESTING_ACTIVE\nat startup]
     BINARY --> SWITCH[switch __swiftMutationTestingID\nroutes to active mutant]
+    SWITCH --> MARK[the case writes the marker file\nonce per file]
 ```
 
 When no environment variable is set (baseline run or passive execution), `__swiftMutationTestingID` returns `""`, which matches no `case` and the `default` branch executes — the original code runs unmodified.
 
-## Empty Case Body Fix
+## Activation Marker
 
-Swift requires `case` blocks in `switch` statements to contain at least one statement. When a mutated statement set is empty (e.g. `RemoveSideEffects` removes the only statement in a function body), the generated `case` block would be empty and fail to compile. `SandboxFactory.fixEmptySwitchCaseBodies` post-processes schematized files and inserts a `break` statement into any empty `case "..."` block before the build runs.
+A verdict is only meaningful if the mutated code ran, so every `case` records that it did. The runner names a marker file for each test run, `<sandbox>/.xmr-activation/<mutant id>-<UUID>`, and passes it in `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE`. The first time a file's `case` runs, `__SwiftMutationTesting.activated()` creates that file; a flag in the same private enum makes every later call a bool read. After the run, `ActivationMarker.wasWritten()` reads and removes it. The targeted run and the full run get markers of their own, and either counts.
+
+How the call sits in the `case` depends on the body's shape, recorded by `TypeScopeVisitor` as `FunctionBodyShape`:
+
+| Body | Case | Why |
+|---|---|---|
+| Statements | `let _ = __SwiftMutationTesting.activated()` then the statements | A second statement is harmless; `let _ =` keeps result builders (`@ViewBuilder`) from rejecting a bare call |
+| One expression, `func add(_ a: Int, _ b: Int) -> Int { a + b }` | `(__SwiftMutationTesting.activated(), a - b).1` | The body is an implicit return, so the whole `switch` is an expression and each branch must stay one expression. The tuple evaluates the activation first and has the expression's type, `try`, `await`, closures and `Never` included |
+| One `if` or `switch` expression in a value-returning body | `let _ = …` then `return if …`, and `return` in `default` too | An `if` expression cannot sit in a tuple; an explicit `return` makes the outer `switch` a statement again |
+| One `if` or `switch` in a `Void` body, `init` or setter | `let _ = …` then the statement | Nothing to return |
+
+What the marker decides:
+
+| Verdict | Marker | Reported as |
+|---|---|---|
+| tests passed | written | `survived` |
+| tests passed | not written | `noCoverage` |
+| a test failed, or the process crashed | written | `killed` / `killedByCrash` |
+| a test failed, or the process crashed | not written | unchanged, plus an integrity warning |
+| timed out | not written | unchanged, plus an integrity warning |
+| incompatible mutant | no `case` to instrument | unchanged; counted as "activation not measured" |
+
+The warning keeps the verdict because a rerun would say the same thing; the report just makes the anomaly visible. When mutants were killed and no mutant's code was ever seen running, the run stops instead (`IntegrityError.activationNeverObserved`): either the marker cannot be written here or the suite fails on its own, and every verdict is suspect.
+
+## Application Check
+
+`SchemataGenerator` returns the mutations it could not place (`SchemaGeneration.discarded`) and writes no `case` for them. Before the first build, `ApplicationVerifier` proves that the sandbox holds what discovery produced: every schematized file differs from its original and ends with the support declarations, every schematizable mutant has its `case` in the sandbox copy, and every incompatible mutant's content differs from the original. Anything missing ends the run with an `IntegrityError` naming it, before a build is paid for. The check runs again for each per-file sandbox of the fallback path.
 
 ---
 

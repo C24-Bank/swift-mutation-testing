@@ -5,7 +5,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/ericodx/swift-mutation-testing/main-analysis.yml?branch=main&style=flat-square&logo=github&logoColor=white&label=CI&color=4CAF50)](https://github.com/ericodx/swift-mutation-testing/actions)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ericodx-swift-mutation-testing&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ericodx-swift-mutation-testing)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ericodx-swift-mutation-testing&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ericodx-swift-mutation-testing)
-[![Mutation score](https://img.shields.io/badge/mutation%20score-91.1%25-lightgray?logo=jest&logoColor=white)](https://github.com/ericodx/swift-mutation-testing/blob/main/Docs/MUTATION-RESULTS.md)
+[![Mutation score](https://img.shields.io/badge/mutation%20score-100%25-lightgray?logo=jest&logoColor=white)](https://github.com/ericodx/swift-mutation-testing/blob/main/Docs/MUTATION-RESULTS.md)
 
 **Measure and improve test effectiveness in Swift codebases using mutation testing.**
 
@@ -23,6 +23,7 @@ Mutation testing introduces controlled changes to your code to verify that your 
 - Supports both XCTest and Swift Testing frameworks
 - 7 mutation operators (relational, boolean, logical, arithmetic, negate conditional, swap ternary, remove side effects)
 - Schematization — builds once, tests all mutants via runtime switch
+- Activation verification — every verdict records whether the mutated code actually ran; a passing suite that never reached it is reported as no coverage, and a mutant missing from the build stops the run
 - Parallel test execution with configurable concurrency
 - SHA256-based result caching across runs
 - Multiple report formats: text, JSON (Stryker-compatible), HTML, SonarQube, SARIF (GitHub code scanning), Markdown

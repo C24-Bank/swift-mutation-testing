@@ -10,7 +10,7 @@
 | [02 — Discovery Pipeline](02-discovery.md) | Stages, mutation operators, suppression, infinite-loop prevention |
 | [03 — Execution Pipeline](03-execution.md) | Sandbox, build, simulators, the baseline probe, two-pass test execution, result parsing, caching, reporting |
 | [04 — Configuration](04-configuration.md) | Configuration model, YAML format, CLI arguments, project detection |
-| [05 — Schematization](05-schematization.md) | Embedding mutants into a single binary, support file injection, runtime activation |
+| [05 — Schematization](05-schematization.md) | Embedding mutants into a single binary, per-file support declarations, runtime activation |
 
 ## Quick Reference
 

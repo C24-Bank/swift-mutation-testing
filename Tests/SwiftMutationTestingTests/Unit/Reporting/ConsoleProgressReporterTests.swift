@@ -57,6 +57,21 @@ struct ConsoleProgressReporterTests {
         #expect(output.contains("0 schematizable"))
     }
 
+    @Test(
+        "Given a narrowed schema, when reported, then the line says how many mutants left the single build",
+        arguments: [
+            (1, "  ⚠ Schema did not build: retrying without 1 mutant, to be built on its own"),
+            (3, "  ⚠ Schema did not build: retrying without 3 mutants, to be built one by one"),
+        ]
+    )
+    func schemaNarrowedNamesTheExcludedMutants(count: Int, line: String) async {
+        let output = await captureOutput {
+            await reporter.report(.schemaNarrowed(excludedCount: count))
+        }
+
+        #expect(output == line + "\n")
+    }
+
     @Test("Given workersReady with simulators, when reported, then they are named as simulators")
     func workersReadyNamesSimulators() async {
         let output = await captureOutput {
