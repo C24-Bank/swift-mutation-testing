@@ -129,6 +129,8 @@ Swaps arithmetic operators: `+` ↔ `-`, `*` ↔ `/`, `%` → `*`.
 
 Skips `+` and `-` when either operand is a string literal, which would otherwise produce `"a" - "b"`. The check walks the token's enclosing expression list to find the operands; a `+` that is not part of a binary expression at all — an operator *declaration*, for instance — has no operands to inspect and is mutated like any other.
 
+The `*` of an availability check, `#available(macOS 10.15, *)` or `@available(*, deprecated)`, is tokenized as a binary operator too; its parent is an `AvailabilityArgumentSyntax`, and the visitor leaves it alone.
+
 Visitor: `ArithmeticOperatorVisitor` — visits `BinaryOperatorExprSyntax`.
 
 ---
@@ -160,6 +162,8 @@ Swaps the true and false branches of a ternary expression.
 The mutation is anchored on the **whole** ternary — condition, `?`, both branches — not on the condition alone. Anchoring on the condition turns `flag ? a : b` into `flag ? b : a ? a : b`, which either fails to compile or means something else entirely. In a chain (`a ? b : c ? d : e`) the visitor walks back to the nearest preceding ternary to find where its own condition starts, so each link swaps its own branches.
 
 A ternary whose branches are identical is skipped at discovery: swapping them produces the same program, and an equivalent mutant can only ever be reported as survived.
+
+The condition, the branches and the original text are joined from the expression list's elements; the first element's leading trivia is dropped, so a comment above the statement is not part of the mutation and the text starts where its offset says.
 
 Visitor: `SwapTernaryVisitor` — visits `UnresolvedTernaryExprSyntax`.
 
