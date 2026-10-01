@@ -282,10 +282,23 @@ struct TestOutputParserTests {
             "Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds",
             #"◇ Test case passing 1 argument l → "✘ Test "a" recorded an issue at F.swift:3:9" to "t" started."#,
             #"◇ Test case passing 1 argument l → "✘ Test "a" failed after 0.1 seconds with 1 issue." to "t" started."#,
+            #"◇ Test case passing 1 argument l → "Test Case '-[A b]' failed (0.1 seconds)." to "t" started."#,
         ]
     )
     func aNonFailureLineLetsTheRunGoOn(line: String) {
         #expect(!OutputStopRule.firstTestFailure.matches(line))
+    }
+
+    @Test("Given an XCTest failure line indented by the tool that printed it, when parsed, then the test is named")
+    func anIndentedXCTestFailureIsStillNamed() {
+        #expect(TestOutputParser().failingTests(in: "    Test Case '-[A b]' failed (0.1 seconds).") == ["A.b"])
+    }
+
+    @Test("Given a line that quotes an XCTest failure after other text, when parsed, then no test is named")
+    func aQuotedXCTestFailureNamesNothing() {
+        let line = #"◇ Test case passing 1 argument l → "Test Case '-[A b]' failed (0.1 seconds)." to "t" started."#
+
+        #expect(TestOutputParser().failingTests(in: line).isEmpty)
     }
 
     @Test("Given a quoted failure before a real one, when matched, then the rule stops at the real one")
