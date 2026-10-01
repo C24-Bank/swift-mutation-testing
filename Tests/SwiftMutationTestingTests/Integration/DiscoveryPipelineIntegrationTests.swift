@@ -25,7 +25,7 @@ struct DiscoveryPipelineIntegrationTests {
 
         #expect(!result.schematizedFiles.isEmpty)
         for file in result.schematizedFiles {
-            #expect(file.schematizedContent.hasSuffix(SupportDeclarations.perFile + "\n"))
+            #expect(file.schematizedContent.hasSuffix(SupportDeclarations.perFile(for: file.originalPath) + "\n"))
         }
     }
 

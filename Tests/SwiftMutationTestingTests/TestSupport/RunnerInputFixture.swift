@@ -29,8 +29,9 @@ func applied(_ files: [SchematizedFile], for mutants: [MutantDescriptor]) -> [Sc
         if !unlabeled.isEmpty {
             content += "\n" + unlabeled.map { "// case \"\($0)\":" }.joined(separator: "\n")
         }
-        if !content.contains(SupportDeclarations.perFile) {
-            content += "\n\n" + SupportDeclarations.perFile + "\n"
+        let support = SupportDeclarations.perFile(for: file.originalPath)
+        if !content.contains(support) {
+            content += "\n\n" + support + "\n"
         }
 
         return SchematizedFile(originalPath: file.originalPath, schematizedContent: content)

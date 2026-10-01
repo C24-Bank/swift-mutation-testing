@@ -78,13 +78,14 @@ struct SchemataGeneratorTests {
         #expect(!result.content.contains("return true || false"))
     }
 
-    @Test("Given generated content, when checked, then it ends with its own private __swiftMutationTestingID")
+    @Test("Given generated content, when checked, then it ends with its own __swiftMutationTestingID, named after the file")
     func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
         let result = generator.generate(source: source, mutations: mutations).content
-        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile + "\n"))
-        #expect(result.components(separatedBy: "private var __swiftMutationTestingID").count == 2)
+        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile(for: source.file.path) + "\n"))
+        #expect(result.components(separatedBy: "internal var __swiftMutationTestingID_").count == 2)
+        #expect(result.contains("switch \(SupportDeclarations.identifier(for: source.file.path)) {"))
     }
 
     @Test("Given a body of statements, when generated, then every case records its activation before them")
@@ -96,7 +97,7 @@ struct SchemataGeneratorTests {
         let caseLines = lines.indices.filter { lines[$0].hasPrefix("case \"swift-mutation-testing_") }
 
         #expect(caseLines.count == 2)
-        #expect(caseLines.allSatisfy { lines[$0 + 1] == "let _ = " + SupportDeclarations.activationCall })
+        #expect(caseLines.allSatisfy { lines[$0 + 1] == "let _ = " + SupportDeclarations.activationCall(for: source.file.path) })
         #expect(!result.contains("default:\nlet _ ="))
     }
 
@@ -108,7 +109,7 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        let activation = SupportDeclarations.activationCall
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
         #expect(result.contains("case \"swift-mutation-testing_0\":\n(\(activation), a - b ).1\n"))
         #expect(result.contains("default:\na + b \n"))
         #expect(!result.contains("let _ ="))
@@ -125,7 +126,7 @@ struct SchemataGeneratorTests {
         )
         let result = generator.generate(source: source, mutations: [(index: 0, point: removal)]).content
 
-        let activation = SupportDeclarations.activationCall
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
         #expect(result.contains("case \"swift-mutation-testing_0\":\nlet _ = \(activation)\n \n"))
         #expect(!result.contains(").1"))
     }
@@ -138,7 +139,7 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        #expect(result.contains("let _ = \(SupportDeclarations.activationCall)\nreturn if !(c) { 1 } else { 2 } \n"))
+        #expect(result.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\nreturn if !(c) { 1 } else { 2 } \n"))
         #expect(result.contains("default:\nreturn if c { 1 } else { 2 } \n"))
     }
 
@@ -150,8 +151,8 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        let schema = result.components(separatedBy: SupportDeclarations.perFile)[0]
-        #expect(schema.contains("let _ = \(SupportDeclarations.activationCall)\nif !(c) { print(1) } \n"))
+        let schema = result.components(separatedBy: SupportDeclarations.perFile(for: source.file.path))[0]
+        #expect(schema.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\nif !(c) { print(1) } \n"))
         #expect(!schema.contains("return"))
     }
 

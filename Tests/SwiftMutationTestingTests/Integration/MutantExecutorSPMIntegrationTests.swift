@@ -85,19 +85,26 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
     let calculatorPath = fixtureURL.appending(path: "Sources/CalcLibrary/Calculator.swift").path
     let validatorPath = fixtureURL.appending(path: "Sources/CalcLibrary/Validator.swift").path
 
+    let (calculatorID, calculatorActivation) = (
+        SupportDeclarations.identifier(for: calculatorPath), SupportDeclarations.activationCall(for: calculatorPath)
+    )
+    let (validatorID, validatorActivation) = (
+        SupportDeclarations.identifier(for: validatorPath), SupportDeclarations.activationCall(for: validatorPath)
+    )
+
     return [
         SchematizedFile(
             originalPath: calculatorPath,
             schematizedContent: """
                 struct Calculator {
                     func add(_ a: Int, _ b: Int) -> Int {
-                        (__swiftMutationTestingID == "m1") ? (__SwiftMutationTesting.activated(), a - b).1 : a + b
+                        (\(calculatorID) == "m1") ? (\(calculatorActivation), a - b).1 : a + b
                     }
                     func subtract(_ a: Int, _ b: Int) -> Int {
-                        (__swiftMutationTestingID == "m2") ? (__SwiftMutationTesting.activated(), a + b).1 : a - b
+                        (\(calculatorID) == "m2") ? (\(calculatorActivation), a + b).1 : a - b
                     }
                     func isPositive(_ n: Int) -> Bool {
-                        (__swiftMutationTestingID == "m3") ? (__SwiftMutationTesting.activated(), n >= 0).1 : n > 0
+                        (\(calculatorID) == "m3") ? (\(calculatorActivation), n >= 0).1 : n > 0
                     }
                 }
                 """
@@ -107,10 +114,10 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
             schematizedContent: """
                 struct Validator {
                     func isInRange(_ value: Int) -> Bool {
-                        ((__swiftMutationTestingID == "m4")
-                            ? (__SwiftMutationTesting.activated(), value > 0).1 : value >= 0)
-                            && ((__swiftMutationTestingID == "m5")
-                                ? (__SwiftMutationTesting.activated(), value < 100).1 : value <= 100)
+                        ((\(validatorID) == "m4")
+                            ? (\(validatorActivation), value > 0).1 : value >= 0)
+                            && ((\(validatorID) == "m5")
+                                ? (\(validatorActivation), value < 100).1 : value <= 100)
                     }
                 }
                 """

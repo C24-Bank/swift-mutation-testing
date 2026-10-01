@@ -65,7 +65,7 @@ struct DiscoveryPipelineTests {
         let result = try await pipeline.run(input: input)
 
         #expect(!result.schematizedFiles.isEmpty)
-        #expect(result.schematizedFiles[0].schematizedContent.contains("private var __swiftMutationTestingID"))
+        #expect(result.schematizedFiles[0].schematizedContent.contains("internal var __swiftMutationTestingID_"))
         #expect(result.schematizedFiles[0].schematizedContent.contains("__SWIFT_MUTATION_TESTING_ACTIVE"))
     }
 
