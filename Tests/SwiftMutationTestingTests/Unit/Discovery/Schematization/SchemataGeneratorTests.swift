@@ -51,6 +51,19 @@ struct SchemataGeneratorTests {
         #expect(switchCount == 2)
     }
 
+    @Test("Given a body that is one switch statement with returns, when generated, then nothing is returned from it")
+    func aSwitchStatementBodyIsNotReturned() {
+        let source = makeParsedSource(
+            "func f(_ n: Int) -> Bool { switch n { case 0: return true\ndefault: return false } }"
+        )
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations).content
+
+        #expect(!result.contains("return \n"))
+        #expect(!result.contains("return switch"))
+        #expect(result.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\n"))
+    }
+
     @Test("Given a nested function with mutations in both bodies, when generated, then both keep their cases")
     func nestedFunctionKeepsItsCasesInsideTheEnclosingOnes() {
         let source = makeParsedSource("func f() -> Bool { func g() -> Bool { return true }; return g() && false }")
@@ -78,7 +91,7 @@ struct SchemataGeneratorTests {
         #expect(!result.content.contains("return true || false"))
     }
 
-    @Test("Given generated content, when checked, then it ends with its own __swiftMutationTestingID, named after the file")
+    @Test("Given generated content, when checked, then it ends with its own ID variable, named after the file")
     func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
@@ -97,7 +110,8 @@ struct SchemataGeneratorTests {
         let caseLines = lines.indices.filter { lines[$0].hasPrefix("case \"swift-mutation-testing_") }
 
         #expect(caseLines.count == 2)
-        #expect(caseLines.allSatisfy { lines[$0 + 1] == "let _ = " + SupportDeclarations.activationCall(for: source.file.path) })
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
+        #expect(caseLines.allSatisfy { lines[$0 + 1] == "let _ = " + activation })
         #expect(!result.contains("default:\nlet _ ="))
     }
 
@@ -139,7 +153,8 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        #expect(result.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\nreturn if !(c) { 1 } else { 2 } \n"))
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
+        #expect(result.contains("let _ = \(activation)\nreturn if !(c) { 1 } else { 2 } \n"))
         #expect(result.contains("default:\nreturn if c { 1 } else { 2 } \n"))
     }
 
@@ -152,7 +167,8 @@ struct SchemataGeneratorTests {
         let result = generator.generate(source: source, mutations: mutations).content
 
         let schema = result.components(separatedBy: SupportDeclarations.perFile(for: source.file.path))[0]
-        #expect(schema.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\nif !(c) { print(1) } \n"))
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
+        #expect(schema.contains("let _ = \(activation)\nif !(c) { print(1) } \n"))
         #expect(!schema.contains("return"))
     }
 

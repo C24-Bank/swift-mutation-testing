@@ -149,16 +149,25 @@ struct TypeScopeVisitorTests {
             ("func f() {}", .statements),
             ("func f(_ c: Bool) -> Int { if c { 1 } else { 2 } }", .conditional(returnsValue: true)),
             ("func f(_ n: Int) -> String { switch n { default: \"n\" } }", .conditional(returnsValue: true)),
-            ("func f(_ c: Bool) { if c { print(1) } }", .conditional(returnsValue: false)),
-            ("func f(_ c: Bool) -> Void { if c { print(1) } }", .conditional(returnsValue: false)),
-            ("func f(_ c: Bool) -> () { if c { print(1) } }", .conditional(returnsValue: false)),
+            ("func f(_ c: Bool) { if c { print(1) } else { print(2) } }", .conditional(returnsValue: false)),
+            ("func f(_ c: Bool) -> Void { if c { print(1) } else { print(2) } }", .conditional(returnsValue: false)),
+            ("func f(_ c: Bool) -> () { if c { print(1) } else { print(2) } }", .conditional(returnsValue: false)),
+            ("func f(_ c: Bool) { if c { print(1) } }", .statements),
             ("struct S { var v: Int { get { if true { 1 } else { 2 } } } }", .conditional(returnsValue: true)),
             ("struct S { var v: Int { get { 1 } } }", .expression),
             (
-                "struct S { var v: Int { get { 1 } set { if true { print(newValue) } } } }",
+                "struct S { var v: Int { get { 1 } set { if true { print(newValue) } else { print(0) } } } }",
                 .conditional(returnsValue: false)
             ),
-            ("struct S { var x = 0; init(c: Bool) { if c { x = 1 } } }", .conditional(returnsValue: false)),
+            ("struct S { var x = 0; init(c: Bool) { if c { x = 1 } } }", .statements),
+            ("func f(_ n: Int) -> Int { switch n { case 0: return 1\ndefault: return 2 } }", .statements),
+            ("func f(_ c: Bool) -> Int { if c { return 1 } else { return 2 } }", .statements),
+            ("func f(_ c: Bool) -> Int { if c { 1 } else if !c { 2 } else { 3 } }", .conditional(returnsValue: true)),
+            (
+                "func f(_ n: Int) -> Int { switch n { case 0: 1\ndefault: if n > 1 { 2 } else { 3 } } }",
+                .conditional(returnsValue: true)
+            ),
+            ("func f(_ n: Int) -> Int { switch n { case 0: 1\ndefault: let x = 2; return x } }", .statements),
         ]
     )
     func bodyShapeIsRecorded(code: String, expected: FunctionBodyShape) {
