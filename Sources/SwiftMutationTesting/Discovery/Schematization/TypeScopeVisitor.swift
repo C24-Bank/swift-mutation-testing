@@ -57,7 +57,7 @@ final class TypeScopeVisitor: SyntaxVisitor {
             return isExpression(expression) ? .conditional(returnsValue: returnsValue) : .statements
         }
 
-        return .expression
+        return returnsValue ? .expression : .statements
     }
 
     private static func isExpression(_ expression: ExprSyntax) -> Bool {
