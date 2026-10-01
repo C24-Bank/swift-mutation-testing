@@ -9,7 +9,11 @@
     "name": "swift-argument-parser",
     "repository": "https://github.com/apple/swift-argument-parser.git",
     "sha": "6a52f3251125d74daf04fcbd5e6f08a75d074382",
-    "arguments": []
+    "arguments": [
+      "--target",
+      "ArgumentParserUnitTests"
+    ],
+    "note": "ArgumentParserGenerateDoccReferenceTests fails outside `swift test` at this commit (it needs the generate-docc-reference tool built), so only the unit test target is run"
   },
   {
     "name": "swift-log",
@@ -27,6 +31,9 @@
     "name": "swift-mutation-testing",
     "repository": ".",
     "sha": "7dcc7f9c5c34db5f1d8d59e46eec94209a91e063",
-    "arguments": ["--exclude", "/Fixtures/"]
+    "arguments": [
+      "--exclude",
+      "/Fixtures/"
+    ]
   }
 ]
