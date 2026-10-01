@@ -11,6 +11,7 @@ final class ArithmeticOperatorVisitor: MutationSyntaxVisitor {
 
     override func visit(_ token: TokenSyntax) -> SyntaxVisitorContinueKind {
         guard case .binaryOperator(let operatorText) = token.tokenKind,
+            token.parent?.is(AvailabilityArgumentSyntax.self) != true,
             let replacement = Self.replacementTable[operatorText]
         else {
             return .visitChildren
