@@ -570,6 +570,7 @@ struct RunnerInput: Sendable {
     let noCache: Bool
     let schematizedFiles: [SchematizedFile]
     let mutants: [MutantDescriptor]
+    var importStyle: ImportStyle = .implicit
 }
 ```
 

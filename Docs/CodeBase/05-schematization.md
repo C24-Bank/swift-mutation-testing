@@ -158,11 +158,27 @@ enum SupportDeclarations {
     static func suffix(for path: String) -> String          // eight hex digits of SHA-256(path)
     static func identifier(for path: String) -> String      // "__swiftMutationTestingID_<suffix>"
     static func activationCall(for path: String) -> String  // "__SwiftMutationTesting_<suffix>.activated()"
+    static func importLine(_ style: ImportStyle) -> String     // "import Foundation" or "internal import Foundation"
     static func perFile(for path: String) -> String
 }
 ```
 
-The block `SchemataGenerator` appends to every file it changes, named after the file by `suffix(for:)`: `internal import Foundation` (explicit, since a module importing Foundation as `internal` elsewhere rejects an implicit level), a `@usableFromInline internal enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `@usableFromInline nonisolated internal var __swiftMutationTestingID_<suffix>` that returns the id. `identifier(for:)` is the name the generator writes after `switch`, `activationCall(for:)` the text of the call it writes into each `case`. It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
+The block `SchemataGenerator` appends to every file it changes, named after the file by `suffix(for:)`: a `@usableFromInline internal enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `@usableFromInline nonisolated internal var __swiftMutationTestingID_<suffix>` that returns the id. `identifier(for:)` is the name the generator writes after `switch`, `activationCall(for:)` the text of the call it writes into each `case`. The block carries no import: the generator writes `importLine(_:)` above it only when the file does not already import Foundation, in the project's style.
+
+## Discovery/Schematization/ImportStyle.swift
+
+```swift
+enum ImportStyle: String, Sendable, Equatable {
+    case implicit
+    case explicit
+
+    static func of(_ sources: [ParsedSource]) -> ImportStyle
+    static func of(_ syntax: SourceFileSyntax) -> ImportStyle
+    static func importsFoundation(_ syntax: SourceFileSyntax) -> Bool
+}
+```
+
+Whether a project puts access levels on its imports: `.explicit` when any import declaration in any source carries a modifier (`internal import`, `public import`, …), `.implicit` otherwise. `SchematizationStage` decides it once over every parsed source, `DiscoveryPipeline` stores it in `RunnerInput.importStyle`, and the schema retry passes it to `regeneratedSchema`. A bare import and an `internal import` of the same module in one target are rejected as ambiguous, so the import the generator adds must match the project — see [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations). It is appended only when at least one schema was written, so a file whose mutations were all skipped is returned untouched. Why each part is what it is: [Architecture — Per-file support declarations](../Architecture/05-schematization.md#per-file-support-declarations).
 
 ---
 
