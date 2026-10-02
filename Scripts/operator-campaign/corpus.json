@@ -11,15 +11,25 @@
     "sha": "6a52f3251125d74daf04fcbd5e6f08a75d074382",
     "arguments": [
       "--target",
-      "ArgumentParserUnitTests"
+      "ArgumentParserUnitTests",
+      "--exclude",
+      "/Tools/",
+      "--exclude",
+      "/Examples/",
+      "--exclude",
+      "/Plugins/"
     ],
-    "note": "ArgumentParserGenerateDoccReferenceTests fails outside `swift test` at this commit (it needs the generate-docc-reference tool built), so only the unit test target is run"
+    "note": "ArgumentParserGenerateDoccReferenceTests fails outside `swift test` at this commit (it needs the generate-docc-reference tool built), so only the unit test target is run; Tools, Examples and Plugins are not built into that target, so their mutants could only survive"
   },
   {
     "name": "swift-log",
     "repository": "https://github.com/apple/swift-log.git",
     "sha": "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
-    "arguments": []
+    "arguments": [
+      "--exclude",
+      "/Benchmarks/"
+    ],
+    "note": "Benchmarks is a separate package whose code no test of swift-log runs, so its mutants could only survive"
   },
   {
     "name": "swift-cpd",
