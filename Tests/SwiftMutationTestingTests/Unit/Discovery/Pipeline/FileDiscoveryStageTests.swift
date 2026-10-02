@@ -63,6 +63,21 @@ struct FileDiscoveryStageTests {
         #expect(result[0].path.hasSuffix("Source.swift"))
     }
 
+    @Test(
+        "Given a package manifest, when run, then excludes it",
+        arguments: ["Package.swift", "Package@swift-6.1.swift"]
+    )
+    func excludesPackageManifests(name: String) throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try FileHelpers.write("let package = Package(name: \"P\")", named: name, in: dir)
+        try FileHelpers.write("let x = 1", named: "Foo.swift", in: dir)
+
+        let result = try stage.run(input: makeDiscoveryInput(projectPath: dir.path, sourcesPath: dir.path))
+
+        #expect(result.map { URL(fileURLWithPath: $0.path).lastPathComponent } == ["Foo.swift"])
+    }
+
     @Test("Given file inside /.build/ directory, when run, then excludes it")
     func excludesBuildDirectory() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
