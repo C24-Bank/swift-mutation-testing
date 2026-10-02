@@ -17,6 +17,7 @@ struct FileDiscoveryStage: Sendable {
         "/DerivedData/",
         "/Package.swift",
         "/Package@swift-",
+        "/Snippets/",
     ]
 
     func run(input: DiscoveryInput) throws -> [SourceFile] {
