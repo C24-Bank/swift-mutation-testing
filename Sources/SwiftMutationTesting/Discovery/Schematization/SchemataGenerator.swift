@@ -1,5 +1,7 @@
 struct SchemataGenerator: Sendable {
-    func generate(source: ParsedSource, mutations: [(index: Int, point: MutationPoint)]) -> SchemaGeneration {
+    func generate(
+        source: ParsedSource, mutations: [(index: Int, point: MutationPoint)], importStyle: ImportStyle = .implicit
+    ) -> SchemaGeneration {
         let visitor = TypeScopeVisitor()
         visitor.walk(source.syntax)
 
@@ -76,7 +78,10 @@ struct SchemataGenerator: Sendable {
             return SchemaGeneration(content: content, discarded: discarded)
         }
 
-        let support = SupportDeclarations.perFile(for: source.file.path)
+        var support = SupportDeclarations.perFile(for: source.file.path)
+        if !ImportStyle.importsFoundation(source.syntax) {
+            support = SupportDeclarations.importLine(importStyle) + "\n\n" + support
+        }
         return SchemaGeneration(content: content + "\n\n" + support + "\n", discarded: discarded)
     }
 

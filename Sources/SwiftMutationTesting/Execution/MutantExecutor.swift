@@ -303,7 +303,8 @@ struct MutantExecutor: Sendable {
                 sandboxPath: sandboxPath,
                 originalPath: originalPath,
                 errorOutput: output,
-                mutantsInFile: mutantsInFile
+                mutantsInFile: mutantsInFile,
+                importStyle: input.importStyle
             )
         }
 
@@ -480,7 +481,8 @@ struct MutantExecutor: Sendable {
         sandboxPath: String,
         originalPath: String,
         errorOutput: String,
-        mutantsInFile: [MutantDescriptor]
+        mutantsInFile: [MutantDescriptor],
+        importStyle: ImportStyle
     ) -> [MutantDescriptor] {
         let errorLines = Set(
             errorLocations(in: errorOutput, under: sandboxPath)
@@ -522,7 +524,8 @@ struct MutantExecutor: Sendable {
 
         let kept = mutantsInFile.filter { !problematicIDs.contains($0.id) }
 
-        guard let narrowed = regeneratedSchema(originalPath: originalPath, keeping: kept) else {
+        guard let narrowed = regeneratedSchema(originalPath: originalPath, keeping: kept, importStyle: importStyle)
+        else {
             restoreOriginal(sandboxPath: sandboxPath, originalPath: originalPath)
             return mutantsInFile
         }
@@ -532,7 +535,9 @@ struct MutantExecutor: Sendable {
         return mutantsInFile.filter { problematicIDs.contains($0.id) }
     }
 
-    func regeneratedSchema(originalPath: String, keeping mutants: [MutantDescriptor]) -> String? {
+    func regeneratedSchema(
+        originalPath: String, keeping mutants: [MutantDescriptor], importStyle: ImportStyle = .implicit
+    ) -> String? {
         guard let content = try? String(contentsOfFile: originalPath, encoding: .utf8) else { return nil }
 
         let source = ParsedSource(
@@ -547,7 +552,7 @@ struct MutantExecutor: Sendable {
             entries.append((index: index, point: MutationPoint(descriptor)))
         }
 
-        return SchemataGenerator().generate(source: source, mutations: entries).content
+        return SchemataGenerator().generate(source: source, mutations: entries, importStyle: importStyle).content
     }
 
     private func mutantIndex(from id: String) -> Int? {

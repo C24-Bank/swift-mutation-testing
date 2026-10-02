@@ -14,11 +14,16 @@ enum SupportDeclarations {
         "__SwiftMutationTesting_\(suffix(for: path)).activated()"
     }
 
+    static func importLine(_ style: ImportStyle) -> String {
+        switch style {
+        case .implicit: "import Foundation"
+        case .explicit: "internal import Foundation"
+        }
+    }
+
     static func perFile(for path: String) -> String {
         let suffix = suffix(for: path)
         return """
-            internal import Foundation
-
             @usableFromInline
             internal enum __SwiftMutationTesting_\(suffix) {
                 @usableFromInline nonisolated static let id: String =

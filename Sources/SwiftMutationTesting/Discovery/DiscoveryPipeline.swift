@@ -25,6 +25,7 @@ struct DiscoveryPipeline: Sendable {
         )
         let (schematizedFiles, schematizableDescriptors) = SchematizationStage()
             .run(indexed: indexed, sources: parsedSources)
+        let importStyle = ImportStyle.of(parsedSources)
         let incompatibleDescriptors = IncompatibleRewritingStage().run(indexed: indexed, sources: parsedSources)
         let allDescriptors = (schematizableDescriptors + incompatibleDescriptors)
             .sorted { indexFromID($0.id) < indexFromID($1.id) }
@@ -36,7 +37,8 @@ struct DiscoveryPipeline: Sendable {
             concurrency: input.concurrency,
             noCache: input.noCache,
             schematizedFiles: schematizedFiles,
-            mutants: allDescriptors
+            mutants: allDescriptors,
+            importStyle: importStyle
         )
     }
 
