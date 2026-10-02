@@ -112,6 +112,33 @@ struct JsonReporterTests {
         #expect(mutants?.first?["killedBy"] as? [String] == ["MySuite.myTest"])
     }
 
+    @Test("Given a project root reached through a symlink, when report called, then keys are still relative")
+    func aSymlinkedProjectRootStillGivesRelativeKeys() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let link = dir.appendingPathComponent("link")
+        let real = dir.appendingPathComponent("real")
+        let sources = real.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        let resolvedFile = real.resolvingSymlinksInPath().appendingPathComponent("Sources/Calc.swift").path
+        let outputPath = dir.appendingPathComponent("mutation.json").path
+        let reporter = JsonReporter(outputPath: outputPath, projectRoot: link.path)
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(id: "1", filePath: resolvedFile, line: 3, column: 24, status: .survived)
+            ],
+            totalDuration: 0
+        )
+
+        try reporter.report(summary)
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: outputPath))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let files = json?["files"] as? [String: Any]
+        #expect(files?.keys.sorted() == ["/Sources/Calc.swift"])
+    }
+
     @Test("Given a mutant killed by a crash, when report called, then it is Killed with crash as the reason")
     func crashedMutantIsKilledWithReason() throws {
         let mutant = try reportedMutant(status: .killedByCrash)
