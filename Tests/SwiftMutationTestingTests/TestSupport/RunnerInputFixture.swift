@@ -31,7 +31,8 @@ func applied(_ files: [SchematizedFile], for mutants: [MutantDescriptor]) -> [Sc
         }
         let support = SupportDeclarations.perFile(for: file.originalPath)
         if !content.contains(support) {
-            content += "\n\n" + support + "\n"
+            let imported = content.contains("import Foundation")
+            content += (imported ? "" : "\n\n" + SupportDeclarations.importLine(.implicit)) + "\n\n" + support + "\n"
         }
 
         return SchematizedFile(originalPath: file.originalPath, schematizedContent: content)

@@ -28,11 +28,18 @@ struct SupportDeclarationsTests {
         #expect(nonImports.allSatisfy { !$0.description.contains("private ") })
     }
 
-    @Test("Given the per-file declarations, when read, then Foundation is imported with an explicit internal level")
-    func foundationIsImportedInternally() {
+    @Test("Given the per-file declarations, when read, then they carry no import of their own")
+    func theBlockImportsNothing() {
         let block = SupportDeclarations.perFile(for: path)
 
-        #expect(block.hasPrefix("internal import Foundation\n"))
+        #expect(!block.contains("import "))
+        #expect(block.hasPrefix("@usableFromInline\ninternal enum __SwiftMutationTesting_"))
+    }
+
+    @Test("Given an import style, when the import line is asked, then it follows the style")
+    func theImportLineFollowsTheStyle() {
+        #expect(SupportDeclarations.importLine(.implicit) == "import Foundation")
+        #expect(SupportDeclarations.importLine(.explicit) == "internal import Foundation")
     }
 
     @Test("Given two files, when their declarations are named, then the names differ and are stable")

@@ -111,6 +111,29 @@ struct SchemataGeneratorTests {
         #expect(result.contains("switch \(SupportDeclarations.identifier(for: source.file.path)) {"))
     }
 
+    @Test("Given a file without a Foundation import, when generated, then one is added in the project's style")
+    func theImportFollowsTheProjectStyle() {
+        let source = makeParsedSource("func f() { let x = true }")
+        let mutations = mutationsWithIndices(source)
+        let block = SupportDeclarations.perFile(for: source.file.path)
+
+        let implicit = generator.generate(source: source, mutations: mutations, importStyle: .implicit).content
+        let explicit = generator.generate(source: source, mutations: mutations, importStyle: .explicit).content
+
+        #expect(implicit.hasSuffix("\n\nimport Foundation\n\n" + block + "\n"))
+        #expect(explicit.hasSuffix("\n\ninternal import Foundation\n\n" + block + "\n"))
+    }
+
+    @Test("Given a file that already imports Foundation, when generated, then no import is added")
+    func anExistingFoundationImportIsEnough() {
+        let source = makeParsedSource("internal import Foundation\nfunc f() { let x = true }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations, importStyle: .explicit).content
+
+        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile(for: source.file.path) + "\n"))
+        #expect(result.components(separatedBy: "import Foundation").count == 2)
+    }
+
     @Test("Given a body of statements, when generated, then every case records its activation before them")
     func everyCaseRecordsItsActivationFirst() {
         let source = makeParsedSource("func f() { let x = true }\nfunc g() { let y = false }")
