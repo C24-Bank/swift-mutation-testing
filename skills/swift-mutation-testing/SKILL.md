@@ -47,7 +47,7 @@ Narrowing the scope:
 | Every operator, including the experimental ones | `--operator-tier experimental`; the default tier is `default`, see `Docs/OPERATORS.md` |
 | One test target | `--target MyPackageTests` |
 
-Test files (`Tests/`, `*Tests.swift`, `Mocks/`, `.build/`) and package manifests (`Package.swift`, `Package@swift-*.swift`) are never mutated.
+Test files (`Tests/`, `*Tests.swift`, `Mocks/`, `.build/`) package manifests (`Package.swift`, `Package@swift-*.swift`) and `Snippets/` are never mutated.
 
 A second run on unchanged code is fast: verdicts are cached in `.swift-mutation-testing-cache/`, keyed by file contents. Editing a source file re-tests that file's mutants; editing a test file re-tests the mutants that survived, and the killed ones whose killing test lives in that file. Use `--no-cache` only to rule out the cache when a result looks wrong.
 

@@ -24,9 +24,12 @@ class MutationSyntaxVisitor: SyntaxVisitor {
     let locationConverter: SourceLocationConverter
     var mutations: [MutationPoint]
 
-    init(filePath: String, locationConverter: SourceLocationConverter)
+    init(source: ParsedSource)
+    override func visit(_ node: IfConfigClauseSyntax) -> SyntaxVisitorContinueKind
 }
 ```
+
+Every operator's visitor inherits one rule: the condition of an `#if`, `#elseif` or `#else` clause is never visited. It is a compile-time expression — `#if DEBUG && !os(Windows)`, `#elseif compiler(<6.1)` — whose `&&`, `||`, `<` and literals are not code that runs, and a mutation there changes what compiles instead of what executes. The clause's code is walked as usual, whichever branch the build will take: a mutant inside a branch the build leaves out compiles to nothing and can only survive, which the campaign in `Docs/OPERATORS.md` records as not measurable.
 
 Base class for all operator visitors. Subclasses override `visit(_:)` methods to detect applicable nodes and append `MutationPoint` values to `mutations`.
 

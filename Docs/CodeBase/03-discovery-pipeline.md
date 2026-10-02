@@ -100,7 +100,7 @@ Recursively enumerates the directory tree under `input.sourcesPath` using `FileM
 
 **Fixed exclusions** (applied regardless of `excludePatterns`):
 
-`/Tests/`, `/Mocks/`, `/Stubs/`, `/Fakes/`, `/TestHelpers/`, `/TestSupport/`, `Tests.swift`, `Mock.swift`, `Spec.swift`, `/.build/`, `/.swift-mutation-testing-derived-data/`, the cache directory, `/DerivedData/`, and the package manifests `/Package.swift` and `/Package@swift-` — a manifest is build configuration, not product code, and a mutation in it changes the build of every mutant
+`/Tests/`, `/Mocks/`, `/Stubs/`, `/Fakes/`, `/TestHelpers/`, `/TestSupport/`, `Tests.swift`, `Mock.swift`, `Spec.swift`, `/.build/`, `/.swift-mutation-testing-derived-data/`, the cache directory, `/DerivedData/`, the package manifests `/Package.swift` and `/Package@swift-` — a manifest is build configuration, not product code, and a mutation in it changes the build of every mutant — and `/Snippets/`, SwiftPM's directory for documentation snippets, which no test runs
 
 Files matching any `excludePatterns` glob pattern are also excluded.
 
