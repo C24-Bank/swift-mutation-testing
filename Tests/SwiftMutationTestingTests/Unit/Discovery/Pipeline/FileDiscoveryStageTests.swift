@@ -78,6 +78,20 @@ struct FileDiscoveryStageTests {
         #expect(result.map { URL(fileURLWithPath: $0.path).lastPathComponent } == ["Foo.swift"])
     }
 
+    @Test("Given a file inside a Snippets directory, when run, then excludes it")
+    func excludesSnippets() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let snippets = dir.appendingPathComponent("Snippets")
+        try FileManager.default.createDirectory(at: snippets, withIntermediateDirectories: true)
+        try FileHelpers.write("print(1)", named: "Snippets/basic-usage.swift", in: dir)
+        try FileHelpers.write("let x = 1", named: "Foo.swift", in: dir)
+
+        let result = try stage.run(input: makeDiscoveryInput(projectPath: dir.path, sourcesPath: dir.path))
+
+        #expect(result.map { URL(fileURLWithPath: $0.path).lastPathComponent } == ["Foo.swift"])
+    }
+
     @Test("Given file inside /.build/ directory, when run, then excludes it")
     func excludesBuildDirectory() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
