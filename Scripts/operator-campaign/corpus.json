@@ -33,7 +33,12 @@
     "sha": "7dcc7f9c5c34db5f1d8d59e46eec94209a91e063",
     "arguments": [
       "--exclude",
-      "/Fixtures/"
-    ]
+      "/Fixtures/",
+      "--exclude",
+      "Sandbox/SandboxCleaner.swift",
+      "--exclude",
+      "Sandbox/SandboxName.swift"
+    ],
+    "note": "Fixtures are test data. SandboxCleaner and SandboxName are left out because this repository's own tests call removeOrphaned() on the real sandbox directory: a mutant of the owner-is-alive check, run by those tests inside the sandbox, deletes the sandboxes of the run that is measuring it."
   }
 ]
