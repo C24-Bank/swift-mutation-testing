@@ -58,7 +58,7 @@ Each entry in `files` corresponds to one source file that contains at least one 
 | `source` | `string` | full UTF-8 file content | ✓ |
 | `mutants` | `MutantResult[]` | see below | partial |
 
-File paths in the `files` dictionary are relative to `projectRoot` (the absolute project path is stripped from the front of each file path).
+File paths in the `files` dictionary are relative to `projectRoot`, with a leading `/`: both paths are resolved through symlinks before the root is stripped (`ProjectRelativePath`), so a project under `/tmp` or `/var`, which macOS reaches through `/private`, still gets `/Sources/…` keys.
 
 ---
 
