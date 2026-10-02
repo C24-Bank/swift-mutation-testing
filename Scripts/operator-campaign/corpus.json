@@ -17,9 +17,11 @@
       "--exclude",
       "/Examples/",
       "--exclude",
-      "/Plugins/"
+      "/Plugins/",
+      "--exclude",
+      "/ArgumentParserTestHelpers/"
     ],
-    "note": "ArgumentParserGenerateDoccReferenceTests fails outside `swift test` at this commit (it needs the generate-docc-reference tool built), so only the unit test target is run; Tools, Examples and Plugins are not built into that target, so their mutants could only survive"
+    "note": "ArgumentParserGenerateDoccReferenceTests fails outside `swift test` at this commit (it needs the generate-docc-reference tool built), so only the unit test target is run; Tools, Examples and Plugins are not built into that target, and ArgumentParserTestHelpers is test support, not product code"
   },
   {
     "name": "swift-log",
