@@ -4,6 +4,9 @@ import Foundation
 ///
 /// Build products and caches are left behind: the executor builds in its own sandbox anyway, and a
 /// shared `.swift-mutation-testing-cache` is exactly the state two parallel tests would race on.
+/// Symlinks are copied as the files they point to: when this suite itself runs inside a mutation
+/// sandbox, `Fixtures/` is a tree of links into the original checkout, and a copy of links would send
+/// the pipeline under test outside the tree it is given.
 struct FixtureCopy {
     let url: URL
 
@@ -42,10 +45,11 @@ struct FixtureCopy {
         )
         for item in items where !skipped.contains(item.lastPathComponent) {
             let target = destination.appending(path: item.lastPathComponent)
-            if try item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true {
-                try copy(item, to: target)
+            let resolved = item.resolvingSymlinksInPath()
+            if try resolved.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true {
+                try copy(resolved, to: target)
             } else {
-                try FileManager.default.copyItem(at: item, to: target)
+                try FileManager.default.copyItem(at: resolved, to: target)
             }
         }
     }
