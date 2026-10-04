@@ -477,7 +477,7 @@ do {
         try aggregate(
             directory: URL(fileURLWithPath: arguments[1]), markdownPath: markdown, csvPath: csv,
             equivalencePath: option("--equivalence", in: arguments),
-            minMutants: option("--min-mutants", in: arguments).flatMap(Int.init) ?? 30
+            minMutants: option("--min-mutants", in: arguments).flatMap(Int.init) ?? 10
         )
 
     case "sample":
