@@ -1,12 +1,12 @@
 struct DiscoveryPipeline: Sendable {
     private static let registry: [(name: String, tier: OperatorTier, operator: any MutationOperator)] = [
-        (name: "RelationalOperatorReplacement", tier: .default, operator: RelationalOperatorReplacement()),
+        (name: "RelationalOperatorReplacement", tier: .experimental, operator: RelationalOperatorReplacement()),
         (name: "BooleanLiteralReplacement", tier: .default, operator: BooleanLiteralReplacement()),
-        (name: "LogicalOperatorReplacement", tier: .default, operator: LogicalOperatorReplacement()),
-        (name: "ArithmeticOperatorReplacement", tier: .default, operator: ArithmeticOperatorReplacement()),
-        (name: "NegateConditional", tier: .default, operator: NegateConditional()),
-        (name: "SwapTernary", tier: .default, operator: SwapTernary()),
-        (name: "RemoveSideEffects", tier: .default, operator: RemoveSideEffects()),
+        (name: "LogicalOperatorReplacement", tier: .conservative, operator: LogicalOperatorReplacement()),
+        (name: "ArithmeticOperatorReplacement", tier: .experimental, operator: ArithmeticOperatorReplacement()),
+        (name: "NegateConditional", tier: .conservative, operator: NegateConditional()),
+        (name: "SwapTernary", tier: .conservative, operator: SwapTernary()),
+        (name: "RemoveSideEffects", tier: .experimental, operator: RemoveSideEffects()),
     ]
 
     static let allOperatorNames: [String] = registry.map(\.name)
