@@ -36,8 +36,9 @@
   {
     "name": "swift-cpd",
     "repository": "https://github.com/ericodx/swift-cpd.git",
-    "sha": "b88a4015b99b7cbd3d5cc60f6a2f1566c0b1a1dd",
-    "arguments": []
+    "sha": "7c4e7bb5e3f0fd02c1e1c401dfd2eae3d847459f",
+    "arguments": [],
+    "note": "main after ericodx/swift-cpd#39 (the CLI tests find the executable again); no release carries the fix yet"
   },
   {
     "name": "swift-mutation-testing",
