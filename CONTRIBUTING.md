@@ -69,6 +69,13 @@ AI-generated changes are reviewed under the same criteria as human-written code.
 
 Unapproved structural changes may be closed without review.
 
+### Mutation operators
+
+A new operator enters the registry as `experimental` and is promoted to `default` or `conservative` only with
+campaign data, by the criteria in [Docs/OPERATORS.md](Docs/OPERATORS.md): run the campaign over the corpus,
+review the sampled survivors, and let the aggregation assign the tier. An operator whose numbers fall
+below its tier's bar is demoted the same way, and the change is recorded there with its reason.
+
 ---
 
 ## Testing

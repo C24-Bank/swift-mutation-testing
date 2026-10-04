@@ -1,0 +1,217 @@
+project,operator,fingerprint,file,line,mutation,verdict,note
+swift-algorithms,ArithmeticOperatorReplacement,689deec8fd91fbfa978d07d790a20736,/Sources/Algorithms/AdjacentPairs.swift,124,- → +,not-equivalent,underestimatedCount is observable through the Sequence API
+swift-algorithms,ArithmeticOperatorReplacement,3bc5273af09ea93af2fa727a2870f500,/Sources/Algorithms/Combinations.swift,64,+ → -,equivalent,the shortcut and the general path both count 2^n
+swift-algorithms,ArithmeticOperatorReplacement,6ac942ee3791b816e6349d17d1687aab,/Sources/Algorithms/Reductions.swift,327,- → +,not-equivalent,distance from endIndex is observable
+swift-algorithms,ArithmeticOperatorReplacement,9bee0bfce6ac96182d710991c7d4dd69,/Sources/Algorithms/Reductions.swift,165,+ → -,equivalent,reserveCapacity is a hint
+swift-algorithms,ArithmeticOperatorReplacement,d4f3ebf4788f2e2011723442ab636fe6,/Sources/Algorithms/MinMax.swift,269,/ → *,equivalent,the 10% heuristic picks between two paths with the same result
+swift-algorithms,ArithmeticOperatorReplacement,a80a7f4ec6c4988581f961f4f13814b0,/Sources/Algorithms/Partition.swift,331,+ → -,not-equivalent,wrong deinitialize count after a thrown predicate corrupts memory
+swift-algorithms,ArithmeticOperatorReplacement,1b4af5a236d6d7519aa8ee025b2b09b7,/Sources/Algorithms/MinMax.swift,323,/ → *,equivalent,the 10% heuristic picks between two paths with the same result
+swift-algorithms,ArithmeticOperatorReplacement,05fc1e4440bac126069e8ea0b6c74e08,/Sources/Algorithms/Combinations.swift,72,/ → *,equivalent,the symmetric shortcut never matches; the recursion computes the same binomial
+swift-algorithms,BooleanLiteralReplacement,2eab4c0a33480019720c4d3b9b4d971c,/Sources/Algorithms/EitherSequence.swift,32,false → true,not-equivalent,mixed left/right equality is observable
+swift-algorithms,BooleanLiteralReplacement,7cbc20c95d39a03998a81c4c21acf4e1,/Sources/Algorithms/Intersperse.swift,587,false → true,equivalent,a hash tag change keeps the Hashable contract
+swift-algorithms,BooleanLiteralReplacement,f15c9d7677504d06a9a5a93c4a1bce81,/Sources/Algorithms/EitherSequence.swift,48,false → true,not-equivalent,mixed left/right ordering is observable
+swift-algorithms,BooleanLiteralReplacement,903b9214ee92a7a2182aa6f14c1d51cd,/Sources/Algorithms/EitherSequence.swift,46,true → false,not-equivalent,mixed left/right ordering is observable
+swift-algorithms,BooleanLiteralReplacement,564719b904611c29b0c586a5ecad3e82,/Sources/Algorithms/Intersperse.swift,590,true → false,equivalent,a hash tag change keeps the Hashable contract
+swift-algorithms,BooleanLiteralReplacement,6ea5f7e6452e984d6c7eb3a5842998bc,/Sources/Algorithms/Combinations.swift,143,true → false,equivalent,keepingCapacity is a performance hint
+swift-algorithms,BooleanLiteralReplacement,f7840e6727625f1134eab1cdc68d4a62,/Sources/Algorithms/Permutations.swift,36,false → true,not-equivalent,nextPermutation on one element is observable
+swift-algorithms,LogicalOperatorReplacement,19d38a4396db53f9ad01db8379748b65,/Sources/Algorithms/Chunked.swift,754,&& → ||,not-equivalent,the limit check changes which offsets are accepted
+swift-algorithms,NegateConditional,a26cca9aa10b0d41f6cfb810e0437cdf,/Sources/Algorithms/MinMax.swift,323,suffixCount < (self.count / 10) → !(suffixCount < (self.count / 10)),equivalent,the 10% heuristic picks between two paths with the same result
+swift-algorithms,NegateConditional,2887b995bff25b26b7c8a871c720f8be,/Sources/Algorithms/MinMax.swift,269,prefixCount < (self.count / 10) → !(prefixCount < (self.count / 10)),equivalent,the 10% heuristic picks between two paths with the same result
+swift-algorithms,RelationalOperatorReplacement,e4a1c22f383d3e3f1e5ad263bd2d1f78,/Sources/Algorithms/Chunked.swift,724,< → <=,equivalent,assert on a value callers never pass
+swift-algorithms,RelationalOperatorReplacement,e4dda9d5a2712dd0707d0240266cfd61,/Sources/Algorithms/FlattenCollection.swift,48,< → <=,equivalent,"reached only when outer differs, where < and <= agree"
+swift-algorithms,RelationalOperatorReplacement,e1e7aa38179995207b91e25b00394d73,/Sources/Algorithms/MinMax.swift,217,< → <=,equivalent,ties among equal elements give the same elements
+swift-algorithms,RelationalOperatorReplacement,da4e10e737b2d50e8730fa2ba0211391,/Sources/Algorithms/Split.swift,650,>= → >,not-equivalent,maxSplits of zero would trap
+swift-algorithms,RelationalOperatorReplacement,c2501b231f0901c60db57fcd9db70ab6,/Sources/Algorithms/EitherSequence.swift,25,== → !=,not-equivalent,a declared == turned into != is observable through !=
+swift-algorithms,RelationalOperatorReplacement,ec0cbe928fa1d69eadfa5028c8ff5df4,/Sources/Algorithms/Stride.swift,188,> → >=,equivalent,n == 0 is handled by the guard above
+swift-algorithms,RelationalOperatorReplacement,bc99bb6dc5fba3ca58cf6ddb1a25330d,/Sources/Algorithms/Product.swift,328,>= → >,equivalent,assert on a value callers never pass
+swift-algorithms,RelationalOperatorReplacement,727948a64641befd6b5bb694a4df9db7,/Sources/Algorithms/Chunked.swift,666,> → >=,equivalent,limit != i is handled by the guard above
+swift-algorithms,RelationalOperatorReplacement,048f7e4669c8caace4cf2989868f64ac,/Sources/Algorithms/Stride.swift,128,> → >=,not-equivalent,a stride of zero would no longer trap
+swift-algorithms,RelationalOperatorReplacement,62cd96a54a7496d3809c31a0bb16f5e6,/Sources/Algorithms/Cycle.swift,89,== → !=,not-equivalent,a declared == turned into != is observable through !=
+swift-algorithms,RelationalOperatorReplacement,19eda5e26b7eea7294514c34a3037811,/Sources/Algorithms/Stride.swift,199,< → <=,not-equivalent,limit == i changes the result of a limited offset
+swift-algorithms,RelationalOperatorReplacement,efcb7565489873a719c76b62e91a3472,/Sources/Algorithms/Intersperse.swift,474,> → >=,equivalent,distance == 0 is handled by the guard above
+swift-algorithms,RelationalOperatorReplacement,321ee7a8ffa9ccb07d0a52e299133693,/Sources/Algorithms/Chunked.swift,754,> → >=,not-equivalent,baseDistance == 0 enters the special case
+swift-algorithms,RelationalOperatorReplacement,defa76f4192afb4f6e5488919ce7bbbe,/Sources/Algorithms/Product.swift,210,> → >=,equivalent,distance == 0 is handled by the guard above
+swift-algorithms,RelationalOperatorReplacement,56195a7838615e5b572afdd6e2e9b9e9,/Sources/Algorithms/FlattenCollection.swift,220,> → >=,equivalent,assert on a value callers never pass
+swift-algorithms,RelationalOperatorReplacement,6a10745a57d8ed96117ef167d58935be,/Sources/Algorithms/Windows.swift,152,< → <=,not-equivalent,limit == i changes the result of a limited offset
+swift-algorithms,RelationalOperatorReplacement,62d59ced56c5fb72099e1842914faa0b,/Sources/Algorithms/MinMax.swift,269,< → >,equivalent,the 10% heuristic picks between two paths with the same result
+swift-algorithms,RelationalOperatorReplacement,e0576a338b660b0de72f5ea3b6fc6cb5,/Sources/Algorithms/Joined.swift,152,== → !=,not-equivalent,a declared == turned into != is observable through !=
+swift-algorithms,RelationalOperatorReplacement,cfc61391027510e2c3ff386ed6a48e29,/Sources/Algorithms/Product.swift,163,<= → <,not-equivalent,start.i2 == end.i2 takes the other distance formula
+swift-algorithms,RelationalOperatorReplacement,a2cce231e7fcbb8cc0b0a2485c4c6fb9,/Sources/Algorithms/AdjacentPairs.swift,228,< → <=,not-equivalent,limit == i changes the result of a limited offset
+swift-algorithms,RemoveSideEffects,3d17edae40e9865d3401f389ec394472,/Sources/Algorithms/Intersperse.swift,587,hasher.combine(false) → ,equivalent,dropping a hash component keeps the Hashable contract
+swift-algorithms,RemoveSideEffects,477469223521de20ae79ae90d55baf0c,/Sources/Algorithms/RandomSample.swift,244,result.shuffle(using: &rng) → ,not-equivalent,the sample's order is observable
+swift-algorithms,RemoveSideEffects,fbd88466fc85010404447be490d07a69,/Sources/Algorithms/Intersperse.swift,588,hasher.combine(base) → ,equivalent,dropping a hash component keeps the Hashable contract
+swift-algorithms,RemoveSideEffects,a2b8f34ef6e09cbed93adb9d2cc6b8c6,/Sources/Algorithms/Intersperse.swift,591,hasher.combine(next) → ,equivalent,dropping a hash component keeps the Hashable contract
+swift-algorithms,RemoveSideEffects,9b26619395e1a2ddd31f097525856b12,/Sources/Algorithms/Partition.swift,249,lhs.append(element) → ,not-equivalent,an element is dropped from the partition
+swift-algorithms,RemoveSideEffects,18935fa422e672a2726095dd15287621,/Sources/Algorithms/Reductions.swift,165,output.reserveCapacity(underestimatedCount + 1) → ,equivalent,reserveCapacity is a hint
+swift-algorithms,RemoveSideEffects,7a13f57f265d15594aed2905aa17baa6,/Sources/Algorithms/RandomSample.swift,148,result.reserveCapacity(k) → ,equivalent,reserveCapacity is a hint
+swift-algorithms,RemoveSideEffects,92a5dbfb31ce07781479c8addca16a6d,/Sources/Algorithms/Partition.swift,332,buffer.baseAddress!.deinitialize(count: lhsCount) → ,equivalent,cleanup after a thrown error; nothing a test can observe
+swift-algorithms,RemoveSideEffects,2c96090ab048e3ee3ecc30b20a96abe7,/Sources/Algorithms/MinMax.swift,22,result.reserveCapacity(count) → ,equivalent,reserveCapacity is a hint
+swift-algorithms,RemoveSideEffects,9fb0aec1d5bbf0ab5f25274388bf6072,/Sources/Algorithms/RandomSample.swift,217,result.reserveCapacity(k) → ,equivalent,reserveCapacity is a hint
+swift-algorithms,RemoveSideEffects,8e4addae994027857f7a96c3957a9e9f,/Sources/Algorithms/RandomSample.swift,68,result.reserveCapacity(k) → ,equivalent,reserveCapacity is a hint
+swift-algorithms,RemoveSideEffects,ffb138d93144a0447f459b6604ce07eb,/Sources/Algorithms/Partition.swift,247,rhs.append(element) → ,not-equivalent,an element is dropped from the partition
+swift-algorithms,RemoveSideEffects,3f5ec63959919491ecdcb9d9c81093bd,/Sources/Algorithms/RandomSample.swift,174,result.shuffle(using: &rng) → ,not-equivalent,the sample's order is observable
+swift-algorithms,RemoveSideEffects,53b0ba7303fe45ef2a489718b3c98f71,/Sources/Algorithms/MinMax.swift,49,result.reserveCapacity(count) → ,equivalent,reserveCapacity is a hint
+swift-algorithms,RemoveSideEffects,a927897d6dec378bf466467bf4d65627,/Sources/Algorithms/Partition.swift,333,rhs.deinitialize(count: rhsCount) → ,equivalent,cleanup after a thrown error; nothing a test can observe
+swift-algorithms,RemoveSideEffects,ed04203e6513660ef20a2c1bf532eac4,/Sources/Algorithms/Intersperse.swift,590,hasher.combine(true) → ,equivalent,dropping a hash component keeps the Hashable contract
+swift-argument-parser,ArithmeticOperatorReplacement,ddd7746a126ebafeb753c875bdb4d2d9,/Sources/ArgumentParser/Utilities/Platform.swift,278,- → +,not-measurable,Windows-only branch of an #if
+swift-argument-parser,ArithmeticOperatorReplacement,9f5377fa8d67ff9273ab7bce02396eb3,/Sources/ArgumentParser/Utilities/Platform.swift,278,+ → -,not-measurable,Windows-only branch of an #if
+swift-argument-parser,ArithmeticOperatorReplacement,df0c2f0ac8ffbee914698d0074f801cb,/Sources/ArgumentParser/Utilities/Platform.swift,277,- → +,not-measurable,Windows-only branch of an #if
+swift-argument-parser,ArithmeticOperatorReplacement,3a9fc9005eb72b606f840b2e0ecc8bc7,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,545,+ → -,not-equivalent,the terminator itself would be taken as a value
+swift-argument-parser,ArithmeticOperatorReplacement,c6994510c349cd2400568cfccdbabfd0,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,199,+ → -,not-equivalent,a counted flag would count down
+swift-argument-parser,ArithmeticOperatorReplacement,a84c5db3c38895ab5dae7f2e38a99af0,/Sources/ArgumentParser/Utilities/Platform.swift,277,+ → -,not-measurable,Windows-only branch of an #if
+swift-argument-parser,BooleanLiteralReplacement,28e8afbda0b7e289a4c9f0638e9c92db,/Sources/ArgumentParser/Parsing/CommandParser.swift,274,true → false,not-equivalent,the solo-argument requirement is dropped
+swift-argument-parser,BooleanLiteralReplacement,73af3c8ba5403af6d5a71e4691aad806,/Sources/ArgumentParser/Parsable Types/ParsableArguments.swift,271,false → true,not-equivalent,the default of includeHidden changes the usage shown
+swift-argument-parser,BooleanLiteralReplacement,e7d5670ead64babfd818bb361fe1a0b9,/Sources/ArgumentParserToolInfo/ToolInfo.swift,48,true → false,not-equivalent,the default of shouldDisplay changes tool info
+swift-argument-parser,BooleanLiteralReplacement,7c281fceab90551a1f8f54d182029294,/Sources/ArgumentParser/Usage/MessageInfo.swift,177,false → true,not-equivalent,a validation error would exit cleanly
+swift-argument-parser,BooleanLiteralReplacement,5caf5345cb1047c0e454285d442ebdc9,/Sources/ArgumentParser/Parsing/SplitArguments.swift,702,false → true,not-equivalent,an argument that parses to nothing would end the split
+swift-argument-parser,BooleanLiteralReplacement,370d656c2221fd8deea2433f6f94e453,/Sources/ArgumentParser/Parsable Properties/ArgumentDiscussion.swift,134,false → true,not-equivalent,a static discussion would count as enumerated
+swift-argument-parser,BooleanLiteralReplacement,727af772a739d6f3d0a051ae581c1657,/Sources/ArgumentParser/Parsing/CommandParser.swift,312,false → true,not-equivalent,the async misuse diagnostic is inverted
+swift-argument-parser,BooleanLiteralReplacement,0acec5dac87f03b62eb2a99b0177f844,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,93,true → false,not-equivalent,a flag would set false
+swift-argument-parser,BooleanLiteralReplacement,6f5449572b2d1a4829fe4a37aecad11d,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,160,false → true,not-equivalent,a composite flag renders differently in help
+swift-argument-parser,BooleanLiteralReplacement,9409634904ba16d59a31a2c0a5965017,/Sources/ArgumentParser/Parsing/SplitArguments.swift,602,false → true,not-equivalent,a terminator would count as an extra element
+swift-argument-parser,BooleanLiteralReplacement,500bcf4d25de15462aeb7bc03547598f,/Sources/ArgumentParser/Parsable Types/ParsableCommand.swift,129,false → true,not-equivalent,the default of includeHidden changes the usage shown
+swift-argument-parser,BooleanLiteralReplacement,bf8edfd21fbe349c08d5496df1d6fd34,/Sources/ArgumentParser/Parsing/ArgumentDefinition.swift,210,true → false,not-equivalent,a nullary flag would parse as unary
+swift-argument-parser,BooleanLiteralReplacement,51bed93c54b39ebe911ab06987eab329,/Sources/ArgumentParser/Parsing/SplitArguments.swift,376,false → true,not-equivalent,origins without an index would report a terminator between them
+swift-argument-parser,BooleanLiteralReplacement,ab13362935b693d1a0ee909095a9517c,/Sources/ArgumentParser/Parsable Properties/Option.swift,582,false → true,not-equivalent,a composite flag renders differently in help
+swift-argument-parser,BooleanLiteralReplacement,3f3fdf3d6812a8dc43a839b4479d764e,/Sources/ArgumentParserToolInfo/ToolInfo.swift,103,true → false,not-equivalent,a missing shouldDisplay would decode as hidden
+swift-argument-parser,BooleanLiteralReplacement,1b9b4f660bdfd4da91f48e7ddac9af77,/Sources/ArgumentParser/Parsing/ArgumentDefinition.swift,212,true → false,not-equivalent,an optional-unary option would parse as unary
+swift-argument-parser,BooleanLiteralReplacement,ca5deb8c0a6c3e64d939af053b2873ec,/Sources/ArgumentParser/Parsable Properties/OptionGroup.swift,40,false → true,equivalent,a workaround property nothing reads
+swift-argument-parser,BooleanLiteralReplacement,77818fdba25c0b9a11a03539f21a1233,/Sources/ArgumentParser/Parsing/ParsedValues.swift,21,true → false,not-equivalent,a parsed array would keep its initial elements
+swift-argument-parser,BooleanLiteralReplacement,2793cb6ff964028abfd8c1f641bbf9ad,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,190,false → true,not-equivalent,a composite flag renders differently in help
+swift-argument-parser,BooleanLiteralReplacement,bfe1df1d20c2e5bec0e3f47827df89ea,/Sources/ArgumentParser/Parsing/ArgumentDefinition.swift,214,false → true,not-equivalent,a unary option would parse as nullary
+swift-argument-parser,LogicalOperatorReplacement,938baddafd3ebbbd0acb723f409cdd8b,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,660,|| → &&,not-equivalent,a subcommand would need its name and an alias at once
+swift-argument-parser,LogicalOperatorReplacement,f90deed7d02ed28d3234d00e018aa510,/Sources/ArgumentParser/Parsable Types/ParsableCommand.swift,195,&& → ||,not-equivalent,any repeating positional would collect unrecognized input
+swift-argument-parser,LogicalOperatorReplacement,280601caede5b732c9a67f6dcb36eb84,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,607,&& → ||,not-equivalent,any repeating positional would collect unrecognized input
+swift-argument-parser,LogicalOperatorReplacement,6b82644669ca68defb0f5c0306b766eb,/Sources/ArgumentParser/Parsing/SplitArguments.swift,762,|| → &&,not-equivalent,every short option would be rejected
+swift-argument-parser,LogicalOperatorReplacement,4ace0522eabc16df125a586e56606e14,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,634,|| → &&,not-equivalent,passthrough capture is inverted
+swift-argument-parser,LogicalOperatorReplacement,4bef60a753057fa336dc46fb983e81c5,/Sources/ArgumentParser/Parsable Properties/ArgumentDiscussion.swift,149,&& → ||,not-equivalent,enumerated discussions would compare equal on one part
+swift-argument-parser,LogicalOperatorReplacement,26429a70a91e1fbaff1a3b58cfd38777,/Sources/ArgumentParser/Parsable Types/ParsableCommand.swift,189,&& → ||,not-equivalent,any repeating positional would count as passthrough
+swift-argument-parser,LogicalOperatorReplacement,03cbde7b0f31a2498c672497eaa496f3,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,664,&& → ||,not-equivalent,passthrough capture is inverted
+swift-argument-parser,LogicalOperatorReplacement,882c1a25dea3c9a34bddadc608ecafa9,/Sources/ArgumentParser/Utilities/StringExtensions.swift,149,|| → &&,equivalent,an empty side falls through to the same distance
+swift-argument-parser,LogicalOperatorReplacement,fe71e52a902f0c8f8a6818b38aff4257,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,635,&& → ||,not-equivalent,passthrough capture is inverted
+swift-argument-parser,LogicalOperatorReplacement,154e0ace06b58c38eaaeb093361b948c,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,539,&& → ||,not-equivalent,any repeating positional would collect post-terminator input
+swift-argument-parser,NegateConditional,e5b39495abaaa7e459000bddc4401ff3,/Sources/ArgumentParser/Utilities/Platform.swift,272,"GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi) → !(GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))",not-measurable,Windows-only branch of an #if
+swift-argument-parser,NegateConditional,dccfbc597f768f3fb4af2e24df9ba8c1,/Sources/ArgumentParser/Parsing/SplitArguments.swift,317,index.subIndex == .sub(0) → !(index.subIndex == .sub(0)),not-equivalent,joined values are read from the wrong sub-element
+swift-argument-parser,NegateConditional,5ed84cd86140e6bf5131a394d3128d1a,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,663,"!matchedSubcommand.includesPassthroughArguments
+            && defaultCapturesForPassthrough → !(!matchedSubcommand.includesPassthroughArguments
+            && defaultCapturesForPassthrough)",not-equivalent,passthrough capture is inverted
+swift-argument-parser,NegateConditional,5154a02b1b4dac9588db68237d4cfb5e,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,243,positionals.count > index → !(positionals.count > index),not-equivalent,positional lookup is inverted
+swift-argument-parser,NegateConditional,83c5a48e1195aff75b0eab0310a90ef7,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,489,argumentSet.first(matching: nextParsed) != nil → !(argumentSet.first(matching: nextParsed) != nil),not-equivalent,a known next option is treated as unknown
+swift-argument-parser,NegateConditional,f345d03242bcc52cb1e6ccb2c2cd6c83,/Sources/ArgumentParser/Parsing/CommandParser.swift,208,currentNode.element.includesAllUnrecognizedArgument → !(currentNode.element.includesAllUnrecognizedArgument),not-equivalent,built-in flags are checked at the wrong time
+swift-argument-parser,NegateConditional,c22bb7ead53cf8cb6628b837bf51c6cd,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,674,capturesForPassthrough → !(capturesForPassthrough),not-equivalent,passthrough capture is inverted
+swift-argument-parser,NegateConditional,7757af98b9b2dbf9bb089fef72d4d3ba,/Sources/ArgumentParser/Parsing/SplitArguments.swift,762,char.isLetter || char.isNumber → !(char.isLetter || char.isNumber),not-equivalent,alphanumeric short options would be rejected
+swift-argument-parser,NegateConditional,5a6aead8a0f7ba01380d8cc34666e3fb,/Sources/ArgumentParser/Parsable Types/ParsableArguments.swift,48,matchRange.end == name.endIndex → !(matchRange.end == name.endIndex),not-equivalent,the _options suffix is stripped inversely
+swift-argument-parser,NegateConditional,660076e48fa4360bddbcd92e57e5c475,/Sources/ArgumentParser/Parsing/CommandParser.swift,448,rootCommand.configuration._superCommandName == nil → !(rootCommand.configuration._superCommandName == nil),not-equivalent,completion scripts for pseudo-commands are inverted
+swift-argument-parser,NegateConditional,e991836f65bf598800679f8236d59f9a,/Sources/ArgumentParser/Parsing/SplitArguments.swift,268,elements.count > 1 → !(elements.count > 1),not-equivalent,several arguments would count as none
+swift-argument-parser,NegateConditional,4d4ba15e4e98c7cd7e8786c6ea2f5f5b,/Sources/ArgumentParser/Validators/CodingKeyValidator.swift,58,missingCodingKeys.count > 1 → !(missingCodingKeys.count > 1),not-equivalent,the message's plural is inverted
+swift-argument-parser,NegateConditional,492b07e0e1ea0411182473d3baf29e0d,/Sources/ArgumentParser/Parsing/CommandParser.swift,70,!commandTree.isLeaf → !(!commandTree.isLeaf),not-equivalent,the help subcommand is added to leaves instead
+swift-argument-parser,NegateConditional,b2de3488e81bd8b378364ae14db6a53f,/Sources/ArgumentParser/Parsable Properties/Flag.swift,448,value == initial → !(value == initial),not-equivalent,the default value mark in help is inverted
+swift-argument-parser,NegateConditional,b4a2b9260066810b8bcf4f5f056367aa,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,335,argument.allowsJoinedValue → !(argument.allowsJoinedValue),not-equivalent,joined values are parsed inversely
+swift-argument-parser,NegateConditional,5944180b2d4df7ebfed9eb2a261b5b1c,/Sources/ArgumentParser/Parsing/SplitArguments.swift,221,!isEmpty → !(!isEmpty),not-equivalent,the description of a non-empty split is <empty>
+swift-argument-parser,NegateConditional,1928f3e810a4c7b7fd793957be66b341,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,430,argument.allowsJoinedValue → !(argument.allowsJoinedValue),not-equivalent,joined values are parsed inversely
+swift-argument-parser,NegateConditional,d8ba0171dc65744d8f34b1a7099040e0,/Sources/ArgumentParser/Utilities/Platform.swift,292,err == 0 → !(err == 0),not-equivalent,terminal size is read from a failed ioctl on a tty
+swift-argument-parser,NegateConditional,ed8cf79701472d5a5c8ef8c98554e97f,/Sources/ArgumentParser/Parsing/CommandParser.swift,309,"self.rootCommand.asyncCompletions(
+        parent: nil,
+        propertyPath: String(describing: self.rootCommand)
+      ).isEmpty == false → !(self.rootCommand.asyncCompletions(
+        parent: nil,
+        propertyPath: String(describing: self.rootCommand)
+      ).isEmpty == false)",not-equivalent,the async misuse diagnostic is inverted
+swift-argument-parser,NegateConditional,eaacbef8ed707024fe93c1427b50af70,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,487,!element.isTerminator → !(!element.isTerminator),not-equivalent,a terminator would be taken as the next option
+swift-argument-parser,RelationalOperatorReplacement,82433772ad1559108df8363dc7056624,/Sources/ArgumentParser/Parsable Properties/ArgumentDiscussion.swift,149,== → !=,not-equivalent,enumerated discussions compare inversely
+swift-argument-parser,RelationalOperatorReplacement,34cb27a77ef9feb9a67df66ba3651f61,/Sources/ArgumentParser/Utilities/Platform.swift,298,> → <,not-equivalent,a tty's width is reported inversely
+swift-argument-parser,RelationalOperatorReplacement,82223a80dc3b9b213c6d8efe9970ef86,/Sources/ArgumentParser/Parsing/SplitArguments.swift,268,> → >=,not-equivalent,a lone terminator would count as an argument
+swift-argument-parser,RelationalOperatorReplacement,fb4e3ef282810d7ad5a14658fde73742,/Sources/ArgumentParser/Parsing/SplitArguments.swift,143,< → <=,not-equivalent,a declared < turned into <= changes Comparable
+swift-argument-parser,RelationalOperatorReplacement,86f6b135c2a0635ac7902da671284464,/Sources/ArgumentParser/Parsing/SplitArguments.swift,161,== → !=,not-equivalent,index ordering is inverted on equal input indices
+swift-argument-parser,RelationalOperatorReplacement,23c61e499131ebb8c05ca8af51bb2a53,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,47,== → !=,not-equivalent,a repeated name would resolve to its last definition
+swift-argument-parser,RelationalOperatorReplacement,724d48213b547e0feecf54b5ccb40b3b,/Sources/ArgumentParser/Utilities/StringExtensions.swift,166,> → <,equivalent,the trimming loop is an optimization of the distance
+swift-argument-parser,RelationalOperatorReplacement,6570c3c4e5135681ab2028249145cf4a,/Sources/ArgumentParser/Usage/HelpGenerator.swift,94,< → <=,not-equivalent,a label of exactly the column width renders differently
+swift-argument-parser,RelationalOperatorReplacement,63dd13f37935e2a5d035282fe873be06,/Sources/ArgumentParser/Parsing/InputOrigin.swift,117,< → >,not-equivalent,a declared < turned into > changes Comparable
+swift-argument-parser,RelationalOperatorReplacement,92e55decfebbd2ec4b0b23aa5881dfed,/Sources/ArgumentParser/Parsing/SplitArguments.swift,162,< → >,not-equivalent,sub-index ordering is inverted
+swift-argument-parser,RelationalOperatorReplacement,36137eac2740dc862cbfa704dc601836,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,489,!= → ==,not-equivalent,a known next option is treated as unknown
+swift-argument-parser,RelationalOperatorReplacement,b0174531b1860b1618a3cf20df7506ad,/Sources/ArgumentParser/Parsing/SplitArguments.swift,539,> → >=,equivalent,"equality is handled by the line above, so > and >= agree"
+swift-argument-parser,RelationalOperatorReplacement,a147095dc09faf84b95044fbc157feb8,/Sources/ArgumentParser/Parsing/SplitArguments.swift,147,< → <=,not-equivalent,equal sub-indices would order before one another
+swift-argument-parser,RelationalOperatorReplacement,4e4c8af745b25acd77894ed610954374,/Sources/ArgumentParser/Parsable Properties/Flag.swift,552,!= → ==,not-equivalent,custom case help is detected inversely
+swift-argument-parser,RelationalOperatorReplacement,1efa69dbc326cad240039f6b0ab81673,/Sources/ArgumentParser/Parsing/SplitArguments.swift,317,== → !=,not-equivalent,joined values are read from the wrong sub-element
+swift-argument-parser,RelationalOperatorReplacement,df7bb24d6f127b8289bfd1b8efe4701d,/Sources/ArgumentParser/Parsing/SplitArguments.swift,143,< → >,not-equivalent,a declared < turned into > changes Comparable
+swift-argument-parser,RelationalOperatorReplacement,9d8fd9e8a864a2a3ffcb993f1d5bfb47,/Sources/ArgumentParser/Parsing/SplitArguments.swift,382,< → <=,not-equivalent,a terminator at the target position would count
+swift-argument-parser,RelationalOperatorReplacement,4c87d93f47f160d328a8b9fd375154e1,/Sources/ArgumentParser/Usage/UsageGenerator.swift,322,< → >,not-equivalent,the farthest suggestion would be offered
+swift-argument-parser,RelationalOperatorReplacement,1bef3ab2265534d78723a24971b09f8b,/Sources/ArgumentParser/Parsing/Name.swift,43,< → <=,equivalent,names with equal synopsis strings sort alike
+swift-argument-parser,RelationalOperatorReplacement,059872469ce46b6c7299525c09a18359,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,607,== → !=,not-equivalent,any repeating positional would collect unrecognized input
+swift-argument-parser,RemoveSideEffects,ed027be5ad147196b234c69f5bbd5418,/Sources/ArgumentParser/Utilities/Platform.swift,172,Glibc.exit(code) → ,not-measurable,Linux-only branch of an #if
+swift-argument-parser,RemoveSideEffects,44f3ffcd78a8e8d524be02da2024e9c5,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,445,inputArguments.removeAll(in: origin) → ,not-equivalent,consumed input is no longer removed
+swift-argument-parser,RemoveSideEffects,00ee802209641e62ad1533ead5dae0b0,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,316,usedOrigins.formUnion(origins) → ,not-equivalent,used origins are no longer tracked
+swift-argument-parser,RemoveSideEffects,9d8801dcd4288fd5ea00dafe96062ef8,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,97,"values.set(initialValue, forKey: key, inputOrigin: origin) → ",not-equivalent,a flag's initial value is dropped
+swift-argument-parser,RemoveSideEffects,391ba21ae7e7b06d489800cf73dba83e,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,521,usedOrigins.formUnion(origin) → ,not-equivalent,used origins are no longer tracked
+swift-argument-parser,RemoveSideEffects,2c360868b6f4c780f26f8ec6e31161df,/Sources/ArgumentParser/Parsable Types/ParsableCommand.swift,152,failAsyncPlatform(rootCommand: self) → ,not-equivalent,the async misuse diagnostic is dropped
+swift-argument-parser,RemoveSideEffects,4df8ffabb24de8a2a301aa5b48a0dfb6,/Sources/ArgumentParser/Parsable Properties/ArgumentDiscussion.swift,160,hasher.combine(text) → ,equivalent,dropping a hash component keeps the Hashable contract
+swift-argument-parser,RemoveSideEffects,6aed569c2f73d2f3f30e55ee68b17515,/Sources/ArgumentParser/Utilities/Platform.swift,178,ucrt._exit(code) → ,not-measurable,Windows-only branch of an #if
+swift-argument-parser,RemoveSideEffects,2c45d0b11e34785f2010c488433bf00d,/Sources/ArgumentParser/Utilities/StringExtensions.swift,230,newTarget.formIndex(after: &targetIdx) → ,not-equivalent,the edit distance loop no longer advances
+swift-argument-parser,RemoveSideEffects,870cec53a5f8970fc1929fe861f28ee8,/Sources/ArgumentParser/Parsing/CommandParser.swift,239,decodedArguments.append(contentsOf: newDecodedValues) → ,not-equivalent,decoded parent arguments are dropped
+swift-argument-parser,RemoveSideEffects,29924c05aa5feb59e547186301868f3a,/Sources/ArgumentParser/Parsable Properties/Flag.swift,673,"values.set(initial, forKey: key, inputOrigin: origin) → ",not-equivalent,a flag's initial value is dropped
+swift-argument-parser,RemoveSideEffects,e131e12a2fed574a055cbab75bdc0d15,/Sources/ArgumentParser/Parsable Types/ParsableArguments.swift,315,"configurationFailure(""\(error)"") → ",not-equivalent,the configuration diagnostic is dropped
+swift-argument-parser,RemoveSideEffects,c3853b62ca473fe2335d3bff5d281f58,/Sources/ArgumentParser/Utilities/Mutex.swift,87,ReleaseSRWLockExclusive(platformLock) → ,not-measurable,Windows-only branch of an #if
+swift-argument-parser,RemoveSideEffects,5f06f3ca78546d99774b8db3e6237c03,/Sources/ArgumentParser/Parsable Properties/OptionGroup.swift,58,d.saveValue(wrappedValue) → ,not-equivalent,an option group's value is no longer saved
+swift-argument-parser,RemoveSideEffects,0bd7b44660dfed73f2b4d58dec6f1dec,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,444,usedOrigins.formUnion(origin) → ,not-equivalent,used origins are no longer tracked
+swift-argument-parser,RemoveSideEffects,34b24623b7474795fd70babb6454605e,/Sources/ArgumentParser/Usage/DumpHelpGenerator.swift,66,"superCommands.insert(superName, at: 0) → ",not-equivalent,the super command's name leaves the help dump
+swift-argument-parser,RemoveSideEffects,d0a3d478e641f7b8b5c71bb3a064869a,/Sources/ArgumentParser/Parsable Properties/ArgumentDiscussion.swift,161,hasher.combine(ObjectIdentifier(options)) → ,equivalent,dropping a hash component keeps the Hashable contract
+swift-argument-parser,RemoveSideEffects,3f0fbf89017ac8d663983f813224381f,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,342,usedOrigins.formUnion(origins) → ,not-equivalent,used origins are no longer tracked
+swift-argument-parser,RemoveSideEffects,51c944a75279b237bf7a501daa8e3a85,/Sources/ArgumentParser/Utilities/Platform.swift,180,WASILibc.exit(code) → ,not-measurable,WASI-only branch of an #if
+swift-argument-parser,RemoveSideEffects,4bb3ce99ced97a109707e151cf456a65,/Sources/ArgumentParser/Parsing/ArgumentSet.swift,409,usedOrigins.formUnion(origins) → ,not-equivalent,used origins are no longer tracked
+swift-argument-parser,SwapTernary,59e45e45903ba106a6481a3a72890a23,/Sources/ArgumentParser/Usage/MessageInfo.swift,170,"message.isEmpty ? """" : ""\(args._errorPrefix)\(message)"" → message.isEmpty ? ""\(args._errorPrefix)\(message)"" : """"",not-equivalent,the error message is emitted inversely
+swift-argument-parser,SwapTernary,7816c8007c83c740171b92d89cf30dc2,/Sources/ArgumentParser/Parsable Properties/Flag.swift,599,hasCustomCaseHelp ? (caseHelps[i] ?? help) : help → hasCustomCaseHelp ? help : (caseHelps[i] ?? help),not-equivalent,custom case help is applied inversely
+swift-argument-parser,SwapTernary,70eb9828ac960df255af851823fcc778,/Sources/ArgumentParser/Parsing/CommandParser.swift,417,arguments.isEmpty ? ParserError.noArguments(error) : error → arguments.isEmpty ? error : ParserError.noArguments(error),not-equivalent,noArguments is wrapped inversely
+swift-argument-parser,SwapTernary,6c34aba50bc11d221e8497a9d559ff9d,/Sources/ArgumentParser/Utilities/Platform.swift,298,width > 0 ? width : nil → width > 0 ? nil : width,not-equivalent,a tty's width is reported inversely
+swift-argument-parser,SwapTernary,41ccfbff32620952af2f5b4440b284b7,/Sources/ArgumentParser/Parsable Properties/Flag.swift,559,hasCustomCaseHelp ? (caseHelps[i] ?? help) : help → hasCustomCaseHelp ? help : (caseHelps[i] ?? help),not-equivalent,custom case help is applied inversely
+swift-argument-parser,SwapTernary,cdff76494b5eebc69393c7c631e6d0aa,/Sources/ArgumentParser/Parsable Types/ParsableArguments.swift,273,includeHidden ? .hidden : .default → includeHidden ? .default : .hidden,not-equivalent,hidden usage is shown inversely
+swift-argument-parser,SwapTernary,f117e90d8aa9f9973dee0c22a12bced0,/Sources/ArgumentParser/Parsable Types/ParsableCommand.swift,133,includeHidden ? .hidden : .default → includeHidden ? .default : .hidden,not-equivalent,hidden help is shown inversely
+swift-argument-parser,SwapTernary,b25ce6aa65e5e338614199054f5760da,/Sources/ArgumentParser/Utilities/Platform.swift,299,height > 0 ? height : nil → height > 0 ? nil : height,not-equivalent,a tty's height is reported inversely
+swift-log,ArithmeticOperatorReplacement,676480ac720caef5c3aed04fe94d8fc2,/Sources/Logging/Handlers/MultiplexLogHandler.swift,125,+ → -,equivalent,reserveCapacity is a hint
+swift-log,ArithmeticOperatorReplacement,942719643a8fac360bdb9ea87bd7c588,/Sources/Logging/Logger+Attributes.swift,347,+ → -,equivalent,reserveCapacity is a hint
+swift-log,ArithmeticOperatorReplacement,3754e1c0950b1be0342c77043e1d295f,/Sources/Logging/Logger+Attributes.swift,347,* → /,equivalent,reserveCapacity is a hint
+swift-log,BooleanLiteralReplacement,b95e58a9e417cef9bdea8c8bf464fd67,/Sources/Logging/LoggingSystem.swift,160,false → true,not-equivalent,a validated bootstrap would trap on first use
+swift-log,BooleanLiteralReplacement,9b6cda9820d4a6c597c462c89fc4d54c,/Sources/Logging/Locks.swift,189,true → false,not-measurable,Windows-only branch of an #if
+swift-log,BooleanLiteralReplacement,b84e261b765ca08f8fd905b3d02fa56e,/Sources/Logging/LoggingSystem.swift,167,true → false,not-equivalent,a second validated bootstrap would no longer trap
+swift-log,BooleanLiteralReplacement,3f4c97ae54a3c68643156d1326751b2f,/Sources/InMemoryLogging/InMemoryLogHandler.swift,82,true → false,not-equivalent,two nil errors would compare unequal
+swift-log,BooleanLiteralReplacement,f8ca3eb132e4652f0579dda44141d765,/Sources/Logging/Logger+Attributes.swift,168,false → true,not-equivalent,metadata of different sizes would compare equal
+swift-log,BooleanLiteralReplacement,298e88a28fe9565b1fc0a060a3c4e5a7,/Sources/Logging/Logger+Attributes.swift,174,false → true,not-equivalent,a missing inline entry would compare equal
+swift-log,BooleanLiteralReplacement,454d29f0717fe7ce6d34261ddbb8b9b5,/Sources/Logging/Locks.swift,239,false → true,not-measurable,Windows-only branch of an #if
+swift-log,BooleanLiteralReplacement,f40d4deddb4933dcda89d9805ffe84fe,/Sources/Logging/Logger.swift,1338,false → true,not-equivalent,metadata values of different kinds would compare equal
+swift-log,BooleanLiteralReplacement,a2e9a70a3b8e941ace667e03ae0e31d0,/Sources/Logging/Locks.swift,225,true → false,not-measurable,Windows-only branch of an #if
+swift-log,NegateConditional,7d0ea3aa492ee1e5c9466d44ce6c1bf5,/Sources/Logging/Locks.swift,253,self.shared → !(self.shared),not-measurable,Windows-only branch of an #if
+swift-log,NegateConditional,8cc38d364b2b25464ee4c37f6ba918bc,/Sources/Logging/Logger+Attributes.swift,128,!overflow.isEmpty → !(!overflow.isEmpty),not-equivalent,the overflow is never promoted to the inline slot
+swift-log,NegateConditional,65bf12f98b6c19a6c2c07d96a0b85081,/Sources/Logging/Logger+Attributes.swift,114,self._inline == nil → !(self._inline == nil),not-equivalent,the inline slot would be skipped
+swift-log,RelationalOperatorReplacement,d0afd4773b5e26d5158969357ca1fe6b,/Sources/Logging/Handlers/MultiplexLogHandler.swift,124,!= → ==,equivalent,reserveCapacity is a hint
+swift-log,RelationalOperatorReplacement,98617ed1271bf1332ac3a8a900578450,/Sources/Logging/Handlers/StreamLogHandler.swift,184,!= → ==,not-equivalent,an error alone would no longer produce metadata
+swift-log,RelationalOperatorReplacement,7e4a37ece00d63cd291730a607b59adb,/Sources/Logging/Handlers/StreamLogHandler.swift,209,< → <=,equivalent,"dictionary keys are unique, so < and <= sort alike"
+swift-log,RelationalOperatorReplacement,4af87f8172a4b7b3f42667e97bc91011,/Sources/Logging/Logger+Attributes.swift,169,> → >=,not-equivalent,non-empty metadata would compare equal without looking
+swift-log,RelationalOperatorReplacement,1ab2b6c0c131463b6e884338d07e0954,/Sources/Logging/Handlers/StreamLogHandler.swift,262,> → >=,equivalent,writing zero bytes does nothing
+swift-log,RelationalOperatorReplacement,1e717f3440c52ef50c522ee58ecdaca5,/Sources/Logging/Logger+Attributes.swift,114,== → !=,not-equivalent,the inline slot would be skipped
+swift-log,RemoveSideEffects,335d107ee0fa4d4b9d517009d2970b78,/Sources/Logging/Locks.swift,293,self.lockWrite() → ,not-equivalent,a writer lock no longer taken
+swift-log,RemoveSideEffects,963adedb6cf0d8b1414b1b9401f0eb6d,/Sources/Logging/Locks.swift,169,body() → ,equivalent,a debug-only side effect inside an assert
+swift-log,RemoveSideEffects,8707ce4ef580c133836aadb3fd8723ba,/Sources/Logging/Locks.swift,106,mutex.deallocate() → ,equivalent,a leak in deinit; nothing a test can observe
+swift-log,RemoveSideEffects,97341cfc2f87d045919907c0856e4138,/Sources/Logging/LoggingSystem.swift,80,"self._metadataProviderFactory.replace(nil, validate: false) → ",not-equivalent,a metadata provider would survive a re-bootstrap
+swift-log,RemoveSideEffects,c667b2894baae82678af60e3f5ceea9f,/Sources/Logging/Locks.swift,102,mutex.deallocate() → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,db25a1d0eab89577a875c0b1823c7585,/Sources/Logging/Locks.swift,224,AcquireSRWLockShared(self.rwlock) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,e5bb1f88020715dfa4e61c78c611c847,/Sources/Logging/Locks.swift,116,AcquireSRWLockExclusive(self.mutex) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,4fe63c7fb2b4929205f4388a8e6b2f10,/Sources/Logging/Locks.swift,72,InitializeSRWLock(self.mutex) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,6ec1d253189a780e2e2b0be0c3ed68c1,/Sources/Logging/Locks.swift,201,InitializeSRWLock(self.rwlock) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,d50a85c37cb369479c433aaa8c648243,/Sources/Logging/Locks.swift,81,"debugOnly {
+            #if os(FreeBSD) || os(OpenBSD)
+            pthread_mutexattr_settype(&attr, .init(PTHREAD_MUTEX_ERRORCHECK.rawValue))
+            #else
+            pthread_mutexattr_settype(&attr, .init(PTHREAD_MUTEX_ERRORCHECK))
+            #endif
+        } → ",equivalent,a debug-only side effect inside an assert
+swift-log,RemoveSideEffects,185ba569e8fe9a65692fba0338148a97,/Sources/Logging/Handlers/StreamLogHandler.swift,285,contiguousString.makeContiguousUTF8() → ,equivalent,the UTF-8 view reads the same either way
+swift-log,RemoveSideEffects,e689bb1dfb0ef23c21d5df06bef859c1,/Sources/Logging/Locks.swift,254,ReleaseSRWLockShared(self.rwlock) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,b58974ebd0c06c8c1b83e10bb83176af,/Sources/Logging/Locks.swift,276,self.lockRead() → ,not-equivalent,a reader lock no longer taken
+swift-log,RemoveSideEffects,be9054c08ab42f95ec41a93190569d80,/Sources/Logging/Handlers/MultiplexLogHandler.swift,102,self.mutatingForEachHandler { $0.logLevel = newValue } → ,not-equivalent,the handlers' log level is no longer set
+swift-log,RemoveSideEffects,e336bc71b6bf582f4b0e507affdf35fd,/Sources/Logging/Handlers/MultiplexLogHandler.swift,186,effective.reserveCapacity(self.handlers.first!.metadata.count) → ,equivalent,reserveCapacity is a hint
+swift-log,RemoveSideEffects,708f2e33791fe0f452707b744e1055ae,/Sources/Logging/Locks.swift,256,ReleaseSRWLockExclusive(self.rwlock) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,0ed75e48737832c0b017440d29b7c2f6,/Sources/Logging/Logger+Attributes.swift,419,self.appendInterpolation(value) → ,not-equivalent,the value is no longer interpolated
+swift-log,RemoveSideEffects,a4c060069f33a43d65dfd150c9b6447f,/Sources/Logging/Locks.swift,238,AcquireSRWLockExclusive(self.rwlock) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,625e186000b834afc47c91ef144d67a5,/Sources/Logging/Locks.swift,129,ReleaseSRWLockExclusive(self.mutex) → ,not-measurable,Windows-only branch of an #if
+swift-log,RemoveSideEffects,401f8c147f119d55120c9b31f9559d04,/Sources/Logging/Handlers/MultiplexLogHandler.swift,125,providers.reserveCapacity(self.handlers.count + additionalMetadataProviderCount) → ,equivalent,reserveCapacity is a hint
+swift-log,SwapTernary,3caaf52c8bec7f90822100e6405632e1,/Sources/Logging/Logger+Attributes.swift,130,self._overflow = overflow.isEmpty ? nil : overflow → self._overflow = overflow.isEmpty ? overflow : nil,not-equivalent,the overflow is kept exactly when it is empty
+swift-log,SwapTernary,200b91339193dca21094dc85646b8b72,/Sources/Logging/Handlers/MultiplexLogHandler.swift,124,self._metadataProvider != nil ? 1 : 0 → self._metadataProvider != nil ? 0 : 1,equivalent,reserveCapacity is a hint

@@ -21,7 +21,7 @@ Mutation testing introduces controlled changes to your code to verify that your 
 
 - Mutation testing for Xcode and SPM projects
 - Supports both XCTest and Swift Testing frameworks
-- 7 mutation operators (relational, boolean, logical, arithmetic, negate conditional, swap ternary, remove side effects)
+- 7 mutation operators (relational, boolean, logical, arithmetic, negate conditional, swap ternary, remove side effects), in tiers measured on real packages — `--operator-tier` picks how deep a run goes, see [Operators](Docs/OPERATORS.md)
 - Schematization — builds once, tests all mutants via runtime switch
 - Activation verification — every verdict records whether the mutated code actually ran; a passing suite that never reached it is reported as no coverage, and a mutant missing from the build stops the run
 - Parallel test execution with configurable concurrency
@@ -146,6 +146,7 @@ Then ask Claude, in a Swift project, something like *"how good are the tests in 
 | [Installation](Docs/INSTALLATION.MD) | Homebrew, pre-built binary, build from source |
 | [Usage & Configuration](Docs/USAGE.MD) | CLI options, YAML config, output formats, CI integration |
 | [Mutation Results](Docs/MUTATION-RESULTS.md) | What each result means and when it occurs; schematizable vs incompatible mutants |
+| [Operators](Docs/OPERATORS.md) | Every operator's tier, the campaign that measured it, and how to reproduce the numbers |
 | [Architecture](Docs/Architecture/README.md) | Pipeline design, module map, schematization, execution model |
 | [Codebase Reference](Docs/CodeBase/README.md) | Every type, protocol, and stage documented |
 | [Stryker Compatibility](Docs/STRYKER-COMPATIBILITY.md) | JSON report format compatibility with the Stryker schema |
