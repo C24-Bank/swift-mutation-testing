@@ -5,8 +5,11 @@ struct TestOutputParser: Sendable {
         case unviable
     }
 
+    /// A failing test anywhere in the output names the kill; a crash marker counts only when no test
+    /// failed, since a test's own name or arguments may mention one.
     func parse(_ output: String) -> Result {
         var hasTestOutput = false
+        var crashed = false
 
         for line in output.components(separatedBy: "\n") {
             if let name = failingTest(in: line) {
@@ -14,7 +17,7 @@ struct TestOutputParser: Sendable {
             }
 
             if line.contains("Fatal error") || line.contains("EXC_BAD_INSTRUCTION") {
-                return .crashed
+                crashed = true
             }
 
             if line.contains("Test Suite")
@@ -29,7 +32,7 @@ struct TestOutputParser: Sendable {
             }
         }
 
-        return hasTestOutput ? .crashed : .unviable
+        return crashed || hasTestOutput ? .crashed : .unviable
     }
 
     func failingTests(in output: String) -> [String] {
