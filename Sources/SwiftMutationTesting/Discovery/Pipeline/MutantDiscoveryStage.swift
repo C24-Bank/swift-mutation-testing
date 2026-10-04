@@ -1,22 +1,22 @@
 struct MutantDiscoveryStage: Sendable {
     let operators: [any MutationOperator]
 
-    func run(sources: [ParsedSource]) async -> [MutationPoint] {
-        let extractor = SuppressionAnnotationExtractor()
-        let filter = SuppressionFilter()
-        let loopExtractor = InfiniteLoopBodyExtractor()
-        let loopFilter = InfiniteLoopFilter()
+    private let suppressionExtractor = SuppressionAnnotationExtractor()
+    private let suppressionFilter = SuppressionFilter()
+    private let loopExtractor = InfiniteLoopBodyExtractor()
+    private let loopFilter = InfiniteLoopFilter()
+    private let regionExtractor = InactiveRegionExtractor()
+    private let regionFilter = InactiveRegionFilter()
 
+    init(operators: [any MutationOperator]) {
+        self.operators = operators
+    }
+
+    func run(sources: [ParsedSource]) async -> [MutationPoint] {
         let allMutations = await withTaskGroup(of: [MutationPoint].self) { group in
             for source in sources {
                 group.addTask {
-                    self.mutationPoints(
-                        for: source,
-                        extractor: extractor,
-                        filter: filter,
-                        loopExtractor: loopExtractor,
-                        loopFilter: loopFilter
-                    )
+                    self.mutationPoints(for: source)
                 }
             }
 
@@ -38,17 +38,13 @@ struct MutantDiscoveryStage: Sendable {
         }
     }
 
-    private func mutationPoints(
-        for source: ParsedSource,
-        extractor: SuppressionAnnotationExtractor,
-        filter: SuppressionFilter,
-        loopExtractor: InfiniteLoopBodyExtractor,
-        loopFilter: InfiniteLoopFilter
-    ) -> [MutationPoint] {
-        let suppressedRanges = extractor.extractSuppressedRanges(from: source.syntax)
+    private func mutationPoints(for source: ParsedSource) -> [MutationPoint] {
+        let suppressedRanges = suppressionExtractor.extractSuppressedRanges(from: source.syntax)
         let loopBodyRanges = loopExtractor.extractLoopBodyRanges(from: source.syntax)
+        let inactiveRanges = regionExtractor.extractInactiveRanges(from: source.syntax)
         let mutations = operators.flatMap { $0.mutations(in: source) }
-        let afterSuppression = filter.filter(mutations, suppressedRanges: suppressedRanges)
-        return loopFilter.filter(afterSuppression, loopBodyRanges: loopBodyRanges)
+        let afterSuppression = suppressionFilter.filter(mutations, suppressedRanges: suppressedRanges)
+        let afterLoops = loopFilter.filter(afterSuppression, loopBodyRanges: loopBodyRanges)
+        return regionFilter.filter(afterLoops, inactiveRanges: inactiveRanges)
     }
 }
