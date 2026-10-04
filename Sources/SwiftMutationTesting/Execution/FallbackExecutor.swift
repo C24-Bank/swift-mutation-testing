@@ -29,15 +29,11 @@ struct FallbackExecutor: Sendable {
             projectPath: input.projectPath,
             schematizedFiles: [file]
         )
+        defer { try? sandbox.cleanup() }
 
-        do {
-            try ApplicationVerifier().verify(
-                schematizedFiles: [file], mutants: fileMutants, sandbox: sandbox, projectPath: input.projectPath
-            )
-        } catch {
-            try? sandbox.cleanup()
-            throw error
-        }
+        try ApplicationVerifier().verify(
+            schematizedFiles: [file], mutants: fileMutants, sandbox: sandbox, projectPath: input.projectPath
+        )
 
         await deps.reporter.report(.fallbackBuildStarted(filePath: file.originalPath))
 
@@ -54,7 +50,6 @@ struct FallbackExecutor: Sendable {
                 await deps.reporter.report(.fallbackBuildFinished(filePath: file.originalPath, success: true))
             } catch {
                 await deps.reporter.report(.fallbackBuildFinished(filePath: file.originalPath, success: false))
-                try? sandbox.cleanup()
                 return await markBuildFailure(error, mutants: fileMutants)
             }
 
@@ -67,7 +62,6 @@ struct FallbackExecutor: Sendable {
                 await deps.reporter.report(.fallbackBuildFinished(filePath: file.originalPath, success: true))
             } catch {
                 await deps.reporter.report(.fallbackBuildFinished(filePath: file.originalPath, success: false))
-                try? sandbox.cleanup()
                 return await markBuildFailure(error, mutants: fileMutants)
             }
         }
@@ -82,9 +76,7 @@ struct FallbackExecutor: Sendable {
             testFilter: selection.filter
         )
 
-        let stageResults = try await TestExecutionStage(deps: deps).execute(mutants: fileMutants, in: context)
-        try? sandbox.cleanup()
-        return stageResults
+        return try await TestExecutionStage(deps: deps).execute(mutants: fileMutants, in: context)
     }
 
     private func cachedResults(for mutants: [MutantDescriptor]) async -> [ExecutionResult]? {

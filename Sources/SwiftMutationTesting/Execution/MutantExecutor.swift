@@ -52,17 +52,15 @@ struct MutantExecutor: Sendable {
             schematizedFiles: input.schematizedFiles
         )
         SandboxCleaner.register(sandbox)
-
-        do {
-            try ApplicationVerifier().verify(
-                schematizedFiles: input.schematizedFiles, mutants: input.mutants,
-                sandbox: sandbox, projectPath: input.projectPath
-            )
-        } catch {
+        defer {
             try? sandbox.cleanup()
             SandboxCleaner.deregister()
-            throw error
         }
+
+        try ApplicationVerifier().verify(
+            schematizedFiles: input.schematizedFiles, mutants: input.mutants,
+            sandbox: sandbox, projectPath: input.projectPath
+        )
 
         let (artifact, schemaBuildExcluded) = try await buildArtifact(sandbox: sandbox, input: input, deps: deps)
         let pool = try await makePool(launcher: launcher)
@@ -84,14 +82,10 @@ struct MutantExecutor: Sendable {
             try Self.requireObservedActivation(in: results)
         } catch {
             await pool.tearDown()
-            try? sandbox.cleanup()
-            SandboxCleaner.deregister()
             throw error
         }
 
         await pool.tearDown()
-        try? sandbox.cleanup()
-        SandboxCleaner.deregister()
         try await cacheStore.persist()
         try await cacheStore.persistMetadata(metadata)
 
