@@ -100,6 +100,19 @@ struct TestOutputParserTests {
         #expect(result == .crashed)
     }
 
+    @Test("Given a test name that mentions a crash marker before a failing test, when parsed, then the test names the kill")
+    func testNameMentioningACrashMarkerDoesNotHideTheFailingTest() {
+        let output = """
+            ◇ Test "Given output with EXC_BAD_INSTRUCTION, when parsed, then returns crashed" started.
+            ◇ Test case passing 1 argument line → "Fatal error: unexpectedly found nil" started.
+            ✘ Test "Given a body, when walked, then its shape is known" recorded an issue at A.swift:3:9: Expectation failed
+            """
+
+        let result = TestOutputParser().parse(output)
+
+        #expect(result == .killed(by: "Given a body, when walked, then its shape is known"))
+    }
+
     @Test("Given SPM swift test output with EXC_BAD_INSTRUCTION, when parsed, then returns crashed")
     func parsesSPMEXCBadInstructionCrash() throws {
         let output = try loadTestFixture("spm_xctest_exc_bad_instruction")
