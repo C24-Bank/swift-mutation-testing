@@ -79,7 +79,7 @@ flowchart TD
 flowchart LR
     subgraph Discovery
         FD[FileDiscoveryStage] --> PS[ParsingStage]
-        PS --> MD["MutantDiscoveryStage\noperators → suppression → infinite-loop filter"]
+        PS --> MD["MutantDiscoveryStage\noperators → suppression → infinite-loop filter → inactive #if filter"]
         MD --> MI[MutantIndexingStage]
         MI --> SS[SchematizationStage]
         MI --> IRS[IncompatibleRewritingStage]

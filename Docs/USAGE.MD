@@ -541,6 +541,8 @@ struct GeneratedModel {
 
 Suppressed mutations never appear in the report — they are filtered out before execution.
 
+Some code is never mutated without any annotation: test files, package manifests, `Snippets/`, and the branches of an `#if` the macOS build leaves out — `#if os(Windows)`, `#if os(Linux)`, `#if canImport(Glibc)`, the `#else` of `#if canImport(Darwin)`. A mutant there compiles to nothing and no test could reach it, so it would only inflate the survivor count. An `#if` on a module the tool does not know is kept whole.
+
 ---
 
 ## Quality Gate

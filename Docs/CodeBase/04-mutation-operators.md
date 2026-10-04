@@ -29,7 +29,7 @@ class MutationSyntaxVisitor: SyntaxVisitor {
 }
 ```
 
-Every operator's visitor inherits one rule: the condition of an `#if`, `#elseif` or `#else` clause is never visited. It is a compile-time expression — `#if DEBUG && !os(Windows)`, `#elseif compiler(<6.1)` — whose `&&`, `||`, `<` and literals are not code that runs, and a mutation there changes what compiles instead of what executes. The clause's code is walked as usual, whichever branch the build will take: a mutant inside a branch the build leaves out compiles to nothing and can only survive, which the campaign in `Docs/OPERATORS.md` records as not measurable.
+Every operator's visitor inherits one rule: the condition of an `#if`, `#elseif` or `#else` clause is never visited. It is a compile-time expression — `#if DEBUG && !os(Windows)`, `#elseif compiler(<6.1)` — whose `&&`, `||`, `<` and literals are not code that runs, and a mutation there changes what compiles instead of what executes. The clause's code is walked as usual, whichever branch the build will take; the points that fall in a branch the host build leaves out are dropped afterwards, by the filter in [Inactive `#if` branches](#inactive-if-branches).
 
 Base class for all operator visitors. Subclasses override `visit(_:)` methods to detect applicable nodes and append `MutationPoint` values to `mutations`.
 
@@ -274,6 +274,47 @@ struct InfiniteLoopFilter: Sendable {
 Removes the points of the two risky operators whose `utf8Offset` falls inside a collected range. Every other operator passes through untouched, and a file with no `while` or `repeat` returns its points unchanged without any range checks.
 
 `MutantDiscoveryStage` applies this after `SuppressionFilter`, so a suppressed region is never even considered.
+
+---
+
+## Inactive `#if` branches
+
+A mutant inside an `#if os(Windows)` or `#if canImport(Glibc)` branch compiles to nothing on the macOS host: no test can reach it, it can only survive, and it would count against the operator for a flaw that is not the operator's. Those points are dropped at discovery. The decision of which clause is active is SwiftIfConfig's — the same module the compiler's tooling uses — given a description of the host build.
+
+### Discovery/IfConfig/HostBuildConfiguration.swift
+
+```swift
+struct HostBuildConfiguration: BuildConfiguration {
+    static let modulesPresent: Set<String>
+    static let modulesAbsent: Set<String>
+    static var hostArchitecture: String
+    static let hostCompilerVersion: VersionTuple
+    init(compilerVersion: VersionTuple = Self.hostCompilerVersion)
+}
+```
+
+The build the tool runs: macOS, the host architecture, `DEBUG` and `SWIFT_PACKAGE` set, the Objective-C runtime, Mach-O, 64-bit pointers, language version 6 and the compiler the tool was built with. Everything but `canImport` is delegated to SwiftIfConfig's `StaticBuildConfiguration`. `canImport` is answered from two curated lists — Apple's and the toolchain's modules present, the other platforms' C libraries and UI frameworks absent — and throws for any other module, which is the signal the extractor below reads as *undecidable*. The type is not `Sendable`, so the extractor builds one per file.
+
+### Discovery/IfConfig/InactiveRegionExtractor.swift
+
+```swift
+struct InactiveRegionExtractor: Sendable {
+    init(compilerVersion: VersionTuple = HostBuildConfiguration.hostCompilerVersion)
+    func extractInactiveRanges(from syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
+}
+```
+
+Asks SwiftIfConfig for the configured regions of the file and returns the range of every clause that is not active — *inactive* ones and *unparsed* ones alike, the latter being the branches a `swift(…)` or `compiler(…)` check turns off. An `#if` whose condition cannot be decided — a `canImport` of a module in neither list, a malformed condition — keeps every one of its clauses, because SwiftIfConfig would otherwise take its `#else` for the active one; and should such an error not be traceable to a clause, the file keeps everything. Dropping a real mutant is the error this code avoids.
+
+### Discovery/IfConfig/InactiveRegionFilter.swift
+
+```swift
+struct InactiveRegionFilter: Sendable {
+    func filter(_ mutationPoints: [MutationPoint], inactiveRanges: [Range<AbsolutePosition>]) -> [MutationPoint]
+}
+```
+
+Removes any point whose `utf8Offset` falls inside a collected range, for every operator. `MutantDiscoveryStage` applies it last, after the infinite-loop filter.
 
 ---
 

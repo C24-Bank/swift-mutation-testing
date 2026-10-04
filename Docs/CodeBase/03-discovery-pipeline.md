@@ -145,9 +145,9 @@ struct MutantDiscoveryStage: Sendable {
 
 Applies all active operators concurrently across sources via `withTaskGroup`. For each source:
 
-1. Extracts suppressed ranges via `SuppressionAnnotationExtractor`
+1. Extracts suppressed ranges via `SuppressionAnnotationExtractor`, `while`/`repeat` bodies via `InfiniteLoopBodyExtractor` and the `#if` clauses the host build leaves out via `InactiveRegionExtractor`
 2. Collects mutation points from every operator
-3. Removes suppressed points via `SuppressionFilter`
+3. Removes suppressed points via `SuppressionFilter`, then the loop-risking points via `InfiniteLoopFilter`, then the points in inactive clauses via `InactiveRegionFilter`
 
 Results are sorted by `filePath` then `utf8Offset`.
 
