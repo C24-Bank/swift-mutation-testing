@@ -87,8 +87,13 @@ struct OrphanedProcessReaperTests {
         finished.executableURL = URL(fileURLWithPath: "/usr/bin/true")
         try finished.run()
         finished.waitUntilExit()
+        let deadRun = finished.processIdentifier
+        let reapDeadline = ContinuousClock.now + .seconds(5)
+        while kill(deadRun, 0) == 0, ContinuousClock.now < reapDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
 
-        let sandbox = baseDir.appendingPathComponent(SandboxName.make(pid: finished.processIdentifier))
+        let sandbox = baseDir.appendingPathComponent(SandboxName.make(pid: deadRun))
         try FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
         let file = sandbox.appendingPathComponent("output.log")
         FileManager.default.createFile(atPath: file.path, contents: nil)
@@ -106,7 +111,9 @@ struct OrphanedProcessReaperTests {
         let pid = orphan.processIdentifier
         reaper.processes = { [pid] }
 
-        #expect(reaper.reap() == [pid])
+        // A run starting in another test at the same time sweeps the whole machine and may reap it first.
+        let reaped = reaper.reap()
+        #expect(reaped == [pid] || !orphan.isRunning)
 
         let deadline = ContinuousClock.now + .seconds(5)
         while orphan.isRunning, ContinuousClock.now < deadline {

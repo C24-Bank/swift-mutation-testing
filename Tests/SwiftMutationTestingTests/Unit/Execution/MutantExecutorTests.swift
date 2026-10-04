@@ -1043,6 +1043,43 @@ struct MutantExecutorTests {
         }
     }
 
+    @Test("Given the shared build times out, when the run fails, then its sandbox is removed")
+    func aFailedRunLeavesNoSandboxBehind() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let marker = "Marker-\(UUID().uuidString).swift"
+        let sourceFile = dir.appendingPathComponent(marker)
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
+            launcher: MockProcessLauncher(exitCode: SPMResultParser.timedOutExitCode)
+        )
+
+        let input = makeRunnerInput(
+            projectPath: dir.path,
+            projectType: .spm,
+            schematizedFiles: [
+                SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")
+            ],
+            mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+        )
+
+        await #expect(throws: BuildError.self) {
+            try await executor.execute(input)
+        }
+
+        let sandboxDirectory = SandboxName.directory
+        let holdsMarker: (String) -> Bool = { name in
+            let path = sandboxDirectory.appending(path: "\(name)/\(marker)").path
+            return FileManager.default.fileExists(atPath: path)
+        }
+        let sandboxes = try FileManager.default.contentsOfDirectory(atPath: sandboxDirectory.path)
+            .filter { $0.hasPrefix(SandboxName.prefix) && holdsMarker($0) }
+        #expect(sandboxes.isEmpty)
+    }
+
     @Test("Given the first SPM build fails, when the retry build runs, then it is also bounded by the build timeout")
     func spmRetryBuildUsesBuildTimeout() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

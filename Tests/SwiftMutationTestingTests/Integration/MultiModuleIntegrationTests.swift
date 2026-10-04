@@ -3,12 +3,14 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration))
+@Suite(.tags(.integration), .serialized)
 struct MultiModuleIntegrationTests {
 
     @Test("Given a package with two modules, when executed, then one build tests every mutant of both")
     func bothModulesAreSchematizedInOneBuild() async throws {
-        let fixtureURL = calcModulesURL()
+        let fixture = try FixtureCopy.make("CalcModules")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let configuration = makeRunnerConfiguration(
             projectPath: fixtureURL.path, projectType: .spm, timeout: 60, buildTimeout: 120, noCache: true
         )
@@ -28,13 +30,4 @@ struct MultiModuleIntegrationTests {
         #expect(results.allSatisfy { if case .killed = $0.status { return true } else { return false } })
         #expect(await launcher.buildCount == 1)
     }
-}
-
-private func calcModulesURL() -> URL {
-    URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appending(path: "Fixtures/CalcModules")
 }

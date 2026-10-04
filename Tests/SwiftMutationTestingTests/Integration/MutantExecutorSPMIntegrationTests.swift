@@ -3,12 +3,14 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration))
+@Suite(.tags(.integration), .serialized)
 struct MutantExecutorSPMIntegrationTests {
 
     @Test("Given SPM fixture with partial coverage, when executed, then killed and survived mutants match expected")
     func spmFixtureResultsMatchExpected() async throws {
-        let fixtureURL = calcLibraryURL()
+        let fixture = try FixtureCopy.make("CalcLibrary")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let configuration = makeConfiguration(fixtureURL: fixtureURL)
         let input = makeInput(fixtureURL: fixtureURL)
 
@@ -31,7 +33,9 @@ struct MutantExecutorSPMIntegrationTests {
 
     @Test("Given SPM fixture, when executed, then original source files are not modified")
     func spmFixtureSourceFilesNotModified() async throws {
-        let fixtureURL = calcLibraryURL()
+        let fixture = try FixtureCopy.make("CalcLibrary")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let calculatorURL = fixtureURL.appending(path: "Sources/CalcLibrary/Calculator.swift")
 
         let before = try String(contentsOf: calculatorURL, encoding: .utf8)
@@ -47,15 +51,6 @@ struct MutantExecutorSPMIntegrationTests {
 
         #expect(before == after)
     }
-}
-
-private func calcLibraryURL() -> URL {
-    URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appending(path: "Fixtures/CalcLibrary")
 }
 
 private func makeConfiguration(fixtureURL: URL) -> RunnerConfiguration {

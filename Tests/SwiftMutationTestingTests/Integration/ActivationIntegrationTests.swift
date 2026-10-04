@@ -3,12 +3,14 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration))
+@Suite(.tags(.integration), .serialized)
 struct ActivationIntegrationTests {
 
     @Test("Given a file no test reaches, when executed, then its mutants have no coverage and the rest are unchanged")
     func untestedCodeIsReportedAsNoCoverage() async throws {
-        let fixtureURL = calcLibraryURL()
+        let fixture = try FixtureCopy.make("CalcLibrary")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let configuration = makeRunnerConfiguration(
             projectPath: fixtureURL.path, projectType: .spm, timeout: 60, buildTimeout: 120, noCache: true
         )
@@ -35,13 +37,4 @@ struct ActivationIntegrationTests {
         #expect(summary.integrityWarnings.isEmpty)
         #expect(summary.activationNotMeasured.isEmpty)
     }
-}
-
-private func calcLibraryURL() -> URL {
-    URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appending(path: "Fixtures/CalcLibrary")
 }

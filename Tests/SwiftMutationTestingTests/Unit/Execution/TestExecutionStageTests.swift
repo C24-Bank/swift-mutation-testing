@@ -502,7 +502,9 @@ struct TestExecutionStageTests {
         defer { FileHelpers.cleanup(dir) }
 
         let stragglers: Set<String> = ["m0", "m1", "m2", "m3"]
-        let launcher = TimeoutUnderLoadLauncher(timesOutFirst: stragglers)
+        let launcher = TimeoutUnderLoadLauncher(
+            timesOutFirst: stragglers, holdFirstAttemptsUntil: 4, holdRetriesUntil: 2
+        )
         let (stage, context, _) = try await makeLoadFixture(
             in: dir, launcher: launcher, reporter: MockProgressReporter(), concurrency: 8
         )

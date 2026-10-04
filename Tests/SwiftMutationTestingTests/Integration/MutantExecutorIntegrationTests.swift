@@ -3,12 +3,14 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration))
+@Suite(.tags(.integration), .serialized)
 struct MutantExecutorIntegrationTests {
 
     @Test("Given fixture project with partial coverage, when executed, then killed and survived mutants match expected")
     func fixtureResultsMatchExpected() async throws {
-        let fixtureURL = fixtureProjectURL()
+        let fixture = try FixtureCopy.make("CalcApp")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let configuration = makeConfiguration(fixtureURL: fixtureURL)
         let input = makeInput(fixtureURL: fixtureURL)
 
@@ -31,7 +33,9 @@ struct MutantExecutorIntegrationTests {
 
     @Test("Given fixture project, when executed, then original source files are not modified")
     func fixtureSourceFilesNotModified() async throws {
-        let fixtureURL = fixtureProjectURL()
+        let fixture = try FixtureCopy.make("CalcApp")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let calculatorURL = fixtureURL.appending(path: "Sources/Calculator.swift")
 
         let before = try String(contentsOf: calculatorURL, encoding: .utf8)
@@ -47,15 +51,6 @@ struct MutantExecutorIntegrationTests {
 
         #expect(before == after)
     }
-}
-
-private func fixtureProjectURL() -> URL {
-    URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appending(path: "Fixtures/CalcApp")
 }
 
 private func makeConfiguration(fixtureURL: URL) -> RunnerConfiguration {
