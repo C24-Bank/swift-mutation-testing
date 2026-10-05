@@ -20,6 +20,8 @@ struct RunnerConfiguration: Sendable {
         var concurrency: Int
         var noCache: Bool
         var testingFramework: TestingFramework = .swiftTesting
+        /// `reproduce`: one mutant, the whole suite with no stop at the first failure, the sandbox kept.
+        var reproducing: Bool = false
     }
 
     struct ReportingOptions: Sendable {

@@ -56,7 +56,9 @@ struct MutantExecutor: Sendable {
         )
         SandboxCleaner.register(sandbox)
         defer {
-            try? sandbox.cleanup()
+            if !configuration.build.reproducing {
+                try? sandbox.cleanup()
+            }
             SandboxCleaner.deregister()
         }
 

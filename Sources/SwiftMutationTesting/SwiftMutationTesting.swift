@@ -169,7 +169,31 @@ public struct SwiftMutationTesting {
     private static func reproduce(
         _ options: ParsedArguments.PlanOptions, configuration: RunnerConfiguration, launcher: (any ProcessLaunching)?
     ) async throws -> ExitCode {
-        throw UsageError(message: "reproduce is not available yet")
+        guard let reference = options.mutant else {
+            throw UsageError(
+                message: "reproduce needs a mutant: a fingerprint or an id such as swift-mutation-testing_12")
+        }
+
+        var configuration = configuration
+        let plan: Plan
+        if let path = options.path {
+            plan = try PlanStore().read(from: path)
+            configuration = try configuration.applying(plan)
+        } else {
+            plan = try await Planner().plan(
+                input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget
+            ).plan
+        }
+
+        OrphanedProcessReaper().reap()
+        SandboxCleaner.removeOrphaned()
+
+        return try await SleepInhibitor.preventingIdleSleep {
+            try await Reproducer().reproduce(
+                reference, plan: plan, configuration: configuration,
+                launcher: launcher ?? defaultLauncher(for: configuration.build.projectType)
+            )
+        }
     }
 
     static func loadBaseline(for configuration: RunnerConfiguration) throws -> Baseline? {

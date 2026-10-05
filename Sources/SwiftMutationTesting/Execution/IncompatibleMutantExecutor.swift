@@ -71,7 +71,11 @@ struct IncompatibleMutantExecutor: Sendable {
         let share = TestExecutionStage.retryWorkerShare
         let workerCount = max(1, min(configuration.build.concurrency / share, viable.count))
         let workers = try await warmSandboxes(count: workerCount, configuration: configuration)
-        defer { for worker in workers { try? worker.sandbox.cleanup() } }
+        defer {
+            if !configuration.build.reproducing {
+                for worker in workers { try? worker.sandbox.cleanup() }
+            }
+        }
 
         let ready = workers.filter { $0.build.exitCode == 0 }
 
@@ -263,7 +267,11 @@ struct IncompatibleMutantExecutor: Sendable {
             mutatedFilePath: mutant.filePath,
             mutatedContent: content
         )
-        defer { try? sandbox.cleanup() }
+        defer {
+            if !configuration.build.reproducing {
+                try? sandbox.cleanup()
+            }
+        }
 
         let slot = try await pool.acquire()
         let launched: TestLaunchResult
