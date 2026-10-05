@@ -142,7 +142,28 @@ public struct SwiftMutationTesting {
     private static func merge(
         _ options: ParsedArguments.PlanOptions, configuration: RunnerConfiguration
     ) throws -> ExitCode {
-        throw UsageError(message: "merge is not available yet")
+        guard let planPath = options.path else {
+            throw UsageError(message: "merge needs the plan the results ran: --plan <plan.json>")
+        }
+        let plan = try PlanStore().read(from: planPath)
+        let configuration = try configuration.applying(plan)
+        let baseline = try loadBaseline(for: configuration)
+
+        let merged = try ResultMerger().merge(
+            resultPaths: options.results, plan: plan, projectPath: configuration.projectPath
+        )
+        let summary = RunnerSummary(results: merged.results, totalDuration: merged.totalDuration)
+        StandardOutput.write(
+            "  ✓ Merged \(options.results.count) results of \(planPath): \(summary.results.count) mutants"
+        )
+        TextReporter(projectRoot: configuration.projectPath).report(summary)
+        let gate = evaluateGate(summary, configuration: configuration, baseline: baseline)
+        writeReports(
+            summary, configuration: configuration, gate: gate,
+            identity: RunIdentity(planSha256: try PlanStore.sha256(of: plan), shard: nil)
+        )
+
+        return try applyGate(gate, summary: summary, configuration: configuration)
     }
 
     private static func reproduce(
