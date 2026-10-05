@@ -264,7 +264,7 @@ swift-mutation-testing [run] [project-path] [options]      # discover and test e
 swift-mutation-testing init [project-path]                 # generate .swift-mutation-testing.yml
 swift-mutation-testing plan [project-path] --output plan.json
 swift-mutation-testing run [project-path] --plan plan.json [--shard i/n]
-swift-mutation-testing merge result.json... --plan plan.json --output merged.json
+swift-mutation-testing merge result.json... --plan plan.json [--project path] --output merged.json
 swift-mutation-testing reproduce <fingerprint|id> [project-path] [--plan plan.json]
 swift-mutation-testing --version
 swift-mutation-testing --help
@@ -307,6 +307,7 @@ swift-mutation-testing [project-path] [options]
 | `--write-baseline <path>` | Write this run's baseline, relative to the project. Command line only |
 | `--plan <plan.json>` | `run`: execute this plan instead of discovering, refusing it if the code changed. `merge`, `reproduce`: the plan to work from |
 | `--shard <i/n>` | `run --plan` only: run the i-th of n slices of the plan, split by file |
+| `--project <path>` | `merge` only: the project the merged report describes (default: the current directory) |
 
 ### Common invocations
 
@@ -414,7 +415,7 @@ swift-mutation-testing merge result-1.json result-2.json result-3.json result-4.
 - no mutant may have a verdict in two results;
 - every mutant of the plan must have a verdict. A missing shard is reported with the mutants it would have covered, and no score is given: a score over part of the plan would not be the number a single run gives.
 
-Run `merge` from the project root, with the sources of the plan present: the reports embed the source files.
+`merge` reports on the project in the current directory, or on the one `--project <path>` names: its sources are embedded in the reports and its configuration file applies, so they must be the plan's sources. The result files are the positional arguments, which is why the project is a flag here.
 
 ### GitHub Actions matrix
 

@@ -12,7 +12,7 @@ struct CommandLineParser: Sendable {
 }
 ```
 
-The first word may be a command — `run` (the default when none is given), `init`, `plan`, `merge` or `reproduce` — then the words before the first flag are the command's positionals (the project path for `run` and `plan`; the result files for `merge`; the mutant and an optional project path for `reproduce`), then the flags. Iterates the flags left-to-right, dispatching each token to an internal `applyFlag` method. Stores intermediate state in a private `FlagValues` struct. Throws `UsageError` for unrecognised flags, for `--shard` outside `run` and for a shard that is not `i/n`. For `plan`, `--output` is the plan's path, not a report's.
+The first word may be a command — `run` (the default when none is given), `init`, `plan`, `merge` or `reproduce` — then the words before the first flag are the command's positionals (the project path for `run` and `plan`; the result files for `merge`; the mutant and an optional project path for `reproduce`), then the flags. Iterates the flags left-to-right, dispatching each token to an internal `applyFlag` method. Stores intermediate state in a private `FlagValues` struct. Throws `UsageError` for unrecognised flags, for `--shard` outside `run` and for a shard that is not `i/n`. For `plan`, `--output` is the plan's path, not a report's. `--project <path>` sets the project path of `merge`, whose positionals are the result files, and is refused elsewhere.
 
 Multi-value flags (`--exclude`, `--operator`, `--disable-mutator`) accumulate into arrays. Boolean flags (`--no-cache`, `--help`, `--version`, `init`, `--quiet`) set a single Bool. All other flags consume the next token as their value.
 

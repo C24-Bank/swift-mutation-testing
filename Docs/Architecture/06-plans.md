@@ -61,6 +61,14 @@ A test sends a real `SIGINT` to the built tool in the middle of a `run --plan --
 
 `Reproducer` runs one mutant of a plan — by report id, full fingerprint, or a prefix that fits one mutant — with `RunnerConfiguration.build.reproducing` set: the whole suite rather than the targeted suites first, no `OutputStopRule`, and the sandbox left in place by every executor. It prints the kept sandboxes (this process's `xmr-<pid>-*` directories), the line before and after the mutation (from `MutationRewriter`), the full test output (from `MutantLogWriter`'s log) and the verdict with its reason. The next run's sweep of orphaned sandboxes removes the kept one.
 
+## Decisions
+
+Three points where the implementation departs from the text of the spec that proposed plans, each kept on purpose.
+
+- **The run's identity goes in the report's `config` object, not in a separate results file.** The spec leaned towards a results file of the tool's own (`--results-output`) as the input of `merge`, to keep the Stryker report a third-party format. But the Stryker schema reserves `config` as a free-form object for the tool, so `planSha256`, `shard` and `toolVersion` there break no Stryker reader; and everything `merge` needs — status, `killedBy`, `statusReason`, `duration`, `fingerprint`, `activated` — is already in the report. A second file per shard would duplicate it and give CI two artifacts to carry instead of one.
+- **Every JSON report gains `config` and, per mutant, `activated`.** The plain run is the same command with the same console output, but its JSON report has two additions: both extra properties the schema allows, both ignored by readers that do not know them. `activated` was already measured and shown in logs and integrity warnings; the merge needs it to rebuild a verdict faithfully.
+- **One pull request for the four phases.** The spec planned a pull request per phase. The repository's rule is one branch and one pull request per piece of work, and the phases share the plan, the materializer and the report identity, so they shipped together, each phase still in its own commits.
+
 ## Invariants
 
 | Invariant | Enforcement |
