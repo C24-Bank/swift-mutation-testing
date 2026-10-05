@@ -2,9 +2,10 @@ import Foundation
 
 actor CacheStore {
 
-    init(storePath: String, noCache: Bool = false) {
+    init(storePath: String, noCache: Bool = false, planJournal: PlanJournal? = nil) {
         self.storePath = storePath
         self.noCache = noCache
+        self.planJournal = planJournal
         self.entries = [:]
         self.killerTestFiles = [:]
         self.activations = [:]
@@ -16,6 +17,7 @@ actor CacheStore {
 
     private let storePath: String
     private let noCache: Bool
+    private let planJournal: PlanJournal?
     private var entries: [MutantCacheKey: ExecutionStatus]
     private var killerTestFiles: [MutantCacheKey: String]
     private var activations: [MutantCacheKey: Bool]
@@ -67,8 +69,13 @@ actor CacheStore {
         status: ExecutionStatus,
         for key: MutantCacheKey,
         killerTestFile: String? = nil,
-        activated: Bool? = nil
+        activated: Bool? = nil,
+        duration: Double = 0
     ) {
+        planJournal?.record(
+            status: status, for: key, killerTestFile: killerTestFile, activated: activated, duration: duration
+        )
+
         guard !noCache else { return }
         guard status != .timeout else { return }
 

@@ -40,26 +40,10 @@ struct ResultMerger: Sendable {
             )
         }
 
-        let hashByFile = Dictionary(uniqueKeysWithValues: plan.files.map { ($0.path, $0.sha256) })
         var results: [ExecutionResult] = []
         for (index, mutant) in plan.mutants.enumerated() {
             guard let verdict = verdicts[mutant.fingerprint] else { continue }
-            let descriptor = MutantDescriptor(
-                id: Plan.mutantID(at: index),
-                filePath: PlanMaterializer.absolute(mutant.file, in: projectPath),
-                line: mutant.line,
-                column: mutant.column,
-                utf8Offset: mutant.utf8Start,
-                originalText: mutant.original,
-                mutatedText: mutant.replacement,
-                operatorIdentifier: mutant.operator,
-                replacementKind: mutant.replacementKind,
-                description: mutant.description,
-                isSchematizable: mutant.schematizable,
-                mutatedSourceContent: nil,
-                sourceContentHash: hashByFile[mutant.file] ?? "",
-                fingerprint: mutant.fingerprint
-            )
+            let descriptor = PlanMaterializer.descriptor(of: mutant, at: index, in: plan, projectPath: projectPath)
             results.append(
                 ExecutionResult(
                     descriptor: descriptor,

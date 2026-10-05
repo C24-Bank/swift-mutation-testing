@@ -240,7 +240,7 @@ struct IncompatibleMutantExecutor: Sendable {
         let index = await deps.counter.increment()
         await deps.reporter.report(
             .mutantFinished(descriptor: mutant, status: status, index: index, total: deps.counter.total))
-        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
+        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile, duration: duration)
 
         return ExecutionResult(
             descriptor: mutant, status: status, testDuration: duration, killerTestFile: killerTestFile
@@ -300,7 +300,9 @@ struct IncompatibleMutantExecutor: Sendable {
         let total = deps.counter.total
         let index = await deps.counter.increment()
         await deps.reporter.report(.mutantFinished(descriptor: mutant, status: status, index: index, total: total))
-        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
+        await deps.cacheStore.store(
+            status: status, for: key, killerTestFile: killerTestFile, duration: launched.duration
+        )
         return ExecutionResult(
             descriptor: mutant, status: status, testDuration: launched.duration, killerTestFile: killerTestFile
         )

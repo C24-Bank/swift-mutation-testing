@@ -3,13 +3,15 @@ import SwiftParser
 
 struct MutantExecutor: Sendable {
 
-    init(configuration: RunnerConfiguration, launcher: any ProcessLaunching) {
+    init(configuration: RunnerConfiguration, launcher: any ProcessLaunching, planJournal: PlanJournal? = nil) {
         self.configuration = configuration
         self.launcher = launcher
+        self.planJournal = planJournal
     }
 
     private let configuration: RunnerConfiguration
     private let launcher: any ProcessLaunching
+    private let planJournal: PlanJournal?
 
     private struct MutantRunContext {
         let deps: ExecutionDeps
@@ -102,7 +104,9 @@ struct MutantExecutor: Sendable {
     ) async throws -> (CacheStore, CacheStore.CacheMetadata, TestFilesHasher) {
         let cachePath = URL(fileURLWithPath: configuration.projectPath)
             .appendingPathComponent("\(CacheStore.directoryName)/results.json").path
-        let cacheStore = CacheStore(storePath: cachePath, noCache: configuration.build.noCache)
+        let cacheStore = CacheStore(
+            storePath: cachePath, noCache: configuration.build.noCache, planJournal: planJournal
+        )
         try await cacheStore.load()
 
         let hasher = TestFilesHasher()

@@ -109,6 +109,29 @@ struct PlanMaterializer: Sendable {
     }
 
     /// The path discovery would have seen: the file enumerator yields the root's real path, so this does too.
+    /// The descriptor a plan's mutant has in a run, for a verdict that comes from elsewhere than this run:
+    /// a merged shard's report, or the journal of an interrupted run.
+    static func descriptor(
+        of mutant: Plan.Mutant, at index: Int, in plan: Plan, projectPath: String
+    ) -> MutantDescriptor {
+        MutantDescriptor(
+            id: Plan.mutantID(at: index),
+            filePath: absolute(mutant.file, in: projectPath),
+            line: mutant.line,
+            column: mutant.column,
+            utf8Offset: mutant.utf8Start,
+            originalText: mutant.original,
+            mutatedText: mutant.replacement,
+            operatorIdentifier: mutant.operator,
+            replacementKind: mutant.replacementKind,
+            description: mutant.description,
+            isSchematizable: mutant.schematizable,
+            mutatedSourceContent: nil,
+            sourceContentHash: plan.files.first { $0.path == mutant.file }?.sha256 ?? "",
+            fingerprint: mutant.fingerprint
+        )
+    }
+
     static func absolute(_ relativePath: String, in projectPath: String) -> String {
         let root = URL(fileURLWithPath: CanonicalPath.make(for: projectPath))
         return relativePath == "." ? root.path : root.appendingPathComponent(relativePath).path

@@ -86,7 +86,8 @@ public struct SwiftMutationTesting {
         launcher: (any ProcessLaunching)?,
         planned: PlannedRun? = nil
     ) async throws -> ExitCode {
-        let (input, identity, discoveryDuration) = try await discover(configuration: configuration, planned: planned)
+        let discovered = try await discover(configuration: configuration, planned: planned)
+        let (input, identity, discoveryDuration) = (discovered.input, discovered.identity, discovered.duration)
 
         if !configuration.reporting.quiet {
             let schematizable = input.mutants.filter { $0.isSchematizable }.count
@@ -105,8 +106,25 @@ public struct SwiftMutationTesting {
         OrphanedProcessReaper().reap()
         SandboxCleaner.removeOrphaned()
 
+        if !discovered.resumed.isEmpty, !configuration.reporting.quiet {
+            StandardOutput.write(
+                "  ✓ Resumed \(discovered.resumed.count) verdicts from an interrupted run of this plan"
+            )
+        }
+
         let start = Date()
-        let results = try await MutantExecutor(configuration: configuration, launcher: executionLauncher).execute(input)
+        var results = discovered.resumed
+        // A run whose every mutant was resumed has nothing to build; any other run goes through the
+        // executor, even with no mutant, as it always has.
+        if !input.mutants.isEmpty || discovered.resumed.isEmpty {
+            results += try await MutantExecutor(
+                configuration: configuration, launcher: executionLauncher, planJournal: discovered.journal
+            ).execute(input)
+        }
+        results.sort { Self.planIndex(of: $0.descriptor.id) < Self.planIndex(of: $1.descriptor.id) }
+        if let journal = discovered.journal {
+            PlanJournal.remove(at: journal.path)
+        }
         let duration = Date().timeIntervalSince(start)
 
         let summary = RunnerSummary(results: results, totalDuration: duration)
@@ -249,11 +267,26 @@ public struct SwiftMutationTesting {
         return exitCode
     }
 
-    /// The run's input and identity: from the plan given, a slice of it under `--shard`, or from a plan
-    /// made now and materialized at once, which is the plain run.
+    struct Discovered {
+        let input: RunnerInput
+        let identity: RunIdentity
+        let duration: TimeInterval
+        /// Verdicts an interrupted run of the same plan and shard already reached; their mutants are not in
+        /// `input`.
+        var resumed: [ExecutionResult] = []
+        var journal: PlanJournal?
+    }
+
+    private static func planIndex(of id: String) -> Int {
+        Int(id.replacingOccurrences(of: "swift-mutation-testing_", with: "")) ?? 0
+    }
+
+    /// The run's input and identity: from the plan given, a slice of it under `--shard`, less what an
+    /// interrupted run of it already reached, or from a plan made now and materialized at once, which is
+    /// the plain run.
     private static func discover(
         configuration: RunnerConfiguration, planned: PlannedRun?
-    ) async throws -> (RunnerInput, RunIdentity, TimeInterval) {
+    ) async throws -> Discovered {
         let start = Date()
         let execution = PlanMaterializer.ExecutionOptions(
             timeout: configuration.build.timeout,
@@ -262,12 +295,35 @@ public struct SwiftMutationTesting {
         )
 
         if let planned {
-            let selection = planned.shard.map { ShardSelector.mutants(of: planned.plan, in: $0) }
-            let input = try await PlanMaterializer().materialize(
-                plan: planned.plan, projectPath: configuration.projectPath, execution: execution, mutants: selection
+            let plan = planned.plan
+            let identity = RunIdentity(planSha256: try PlanStore.sha256(of: plan), shard: planned.shard)
+            let journalPath = PlanJournal.path(
+                projectPath: configuration.projectPath, planSha256: identity.planSha256, shard: planned.shard
             )
-            let identity = RunIdentity(planSha256: try PlanStore.sha256(of: planned.plan), shard: planned.shard)
-            return (input, identity, Date().timeIntervalSince(start))
+            let selection = planned.shard.map { ShardSelector.mutants(of: plan, in: $0) } ?? plan.mutants
+            let journaled = PlanJournal.entries(at: journalPath)
+            let remaining = selection.filter { journaled[$0.fingerprint] == nil }
+
+            let input = try await PlanMaterializer().materialize(
+                plan: plan, projectPath: configuration.projectPath, execution: execution, mutants: remaining
+            )
+            let resumed: [ExecutionResult] = plan.mutants.enumerated().compactMap { index, mutant in
+                guard
+                    let entry = journaled[mutant.fingerprint],
+                    selection.contains(where: { $0.fingerprint == mutant.fingerprint })
+                else { return nil }
+                return ExecutionResult(
+                    descriptor: PlanMaterializer.descriptor(
+                        of: mutant, at: index, in: plan, projectPath: configuration.projectPath
+                    ),
+                    status: entry.status, testDuration: entry.duration, killerTestFile: entry.killerTestFile,
+                    activated: entry.activated
+                )
+            }
+            return Discovered(
+                input: input, identity: identity, duration: Date().timeIntervalSince(start), resumed: resumed,
+                journal: PlanJournal(path: journalPath, mutants: input.mutants)
+            )
         }
 
         let made = try await Planner().plan(
@@ -277,7 +333,7 @@ public struct SwiftMutationTesting {
             plan: made.plan, projectPath: configuration.projectPath, sources: made.sources, execution: execution
         )
         let identity = RunIdentity(planSha256: try PlanStore.sha256(of: made.plan), shard: nil)
-        return (input, identity, Date().timeIntervalSince(start))
+        return Discovered(input: input, identity: identity, duration: Date().timeIntervalSince(start))
     }
 
     private static func discoveryInput(for configuration: RunnerConfiguration) -> DiscoveryInput {

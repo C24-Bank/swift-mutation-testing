@@ -211,7 +211,8 @@ struct TestExecutionStage: Sendable {
             killerTestFile: killerTestFile, activated: launched.activated
         )
         await deps.cacheStore.store(
-            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated
+            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated,
+            duration: duration
         )
         let index = await deps.counter.increment()
         await deps.reporter.report(
