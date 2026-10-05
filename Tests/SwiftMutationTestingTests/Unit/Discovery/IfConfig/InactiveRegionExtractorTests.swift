@@ -129,6 +129,26 @@ extension InactiveRegionExtractorTests {
         #expect(inactive == ["#if os(Windows)\nlet d = 7 + 8"])
     }
 
+    @Test("Given a decidable #if before an undecidable one, when extracted, then only the decidable one loses a clause")
+    func aDecidableIfBeforeAnUndecidableOneIsStillDecided() {
+        let code = """
+            #if os(Windows)
+            let a = 1 + 2
+            #else
+            let b = 3 + 4
+            #endif
+            #if canImport(SomeThirdPartyModule)
+            let c = 5 + 6
+            #else
+            let d = 7 + 8
+            #endif
+            """
+
+        let inactive = inactiveText(in: code)
+
+        #expect(inactive == ["#if os(Windows)\nlet a = 1 + 2"])
+    }
+
     @Test("Given a malformed condition, when extracted, then its #if keeps every clause")
     func malformedConditionKeepsEveryClause() {
         let code = """

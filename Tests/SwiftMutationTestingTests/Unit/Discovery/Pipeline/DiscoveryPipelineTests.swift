@@ -24,18 +24,14 @@ struct DiscoveryPipelineTests {
         #expect(DiscoveryPipeline.operatorNames(upTo: .experimental) == DiscoveryPipeline.allOperatorNames)
     }
 
-    @Test("Given the tiers of the first campaign, when each is listed, then it holds the operators the campaign assigned")
+    @Test("Given the tiers of the record campaign, when each is listed, then it holds the operators the campaign assigned")
     func theTiersAreTheCampaignsAssignments() {
         #expect(
             DiscoveryPipeline.operatorNames(upTo: .conservative) == [
                 "LogicalOperatorReplacement", "NegateConditional", "SwapTernary",
             ]
         )
-        #expect(
-            DiscoveryPipeline.operatorNames(upTo: .default) == [
-                "BooleanLiteralReplacement", "LogicalOperatorReplacement", "NegateConditional", "SwapTernary",
-            ]
-        )
+        #expect(DiscoveryPipeline.operatorNames(upTo: .default) == DiscoveryPipeline.operatorNames(upTo: .conservative))
         #expect(DiscoveryPipeline.operatorNames(upTo: .experimental).count == 7)
     }
 
