@@ -25,6 +25,65 @@ struct CommandLineParserTests {
         #expect(result.projectPath == ".")
     }
 
+    @Test("Given no command, when parsed, then the command is run")
+    func noCommandIsRun() throws {
+        #expect(try parser.parse(["--quiet"]).command == .run)
+        #expect(try parser.parse(["run", "."]).command == .run)
+        #expect(try parser.parse([]).command == .run)
+    }
+
+    @Test("Given the plan command, when parsed, then --output is the plan's path and the project path follows")
+    func planCommand() throws {
+        let result = try parser.parse(["plan", "/my/project", "--output", "plans/p.json", "--operator-tier", "experimental"])
+
+        #expect(result.command == .plan)
+        #expect(result.projectPath == "/my/project")
+        #expect(result.plan.path == "plans/p.json")
+        #expect(result.reporting.output == nil)
+        #expect(result.filter.operatorTier == "experimental")
+    }
+
+    @Test("Given run with --plan and --shard, when parsed, then both are kept")
+    func runWithPlanAndShard() throws {
+        let result = try parser.parse(["run", "--plan", "p.json", "--shard", "2/4", "--output", "r.json"])
+
+        #expect(result.command == .run)
+        #expect(result.plan.path == "p.json")
+        #expect(result.plan.shard == "2/4")
+        #expect(result.reporting.output == "r.json")
+    }
+
+    @Test("Given a shard that is not i/n, when parsed, then it is a usage error")
+    func aBadShardIsRefused() {
+        for raw in ["0/2", "3/2", "x"] {
+            #expect(throws: UsageError.self) { try parser.parse(["run", "--shard", raw]) }
+        }
+        #expect(throws: UsageError.self) { try parser.parse(["plan", "--shard", "1/2"]) }
+    }
+
+    @Test("Given the merge command, when parsed, then the positionals are the results and --plan is kept")
+    func mergeCommand() throws {
+        let result = try parser.parse(["merge", "a.json", "b.json", "--plan", "p.json", "--output", "m.json"])
+
+        #expect(result.command == .merge)
+        #expect(result.plan.results == ["a.json", "b.json"])
+        #expect(result.plan.path == "p.json")
+        #expect(result.reporting.output == "m.json")
+        #expect(throws: UsageError.self) { try parser.parse(["merge", "--plan", "p.json"]) }
+    }
+
+    @Test("Given the reproduce command, when parsed, then the mutant and the project path are read")
+    func reproduceCommand() throws {
+        let result = try parser.parse(["reproduce", "3f2a", "/my/project", "--plan", "p.json"])
+
+        #expect(result.command == .reproduce)
+        #expect(result.plan.mutant == "3f2a")
+        #expect(result.projectPath == "/my/project")
+        #expect(result.plan.path == "p.json")
+        #expect(try parser.parse(["reproduce", "swift-mutation-testing_12"]).projectPath == ".")
+        #expect(throws: UsageError.self) { try parser.parse(["reproduce"]) }
+    }
+
     @Test("Given --help flag, when parsed, then showHelp is true")
     func returnsShowHelpForHelpFlag() throws {
         let result = try parser.parse(["--help"])
