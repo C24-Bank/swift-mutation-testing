@@ -173,11 +173,11 @@ Output sections:
 struct JsonReporter: Sendable {
     let outputPath: String
     let projectRoot: String
-    func report(_ summary: RunnerSummary) throws
+    func report(_ summary: RunnerSummary, identity: RunIdentity? = nil) throws
 }
 ```
 
-Writes a Stryker-compatible JSON report to `outputPath`. Encodes a `MutationReportPayload` with `JSONEncoder` (pretty-printed, sorted keys). Each file's key is its path relative to `projectRoot` with a leading `/`, computed by `ProjectRelativePath` so that a root reached through a symlink still yields `/Sources/…`.
+Writes a Stryker-compatible JSON report to `outputPath`. With an identity, the schema's free-form `config` object carries `toolVersion`, `planSha256` and, for a shard, `shard`; every mutant carries `activated` next to `fingerprint`. `ResultMerger` reads these back, so the `MutationReport*` types are `Codable`, not only `Encodable`. Encodes a `MutationReportPayload` with `JSONEncoder` (pretty-printed, sorted keys). Each file's key is its path relative to `projectRoot` with a leading `/`, computed by `ProjectRelativePath` so that a root reached through a symlink still yields `/Sources/…`.
 
 Fixed thresholds: `high = 80`, `low = 60`.
 

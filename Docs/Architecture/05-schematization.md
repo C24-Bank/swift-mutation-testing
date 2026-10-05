@@ -1,6 +1,6 @@
 # Schematization
 
-← [Configuration](04-configuration.md) | [Index →](README.md)
+← [Configuration](04-configuration.md) | Next: [Plans →](06-plans.md)
 
 ---
 
@@ -147,4 +147,4 @@ The warning keeps the verdict because a rerun would say the same thing; the repo
 
 ---
 
-← [Configuration](04-configuration.md) | [Index →](README.md)
+← [Configuration](04-configuration.md) | Next: [Plans →](06-plans.md)

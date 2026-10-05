@@ -18,6 +18,7 @@ Type-level reference for every public and internal type in `swift-mutation-testi
 | [08 — Result Parsing & Cache](08-result-parsing-cache.md) | `TestResultResolver`, `ResultParser`, `SPMResultParser`, `TestRunOutcome`, `TestOutputParser`, `XCResultParser`, `CacheStore`, `MutantCacheKey`, `KillerTestFileResolver` |
 | [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) | `ProgressReporter`, `ConsoleProgressReporter`, `SilentProgressReporter`, `RunnerEvent`, `RunnerSummary`, `RunnerSummary+DetectionLine`, `RunnerSummary+Integrity`, `ExecutionResult+ReportStatusReason`, `TextReporter`, `JsonReporter`, `HtmlReporter`, `SonarReporter`, `SarifReporter`, all `Sarif*` types, `MarkdownReporter`, `GateResult+Summary`, `MutantLogWriter`, all `MutationReport*` types, all `Sonar*` types, `ProcessLaunching`, `ProcessRunner`, `ProcessRequest`, `OutputStopRule`, `OutputWatcher`, `SPMProcessLauncher`, `XcodeProcessLauncher`, `SleepInhibitor`, `StandardOutput`, `SystemCalls`, `CanonicalPath`, `ProcessTree`, `ProcessArguments`, `TimeoutEscalation`, `ProcessGroupRegistry`, `XCTestRunPlist`, `TestFilesHasher`, `ProjectRelativePath` |
 | [10 — Quality Gate](10-quality-gate.md) | `QualityGate`, `GatePolicy`, `GateResult`, `GateError`, `Baseline`, `BaselineScope`, `BaselineEntry`, `BaselineStore`, `GateReporter` |
+| [11 — Plans](11-plans.md) | `Plan`, `PlanStore`, `PlanError`, `Planner`, `PlanMaterializer`, `Shard`, `ShardSelector`, `RunIdentity`, `RunnerConfiguration+Plan`, `ResultMerger`, `MergeError`, `Reproducer` |
 
 ---
 
@@ -27,12 +28,12 @@ Type-level reference for every public and internal type in `swift-mutation-testi
 
 ```
 DiscoveryInput
-  → FileDiscoveryStage        → [SourceFile]
-  → ParsingStage              → [ParsedSource]
-  → MutantDiscoveryStage      → [MutationPoint]
-  → MutantIndexingStage       → [IndexedMutationPoint]
-  → SchematizationStage       → [SchematizedFile], [MutantDescriptor]
-  → IncompatibleRewritingStage → [MutantDescriptor]
+  → FileDiscoveryStage        → [SourceFile]            ┐
+  → ParsingStage              → [ParsedSource]          │ Planner
+  → MutantDiscoveryStage      → [MutationPoint]         │
+  → MutantIndexingStage       → [IndexedMutationPoint]  ┘ → Plan (+ plan.json through PlanStore)
+  → SchematizationStage       → [SchematizedFile], [MutantDescriptor]  ┐ PlanMaterializer
+  → IncompatibleRewritingStage → [MutantDescriptor]                     ┘
   → RunnerInput
 
 RunnerInput

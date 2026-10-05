@@ -25,7 +25,8 @@ Mutation testing introduces controlled changes to your code to verify that your 
 - Schematization — builds once, tests all mutants via runtime switch
 - Activation verification — every verdict records whether the mutated code actually ran; a passing suite that never reached it is reported as no coverage, and a mutant missing from the build stops the run
 - Parallel test execution with configurable concurrency
-- SHA256-based result caching across runs
+- SHA256-based result caching across runs, with a journal that lets an interrupted run continue where it stopped
+- Plans: `plan` writes what a run will do, `run --plan --shard i/n` executes a slice of it on any machine, `merge` joins the slices into one report, `reproduce` reruns one mutant with its sandbox kept
 - Multiple report formats: text, JSON (Stryker-compatible), HTML, SonarQube, SARIF (GitHub code scanning), Markdown
 - Pull request annotations through GitHub code scanning, and a job summary, from the SARIF and Markdown reports
 - Simulator pool management for iOS/tvOS/watchOS targets

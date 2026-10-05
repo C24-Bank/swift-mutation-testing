@@ -12,7 +12,7 @@ struct CommandLineParser: Sendable {
 }
 ```
 
-Iterates `args` left-to-right, dispatching each token to an internal `applyFlag` method. Stores intermediate state in a private `FlagValues` struct. Throws `UsageError` for unrecognised flags.
+The first word may be a command — `run` (the default when none is given), `init`, `plan`, `merge` or `reproduce` — then the words before the first flag are the command's positionals (the project path for `run` and `plan`; the result files for `merge`; the mutant and an optional project path for `reproduce`), then the flags. Iterates the flags left-to-right, dispatching each token to an internal `applyFlag` method. Stores intermediate state in a private `FlagValues` struct. Throws `UsageError` for unrecognised flags, for `--shard` outside `run` and for a shard that is not `i/n`. For `plan`, `--output` is the plan's path, not a report's.
 
 Multi-value flags (`--exclude`, `--operator`, `--disable-mutator`) accumulate into arrays. Boolean flags (`--no-cache`, `--help`, `--version`, `init`, `--quiet`) set a single Bool. All other flags consume the next token as their value.
 
@@ -22,10 +22,14 @@ Multi-value flags (`--exclude`, `--operator`, `--disable-mutator`) accumulate in
 
 ```swift
 struct ParsedArguments: Sendable {
+    enum Command: Sendable, Equatable { case run, plan, merge, reproduce }
+
+    var command: Command = .run
     var projectPath: String = "."
     var showVersion: Bool = false
     var showHelp: Bool = false
     var showInit: Bool = false
+    var plan: PlanOptions = PlanOptions()    // path (--plan, or plan's --output), shard, results, mutant
     var build: BuildOptions = BuildOptions()
     var reporting: ReportingOptions = ReportingOptions()
     var filter: FilterOptions = FilterOptions()

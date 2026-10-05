@@ -9,12 +9,13 @@ This guide covers every way to run and configure `swift-mutation-testing`, from 
 1. [Quick Start](#quick-start)
 2. [Configuration File](#configuration-file)
 3. [CLI Reference](#cli-reference)
-4. [Parallelism](#parallelism)
-5. [Output Formats](#output-formats)
-6. [Suppressing Mutations](#suppressing-mutations)
-7. [Quality Gate](#quality-gate)
-8. [CI/CD Integration](#cicd-integration)
-9. [Exit Codes](#exit-codes)
+4. [Plans](#plans) — shard a run across machines, merge, resume, reproduce one mutant
+5. [Parallelism](#parallelism)
+6. [Output Formats](#output-formats)
+7. [Suppressing Mutations](#suppressing-mutations)
+8. [Quality Gate](#quality-gate)
+9. [CI/CD Integration](#cicd-integration)
+10. [Exit Codes](#exit-codes)
 
 ---
 
@@ -259,10 +260,17 @@ How the three settings combine, on the command line and in the file:
 ### Subcommands
 
 ```bash
-swift-mutation-testing [project-path] init   # generate .swift-mutation-testing.yml
-swift-mutation-testing --version             # print version
-swift-mutation-testing --help                # print usage summary
+swift-mutation-testing [run] [project-path] [options]      # discover and test every mutant (the default)
+swift-mutation-testing init [project-path]                 # generate .swift-mutation-testing.yml
+swift-mutation-testing plan [project-path] --output plan.json
+swift-mutation-testing run [project-path] --plan plan.json [--shard i/n]
+swift-mutation-testing merge result.json... --plan plan.json --output merged.json
+swift-mutation-testing reproduce <fingerprint|id> [project-path] [--plan plan.json]
+swift-mutation-testing --version
+swift-mutation-testing --help
 ```
+
+`plan`, `run --plan`, `--shard`, `merge` and `reproduce` are described under [Plans](#plans).
 
 ### Options
 
@@ -297,6 +305,8 @@ swift-mutation-testing [project-path] [options]
 | `--max-score-drop <points>` | Fail when the score is more than this many points below the baseline's |
 | `--max-new-survivors <n>` | Fail when more than `n` undetected mutants are not in the baseline |
 | `--write-baseline <path>` | Write this run's baseline, relative to the project. Command line only |
+| `--plan <plan.json>` | `run`: execute this plan instead of discovering, refusing it if the code changed. `merge`, `reproduce`: the plan to work from |
+| `--shard <i/n>` | `run --plan` only: run the i-th of n slices of the plan, split by file |
 
 ### Common invocations
 
@@ -338,6 +348,131 @@ swift-mutation-testing --quiet
 # Invalidate cache and run fresh
 swift-mutation-testing --no-cache
 ```
+
+---
+
+## Plans
+
+A run decides everything it will do before it builds anything: which files, which mutants, in which order. A **plan** writes that decision down — `swift-mutation-testing plan` — and `run --plan` executes it, on this machine or another, in one piece or in slices. The plain run without a plan still works exactly as before; it makes a plan in memory and runs it at once, so there is one path from mutants to verdicts whichever way you go.
+
+A plan has no absolute path and no execution option in it: timeout, concurrency, cache and reports belong to the run. Two plans of the same code are the same bytes wherever they are made, and every result file names the plan it ran, so results can be joined and checked.
+
+### Writing a plan
+
+```bash
+swift-mutation-testing plan --output plan.json
+```
+
+Discovery runs as in a normal run — the configuration file, `--sources-path`, `--exclude`, `--operator-tier`, `--operator` and `--disable-mutator` all apply — and the plan is written instead of built. It is small enough to review in a pull request: one entry per mutant, with its file, position, operator, change and fingerprint, plus the SHA-256 of every source file in scope.
+
+```json
+{
+  "formatVersion" : 1,
+  "toolVersion" : "1.7.0",
+  "project" : { "type" : "spm", "scheme" : null, "destination" : null, "testTarget" : null },
+  "scope" : { "sourcesPath" : "Sources", "excludePatterns" : [], "operators" : ["LogicalOperatorReplacement", "NegateConditional", "SwapTernary"] },
+  "files" : [ { "path" : "Sources/Foo.swift", "sha256" : "…" } ],
+  "mutants" : [
+    {
+      "fingerprint" : "3f2a…", "file" : "Sources/Foo.swift",
+      "utf8Start" : 1024, "utf8End" : 1025, "line" : 42, "column" : 17,
+      "operator" : "RelationalOperatorReplacement", "replacementKind" : "binaryOperator",
+      "original" : "<", "replacement" : "<=", "description" : "< → <=", "schematizable" : true
+    }
+  ]
+}
+```
+
+### Running a plan
+
+```bash
+swift-mutation-testing run --plan plan.json --output result.json
+```
+
+The project, test target and scope come from the plan; the command line and the configuration file still set the execution options. Before anything is built, every file of the plan is hashed again: if one changed, the run stops with `plan is stale: Sources/Foo.swift changed since the plan was made`. A plan never runs over code other than the code it describes. The `toolVersion` in the plan is information, not a requirement; the `formatVersion` is checked.
+
+### Sharding
+
+```bash
+swift-mutation-testing run --plan plan.json --shard 1/4 --output result-1.json
+swift-mutation-testing run --plan plan.json --shard 2/4 --output result-2.json
+# … on as many machines as there are shards
+```
+
+`--shard i/n` runs the i-th of n slices. The plan is split **by file**: all the mutants of a file go to one shard, so each shard builds one schema holding only its mutants and no file is built twice. Files are taken in path order and each goes to the shard with the fewest mutants so far, so the same plan and the same `n` always give the same slices; the balance is approximate, and a file with more mutants than its share still goes whole to one shard. A shard with no file is a valid, empty run.
+
+### Merging
+
+```bash
+swift-mutation-testing merge result-1.json result-2.json result-3.json result-4.json \
+    --plan plan.json --output mutation-report.json --html-output mutation-report.html
+```
+
+`merge` joins the shards' JSON reports into the reports of the whole run — every format, and the [quality gate](#quality-gate) runs over the merged result. Three rules, each an error:
+
+- every result must come from the same plan (each report carries `config.planSha256`);
+- no mutant may have a verdict in two results;
+- every mutant of the plan must have a verdict. A missing shard is reported with the mutants it would have covered, and no score is given: a score over part of the plan would not be the number a single run gives.
+
+Run `merge` from the project root, with the sources of the plan present: the reports embed the source files.
+
+### GitHub Actions matrix
+
+```yaml
+jobs:
+  plan:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - run: brew tap ericodx/homebrew-tools && brew install swift-mutation-testing
+      - run: swift-mutation-testing plan --output plan.json --quiet
+      - uses: actions/upload-artifact@v4
+        with: { name: plan, path: plan.json }
+
+  shard:
+    needs: plan
+    runs-on: macos-15
+    strategy:
+      matrix: { shard: [1, 2, 3, 4] }
+    steps:
+      - uses: actions/checkout@v6
+      - run: brew tap ericodx/homebrew-tools && brew install swift-mutation-testing
+      - uses: actions/download-artifact@v4
+        with: { name: plan }
+      - run: swift-mutation-testing run --plan plan.json --shard ${{ matrix.shard }}/4 --output result-${{ matrix.shard }}.json --quiet
+      - uses: actions/upload-artifact@v4
+        with: { name: result-${{ matrix.shard }}, path: result-${{ matrix.shard }}.json }
+
+  merge:
+    needs: shard
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - run: brew tap ericodx/homebrew-tools && brew install swift-mutation-testing
+      - uses: actions/download-artifact@v4
+        with: { name: plan }
+      - uses: actions/download-artifact@v4
+        with: { pattern: result-*, merge-multiple: true }
+      - run: |
+          swift-mutation-testing merge result-*.json --plan plan.json \
+            --output mutation-report.json --markdown-output mutation-summary.md \
+            --baseline .swift-mutation-testing-baseline.json --max-new-survivors 0
+```
+
+The shards must check out the same commit the plan was made from; a different commit is a stale plan, and the shard says so.
+
+### Resuming an interrupted run
+
+Every verdict is written to the cache's journal (`.swift-mutation-testing-cache/journal.jsonl`) the moment it is known. A run that ends early — `Ctrl+C`, a crash, a lost machine — leaves its verdicts there, and the next run over the same code reads them back and continues with the mutants that have none. Nothing to pass: it is the cache doing its job, so it does not happen under `--no-cache`. A plan's files are hashed the same way the cache keys are, so this holds for `run --plan` too, shard by shard.
+
+### Reproducing one mutant
+
+```bash
+swift-mutation-testing reproduce 3f2a9c1e --plan plan.json
+swift-mutation-testing reproduce swift-mutation-testing_12      # by the id in a report, plan made in memory
+```
+
+`reproduce` runs one mutant — by fingerprint, by a prefix of it that fits one mutant, or by its report id — the way an investigation needs it: the whole suite, not the targeted tests first; no stop at the first failing test; the sandbox left in place. It prints the sandbox's path, the line before and after the mutation, the complete test output, and the verdict with its reason. The sandbox stays until the next run's sweep of orphaned sandboxes removes it; copy it if you need it longer.
 
 ---
 
@@ -518,6 +653,8 @@ Use `--no-cache` to force a full re-run:
 ```bash
 swift-mutation-testing --no-cache
 ```
+
+Besides `results.json`, written when a run ends, the cache keeps a journal, `journal.jsonl`, with every verdict appended the moment it is known. A run that is interrupted leaves its verdicts there, and the next run continues from them; see [Resuming an interrupted run](#resuming-an-interrupted-run).
 
 ---
 

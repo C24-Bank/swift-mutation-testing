@@ -1,6 +1,6 @@
 # Quality Gate
 
-← [Reporting & Infrastructure](09-reporting-infrastructure.md) | [Index →](README.md)
+← [Reporting & Infrastructure](09-reporting-infrastructure.md) | Next: [Plans →](11-plans.md)
 
 ---
 
@@ -180,4 +180,4 @@ The wording of each check comes from `GateResult+Summary`, which `MarkdownReport
 
 ---
 
-← [Reporting & Infrastructure](09-reporting-infrastructure.md) | [Index →](README.md)
+← [Reporting & Infrastructure](09-reporting-infrastructure.md) | Next: [Plans →](11-plans.md)

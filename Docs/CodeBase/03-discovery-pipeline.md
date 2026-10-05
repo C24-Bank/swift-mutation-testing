@@ -10,11 +10,12 @@
 struct DiscoveryPipeline: Sendable {
     static let allOperatorNames: [String]
     static func operatorNames(upTo tier: OperatorTier) -> [String]
+    static func operators(named identifiers: [String]) -> [any MutationOperator]
     func run(input: DiscoveryInput) async throws -> RunnerInput
 }
 ```
 
-Entry point for the discovery phase. Runs six stages sequentially and assembles the `RunnerInput` for the execution pipeline.
+Entry point for the discovery phase. `run` is `Planner.plan` followed by `PlanMaterializer.materialize` on the sources the planner just parsed: the six stages below, with a `Plan` in the middle (see [11 — Plans](11-plans.md)). `run --plan` takes the same second half from a plan read from disk, so the two flows share one materialization.
 
 ```mermaid
 flowchart TD
