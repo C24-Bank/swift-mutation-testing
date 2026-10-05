@@ -23,7 +23,9 @@ struct ShardSelectorTests {
         #expect(shards.flatMap { $0 }.count == plan.mutants.count)
         #expect(Set(shards.flatMap { $0.map(\.fingerprint) }).count == plan.mutants.count)
         for shard in shards {
-            #expect(shard.map(\.fingerprint) == plan.mutants.filter { m in shard.contains { $0.file == m.file } }.map(\.fingerprint))
+            #expect(
+                shard.map(\.fingerprint)
+                    == plan.mutants.filter { m in shard.contains { $0.file == m.file } }.map(\.fingerprint))
         }
     }
 

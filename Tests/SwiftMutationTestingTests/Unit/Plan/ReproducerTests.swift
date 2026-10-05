@@ -18,7 +18,9 @@ struct ReproducerTests {
         #expect(throws: PlanError.unknownMutant("zzzzzz")) { try Reproducer.mutant(matching: "zzzzzz", in: plan) }
     }
 
-    @Test("Given a mutant, when reproduced, then the whole suite runs without a stop rule, the sandbox stays and everything is printed")
+    @Test(
+        "Given a mutant, when reproduced, then the whole suite runs without a stop rule, the sandbox stays and everything is printed"
+    )
     func reproduceRunsTheWholeSuiteAndKeepsTheSandbox() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
@@ -29,12 +31,15 @@ struct ReproducerTests {
 
         var exit: ExitCode = .error
         let output = await captureOutput {
-            exit = (try? await Reproducer().reproduce(
-                "swift-mutation-testing_1", plan: plan, configuration: configuration, launcher: launcher
-            )) ?? .error
+            exit =
+                (try? await Reproducer().reproduce(
+                    "swift-mutation-testing_1", plan: plan, configuration: configuration, launcher: launcher
+                )) ?? .error
         }
-        let sandboxes = output.split(separator: "\n").filter { $0.hasPrefix("Sandbox: ") }.map { String($0.dropFirst(9)) }
-        defer { sandboxes.forEach { try? FileManager.default.removeItem(atPath: $0) } }
+        let sandboxes = output.split(separator: "\n").filter { $0.hasPrefix("Sandbox: ") }.map {
+            String($0.dropFirst(9))
+        }
+        defer { for sandbox in sandboxes { try? FileManager.default.removeItem(atPath: sandbox) } }
 
         #expect(exit == .success)
         #expect(output.contains("Reproducing swift-mutation-testing_1 (\(plan.mutants[1].fingerprint))"))
@@ -46,7 +51,9 @@ struct ReproducerTests {
         #expect(output.contains("Tests:"))
         #expect(output.contains("Verdict: "))
 
-        let tests = await launcher.requests.filter { $0.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] == "swift-mutation-testing_1" }
+        let tests = await launcher.requests.filter {
+            $0.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] == "swift-mutation-testing_1"
+        }
         #expect(!tests.isEmpty)
         #expect(tests.allSatisfy { $0.stopRule == nil })
         #expect(tests.allSatisfy { !$0.arguments.contains("--filter") })

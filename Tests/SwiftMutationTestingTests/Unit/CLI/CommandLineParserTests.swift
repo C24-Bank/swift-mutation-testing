@@ -34,7 +34,9 @@ struct CommandLineParserTests {
 
     @Test("Given the plan command, when parsed, then --output is the plan's path and the project path follows")
     func planCommand() throws {
-        let result = try parser.parse(["plan", "/my/project", "--output", "plans/p.json", "--operator-tier", "experimental"])
+        let result = try parser.parse(
+            ["plan", "/my/project", "--output", "plans/p.json", "--operator-tier", "experimental"]
+        )
 
         #expect(result.command == .plan)
         #expect(result.projectPath == "/my/project")

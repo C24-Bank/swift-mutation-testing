@@ -36,7 +36,8 @@ struct ResultMergerTests {
             formatVersion: Plan.formatVersion, toolVersion: "0", project: Self.plan.project, scope: Self.plan.scope,
             files: Self.plan.files, mutants: Array(Self.plan.mutants.prefix(2))
         )
-        let path = try Self.writeResult(in: dir, name: "a.json", plan: other, verdicts: [(Self.mutants[0], .survived, true)])
+        let path = try Self.writeResult(
+            in: dir, name: "a.json", plan: other, verdicts: [(Self.mutants[0], .survived, true)])
 
         #expect(throws: MergeError.differentPlan(path: path)) {
             try ResultMerger().merge(resultPaths: [path], plan: Self.plan, projectPath: dir.path)
@@ -47,8 +48,10 @@ struct ResultMergerTests {
     func aDuplicateIsRefused() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
-        let first = try Self.writeResult(in: dir, name: "a.json", plan: Self.plan, verdicts: [(Self.mutants[0], .survived, true)])
-        let second = try Self.writeResult(in: dir, name: "b.json", plan: Self.plan, verdicts: [(Self.mutants[0], .survived, true)])
+        let first = try Self.writeResult(
+            in: dir, name: "a.json", plan: Self.plan, verdicts: [(Self.mutants[0], .survived, true)])
+        let second = try Self.writeResult(
+            in: dir, name: "b.json", plan: Self.plan, verdicts: [(Self.mutants[0], .survived, true)])
 
         #expect(throws: MergeError.duplicate(fingerprint: "f0", paths: [first, second])) {
             try ResultMerger().merge(resultPaths: [first, second], plan: Self.plan, projectPath: dir.path)
@@ -59,7 +62,8 @@ struct ResultMergerTests {
     func aMissingMutantHasNoScore() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
-        let path = try Self.writeResult(in: dir, name: "a.json", plan: Self.plan, verdicts: [(Self.mutants[0], .survived, true)])
+        let path = try Self.writeResult(
+            in: dir, name: "a.json", plan: Self.plan, verdicts: [(Self.mutants[0], .survived, true)])
 
         #expect(throws: MergeError.missing(count: 2, sample: ["f1 (Sources/A.swift:2)", "f2 (Sources/B.swift:1)"])) {
             try ResultMerger().merge(resultPaths: [path], plan: Self.plan, projectPath: dir.path)
@@ -73,7 +77,8 @@ struct ResultMergerTests {
         let notJSON = dir.appendingPathComponent("x.json").path
         try "nope".write(toFile: notJSON, atomically: true, encoding: .utf8)
         let noIdentity = dir.appendingPathComponent("y.json").path
-        try JsonReporter(outputPath: noIdentity, projectRoot: dir.path).report(RunnerSummary(results: [], totalDuration: 0))
+        try JsonReporter(outputPath: noIdentity, projectRoot: dir.path).report(
+            RunnerSummary(results: [], totalDuration: 0))
 
         #expect(throws: MergeError.unreadableResult(path: notJSON)) {
             try ResultMerger().merge(resultPaths: [notJSON], plan: Self.plan, projectPath: dir.path)
@@ -105,7 +110,8 @@ struct ResultMergerTests {
 
     static let plan = Plan(
         formatVersion: Plan.formatVersion, toolVersion: "0", project: Plan.Project(type: .spm, testTarget: nil),
-        scope: Plan.Scope(sourcesPath: "Sources", excludePatterns: [], operators: ["SwapTernary", "NegateConditional"]),
+        scope: Plan.Scope(
+            sourcesPath: "Sources", excludePatterns: [], operators: ["SwapTernary", "NegateConditional"]),
         files: [Plan.File(path: "Sources/A.swift", sha256: "ha"), Plan.File(path: "Sources/B.swift", sha256: "hb")],
         mutants: mutants
     )
