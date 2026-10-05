@@ -102,6 +102,66 @@ struct SwiftMutationTestingPlanTests {
         #expect(config?["shard"] == nil)
     }
 
+    @Test("Given a plan run in two shards, when merged, then the report is the single run's, mutant by mutant")
+    func shardsMergeIntoTheSingleRun() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+        try "func g(_ a: Bool, _ b: Bool) -> Bool { a || b }\n".write(
+            to: dir.appendingPathComponent("Bar.swift"), atomically: true, encoding: .utf8
+        )
+        let planPath = dir.appendingPathComponent("plan.json").path
+        _ = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+        let paths = ["single", "one", "two", "merged"].map { dir.appendingPathComponent("\($0).json").path }
+
+        for (arguments, path) in [([], paths[0]), (["--shard", "1/2"], paths[1]), (["--shard", "2/2"], paths[2])] {
+            let result = await SwiftMutationTesting.run(
+                args: ["run", dir.path, "--plan", planPath, "--quiet", "--no-cache", "--output", path] + arguments,
+                launcher: MockProcessLauncher(exitCode: 1)
+            )
+            #expect(result == .success)
+        }
+        let merged = await captureOutput {
+            _ = await SwiftMutationTesting.run(
+                args: ["merge", paths[1], paths[2], "--plan", planPath, "--output", paths[3], "--quiet"]
+            )
+        }
+
+        #expect(merged.contains("Merged 2 results"))
+        let single = try Self.verdicts(at: paths[0])
+        #expect(try Self.verdicts(at: paths[3]) == single)
+        #expect(single.count == 3)
+    }
+
+    @Test("Given a merge with a shard missing, when run, then it fails and writes no report")
+    func aMissingShardFailsTheMerge() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+        try "func g(_ a: Bool, _ b: Bool) -> Bool { a || b }\n".write(
+            to: dir.appendingPathComponent("Bar.swift"), atomically: true, encoding: .utf8
+        )
+        let planPath = dir.appendingPathComponent("plan.json").path
+        _ = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+        let one = dir.appendingPathComponent("one.json").path
+        _ = await SwiftMutationTesting.run(
+            args: ["run", dir.path, "--plan", planPath, "--shard", "1/2", "--quiet", "--no-cache", "--output", one],
+            launcher: MockProcessLauncher(exitCode: 1)
+        )
+        let mergedPath = dir.appendingPathComponent("merged.json").path
+
+        let result = await SwiftMutationTesting.run(args: ["merge", one, "--plan", planPath, "--output", mergedPath])
+
+        #expect(result == .error)
+        #expect(!FileManager.default.fileExists(atPath: mergedPath))
+    }
+
+    static func verdicts(at path: String) throws -> [String: String] {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let payload = try JSONDecoder().decode(MutationReportPayload.self, from: data)
+        return Dictionary(uniqueKeysWithValues: payload.files.values.flatMap(\.mutants).map { ($0.fingerprint, $0.status) })
+    }
+
     static func writeProject(in dir: URL) throws {
         try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\nfunc h(_ x: Int) -> Bool { x > 0 ? true : false }\n".write(
             to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
