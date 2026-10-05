@@ -156,6 +156,39 @@ struct SwiftMutationTestingPlanTests {
         #expect(!FileManager.default.fileExists(atPath: mergedPath))
     }
 
+    @Test("Given the reproduce command without a plan, when run, then the plan is made in memory and the mutant runs")
+    func reproduceWithoutAPlan() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+
+        var result: ExitCode = .error
+        let output = await captureOutput {
+            result = await SwiftMutationTesting.run(
+                args: ["reproduce", "swift-mutation-testing_0", dir.path], launcher: MockProcessLauncher(exitCode: 1)
+            )
+        }
+        let sandboxes = output.split(separator: "\n").filter { $0.hasPrefix("Sandbox: ") }.map { String($0.dropFirst(9)) }
+        defer { sandboxes.forEach { try? FileManager.default.removeItem(atPath: $0) } }
+
+        #expect(result == .success)
+        #expect(output.contains("Reproducing swift-mutation-testing_0"))
+        #expect(output.contains("Verdict: "))
+    }
+
+    @Test("Given the reproduce command with an unknown mutant, when run, then it fails")
+    func reproduceAnUnknownMutant() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+
+        let result = await SwiftMutationTesting.run(
+            args: ["reproduce", "swift-mutation-testing_99", dir.path], launcher: MockProcessLauncher(exitCode: 1)
+        )
+
+        #expect(result == .error)
+    }
+
     static func verdicts(at path: String) throws -> [String: String] {
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
         let payload = try JSONDecoder().decode(MutationReportPayload.self, from: data)
