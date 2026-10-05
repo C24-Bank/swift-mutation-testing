@@ -25,15 +25,12 @@ struct PlanShardMergeIntegrationTests {
         let merger = try FixtureCopy.make("CalcLibrary")
         defer { merger.remove() }
         let mergedPath = merger.url.appendingPathComponent("merged.json").path
-        // What `merge` does, rooted at a fifth copy: the command takes its project from the working
-        // directory, which a test must not change while other suites run.
-        let planned = try PlanStore().read(from: planPath)
-        let merged = try ResultMerger().merge(resultPaths: shards, plan: planned, projectPath: merger.url.path)
-        try JsonReporter(outputPath: mergedPath, projectRoot: merger.url.path).report(
-            RunnerSummary(results: merged.results, totalDuration: merged.totalDuration),
-            identity: RunIdentity(planSha256: try PlanStore.sha256(of: planned), shard: nil)
+        let merge = await SwiftMutationTesting.run(
+            args: ["merge"] + shards + [
+                "--plan", planPath, "--project", merger.url.path, "--output", mergedPath, "--quiet",
+            ]
         )
-
+        #expect(merge == .success)
         #expect(try Self.comparableReport(at: mergedPath) == Self.comparableReport(at: single))
         #expect(try Self.mutantCount(at: single) == PlanStore().read(from: planPath).mutants.count)
         #expect(Set(try Self.statuses(at: single)).isSuperset(of: ["Killed", "Survived"]))

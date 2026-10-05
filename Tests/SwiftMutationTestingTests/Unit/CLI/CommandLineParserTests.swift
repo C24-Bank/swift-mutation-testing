@@ -74,6 +74,17 @@ struct CommandLineParserTests {
         #expect(throws: UsageError.self) { try parser.parse(["merge", "--plan", "p.json"]) }
     }
 
+    @Test("Given merge with --project, when parsed, then it is the project path; elsewhere it is refused")
+    func mergeTakesAProject() throws {
+        let result = try parser.parse(["merge", "a.json", "--plan", "p.json", "--project", "/my/project"])
+
+        #expect(result.projectPath == "/my/project")
+        #expect(result.plan.results == ["a.json"])
+        #expect(try parser.parse(["merge", "a.json", "--plan", "p.json"]).projectPath == ".")
+        #expect(throws: UsageError.self) { try parser.parse(["run", "--project", "/my/project"]) }
+        #expect(throws: UsageError.self) { try parser.parse(["plan", "--project", "/my/project"]) }
+    }
+
     @Test("Given the reproduce command, when parsed, then the mutant and the project path are read")
     func reproduceCommand() throws {
         let result = try parser.parse(["reproduce", "3f2a", "/my/project", "--plan", "p.json"])
