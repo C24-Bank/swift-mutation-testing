@@ -51,6 +51,25 @@ swift-mutation-testing \
   --destination "platform=macOS"
 ```
 
+### Run an Xcode workspace
+
+A workspace — several projects, CocoaPods, or local packages next to the app — is built as such, with `-workspace`. Without a flag the tool looks at the project root: one `.xcworkspace` is the container, otherwise one `.xcodeproj`. Two candidates of the same kind stop the run before anything is built, naming them, rather than letting the directory order choose:
+
+```
+found App.xcworkspace and Tools.xcworkspace at the project root; pass --workspace (or the `workspace` key) to choose one
+```
+
+Name the container with `--workspace` or `--project` (or the `workspace` / `project` keys), relative to the project root; it may sit in a subdirectory. `init` writes the one it finds, so the generated file runs as is.
+
+```bash
+swift-mutation-testing --workspace Apps/App.xcworkspace --scheme App --destination "platform=macOS"
+```
+
+Every project of the workspace is schematized in the one build, whichever project or module a mutant is in, and every SwiftLint build phase in every project of the sandbox is switched off, so a linter does not fail the build on generated code. Two limits:
+
+- **Projects outside the root.** A workspace that references a project outside the project root (`../Shared/Shared.xcodeproj`) is refused with the list of such projects: the sandbox holds only the root. Run from a directory that contains every project of the workspace.
+- **CocoaPods.** `Pods/` reaches the sandbox by symlink and is never mutated only if it is out of scope: keep it outside `--sources-path`, or add `--exclude /Pods/`.
+
 ### Run on iOS Simulator
 
 ```bash
@@ -180,6 +199,8 @@ mutators:
 |---|---|---|---|
 | `scheme` | String | — | Xcode scheme to build and test (required for Xcode projects, omit for SPM) |
 | `destination` | String | — | `xcodebuild` destination specifier (required for Xcode projects, omit for SPM) |
+| `workspace` | String | the root's one container | The `.xcworkspace` to build, relative to the project. See [Run an Xcode workspace](#run-an-xcode-workspace) |
+| `project` | String | the root's one container | The `.xcodeproj` to build, relative to the project. Not together with `workspace` |
 | `test-target` | String | — | Limit test execution to this target: on a package, the test target whose bundle runs — `Tests/<target>/` builds `<target>.xctest`; on an Xcode project, `-only-testing` |
 | `testing-framework` | String | `swift-testing` | `xctest` or `swift-testing` |
 | `timeout` | Number | `120` (Xcode) / `30` (SPM) | Per-mutant test timeout in seconds. The first, parallel pass allows twice this |
@@ -264,7 +285,7 @@ swift-mutation-testing [run] [project-path] [options]      # discover and test e
 swift-mutation-testing init [project-path]                 # generate .swift-mutation-testing.yml
 swift-mutation-testing plan [project-path] --output plan.json
 swift-mutation-testing run [project-path] --plan plan.json [--shard i/n]
-swift-mutation-testing merge result.json... --plan plan.json [--project path] --output merged.json
+swift-mutation-testing merge result.json... --plan plan.json [--project-path path] --output merged.json
 swift-mutation-testing reproduce <fingerprint|id> [project-path] [--plan plan.json]
 swift-mutation-testing --version
 swift-mutation-testing --help
@@ -282,6 +303,8 @@ swift-mutation-testing [project-path] [options]
 |---|---|
 | `--scheme <scheme>` | Xcode scheme to build and test (required for Xcode, omit for SPM) |
 | `--destination <destination>` | `xcodebuild` destination specifier (required for Xcode, omit for SPM) |
+| `--workspace <path>` | The `.xcworkspace` to build, relative to the project; overrides the `workspace` or `project` key |
+| `--project <path>` | The `.xcodeproj` to build, relative to the project; not together with `--workspace` |
 | `--target <test-target>` | Limit test execution to this test target: its bundle on a package, `-only-testing` on an Xcode project |
 | `--testing-framework <fw>` | `xctest` or `swift-testing` — which library a mutant's tests are run with (default: `swift-testing`). Auto-detected by `init`; on an SPM package the probe drops a library that has no tests anyway |
 | `--timeout <seconds>` | Per-mutant test timeout (default: 120 Xcode, 30 SPM) |
@@ -307,7 +330,7 @@ swift-mutation-testing [project-path] [options]
 | `--write-baseline <path>` | Write this run's baseline, relative to the project. Command line only |
 | `--plan <plan.json>` | `run`: execute this plan instead of discovering, refusing it if the code changed. `merge`, `reproduce`: the plan to work from |
 | `--shard <i/n>` | `run --plan` only: run the i-th of n slices of the plan, split by file |
-| `--project <path>` | `merge` only: the project the merged report describes (default: the current directory) |
+| `--project-path <path>` | `merge` only: the project the merged report describes (default: the current directory) |
 
 ### Common invocations
 
@@ -415,7 +438,7 @@ swift-mutation-testing merge result-1.json result-2.json result-3.json result-4.
 - no mutant may have a verdict in two results;
 - every mutant of the plan must have a verdict. A missing shard is reported with the mutants it would have covered, and no score is given: a score over part of the plan would not be the number a single run gives.
 
-`merge` reports on the project in the current directory, or on the one `--project <path>` names: its sources are embedded in the reports and its configuration file applies, so they must be the plan's sources. The result files are the positional arguments, which is why the project is a flag here.
+`merge` reports on the project in the current directory, or on the one `--project-path <path>` names: its sources are embedded in the reports and its configuration file applies, so they must be the plan's sources. The result files are the positional arguments, which is why the project is a flag here.
 
 ### GitHub Actions matrix
 

@@ -53,7 +53,7 @@ flowchart TD
 
 **Post-processing steps (schematizable overload only):**
 
-1. `disableSwiftLintBuildPhases` — patches `project.pbxproj`, replacing the `shellScript` of every `PBXShellScriptBuildPhase` that contains `swiftlint` with `exit 0\n`.
+1. `disableSwiftLintBuildPhases` — for every `.xcodeproj` of the sandbox (`SandboxFactory.xcodeprojs(in:)`: any depth, in path order, not inside `.build`, `DerivedData`, `Pods/` or another bundle), patches `project.pbxproj`, replacing the `shellScript` of every `PBXShellScriptBuildPhase` that contains `swiftlint` with `exit 0\n`. Before, only the first `.xcodeproj` at the root was patched, and a workspace's other projects linted the schematized code and failed the build.
 
 
 ---
@@ -199,6 +199,7 @@ struct BuildStage: Sendable {
 
     func build(
         sandbox: Sandbox,
+        container: XcodeContainer?,
         scheme: String,
         destination: String,
         timeout: Double
@@ -227,7 +228,7 @@ flowchart TD
     E -- plist --> F[BuildArtifact]
 ```
 
-Auto-detects project format: prefers `-workspace` if a `.xcworkspace` exists, falls back to `-project` for `.xcodeproj`.
+Passes the resolved container as `-workspace <path>` or `-project <path>`, relative to the sandbox root; with none, `xcodebuild` is given no container. It no longer scans the sandbox for one: the first `.xcworkspace` of a directory listing is not a decision.
 
 **SPM path (`buildSPM`):** Runs `swift build --build-tests` in the sandbox directory. Returns a `BuildArtifact` with the sandbox path (no `.xctestrun` needed).
 

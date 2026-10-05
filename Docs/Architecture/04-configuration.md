@@ -86,6 +86,25 @@ enum ProjectType: Sendable, Equatable {
 
 Xcode projects require a scheme and destination. SPM projects are detected automatically when a `Package.swift` exists and no `.xcodeproj` or `.xcworkspace` is found.
 
+### XcodeContainer
+
+```swift
+enum XcodeContainer: Sendable, Equatable {
+    case workspace(String)   // relative to the project root
+    case project(String)
+}
+```
+
+The container `xcodebuild` is given, resolved once in `ConfigurationResolver` and kept in `RunnerConfiguration.build.xcodeContainer`: `nil` for a package. `XcodeContainerLocator` decides it, the same way for every run and for `init`:
+
+1. `--workspace` / `--project` on the command line, else the `workspace` / `project` keys — the command line replaces the file's container as a whole; both kinds at once is a usage error. The path must exist under the root, with the right extension; it may be in a subdirectory.
+2. Otherwise the root: exactly one `.xcworkspace` is the container; else exactly one `.xcodeproj`; none is no container; more than one of the kind that decides is a usage error naming them all. A directory with two containers never runs with one chosen silently.
+3. A workspace whose `contents.xcworkspacedata` reaches a project outside the root (`group:../…`, resolved through nested groups) is a usage error: the sandbox only holds the root.
+
+Naming a container makes the run an Xcode run even beside a `Package.swift`, so `--scheme` is then required.
+
+**Decision — the container lives next to the project type, not inside it.** The spec proposed `ProjectType.xcode(XcodeProject)` carrying the container. The container is resolved once, from the root, and only `xcodebuild` reads it; carrying it in `BuildOptions` gives every call site the same value without rewriting the forty-odd pattern matches on `.xcode(scheme:destination:)`, none of which needs it.
+
 ### TestingFramework
 
 ```swift
@@ -108,6 +127,8 @@ swift-mutation-testing init [<project-path>]
 OPTIONS:
   --scheme <scheme>             Xcode scheme to build and test (Xcode projects only)
   --destination <destination>   xcodebuild destination specifier (Xcode projects only)
+  --workspace <path>            The .xcworkspace to build, relative to the project (Xcode only)
+  --project <path>              The .xcodeproj to build, relative to the project (Xcode only)
   --testing-framework <fw>       Testing framework: xctest or swift-testing (default: swift-testing)
   --target <test-target>        Test target name
   --timeout <seconds>           Per-mutant test timeout in seconds (default: 120 Xcode, 30 SPM)
@@ -171,10 +192,10 @@ flowchart TD
 ```
 
 **Detection steps:**
-1. `findContainer` — looks for `.xcworkspace` or `.xcodeproj` in the project directory
-2. If found: `listProject` queries `xcodebuild -list` for schemes and test targets → `DetectedProject.xcode`
+1. `XcodeContainerLocator` — the container a run would build, by the rules above. When it would choose none — several at the root, or a workspace reaching outside it — `DetectedProject` keeps the reason and the candidates, and no `xcodebuild -list` runs on a container picked at random
+2. If chosen: `listProject` queries `xcodebuild -list` on it for schemes and test targets → `DetectedProject.xcode`, with `xcodeContainer` set; `ConfigurationFileWriter` writes it as `workspace:` or `project:`, or, with no choice, the reason and every candidate commented out
 3. If not found: `listSPMTestTargets` queries `swift package dump-package` for test targets → `DetectedProject.spm`
-4. `detectDestination` — scans project settings for platform SDKs (iOS, tvOS, watchOS, visionOS, macOS)
+4. `detectDestination` — scans the SDK settings of the project the container builds (the project itself, or the first one the workspace references) for iOS, tvOS, watchOS, visionOS or macOS
 5. `detectTestingFramework` — scans test target source files for `import Testing` vs `import XCTest` to determine `TestingFramework`
 
 `DetectedProject` carries the best-guess scheme (first scheme found), test targets, destination, and testing framework. Fields are `nil` when detection fails, producing a template file with placeholder comments.

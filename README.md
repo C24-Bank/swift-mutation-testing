@@ -19,7 +19,7 @@ Mutation testing introduces controlled changes to your code to verify that your 
 
 ## Features
 
-- Mutation testing for Xcode and SPM projects
+- Mutation testing for Xcode projects and workspaces and for SPM packages — every project and module of a workspace in one build
 - Supports both XCTest and Swift Testing frameworks
 - 7 mutation operators (relational, boolean, logical, arithmetic, negate conditional, swap ternary, remove side effects), in tiers measured on real packages — `--operator-tier` picks how deep a run goes, see [Operators](Docs/OPERATORS.md)
 - Schematization — builds once, tests all mutants via runtime switch

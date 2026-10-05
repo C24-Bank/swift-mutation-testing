@@ -12,7 +12,7 @@ struct CommandLineParser: Sendable {
 }
 ```
 
-The first word may be a command — `run` (the default when none is given), `init`, `plan`, `merge` or `reproduce` — then the words before the first flag are the command's positionals (the project path for `run` and `plan`; the result files for `merge`; the mutant and an optional project path for `reproduce`), then the flags. Iterates the flags left-to-right, dispatching each token to an internal `applyFlag` method. Stores intermediate state in a private `FlagValues` struct. Throws `UsageError` for unrecognised flags, for `--shard` outside `run` and for a shard that is not `i/n`. For `plan`, `--output` is the plan's path, not a report's. `--project <path>` sets the project path of `merge`, whose positionals are the result files, and is refused elsewhere.
+The first word may be a command — `run` (the default when none is given), `init`, `plan`, `merge` or `reproduce` — then the words before the first flag are the command's positionals (the project path for `run` and `plan`; the result files for `merge`; the mutant and an optional project path for `reproduce`), then the flags. Iterates the flags left-to-right, dispatching each token to an internal `applyFlag` method. Stores intermediate state in a private `FlagValues` struct. Throws `UsageError` for unrecognised flags, for `--shard` outside `run` and for a shard that is not `i/n`. For `plan`, `--output` is the plan's path, not a report's. `--project-path <path>` sets the project path of `merge`, whose positionals are the result files, and is refused elsewhere. `--workspace` and `--project` name the Xcode container.
 
 Multi-value flags (`--exclude`, `--operator`, `--disable-mutator`) accumulate into arrays. Boolean flags (`--no-cache`, `--help`, `--version`, `init`, `--quiet`) set a single Bool. All other flags consume the next token as their value.
 
@@ -181,6 +181,29 @@ Xcode projects carry a scheme and destination. SPM projects require neither — 
 
 ---
 
+## Configuration/XcodeContainer.swift and Configuration/XcodeContainerLocator.swift
+
+```swift
+enum XcodeContainer: Sendable, Equatable {
+    case workspace(String)
+    case project(String)
+    var path: String
+    var arguments: [String]   // ["-workspace", path] or ["-project", path]
+    var key: String           // "workspace" or "project", for the file and the flags
+}
+
+enum XcodeContainerLocator {
+    struct Candidates: Sendable, Equatable { let workspaces: [String]; let projects: [String] }
+    static func locate(in root: URL, workspace: String?, project: String?) throws -> XcodeContainer?
+    static func candidates(in root: URL) -> Candidates
+    static func projects(referencedBy workspace: String, in root: URL) -> [String]
+}
+```
+
+`locate` takes an explicit container after checking it exists under the root with the right extension, else decides from the root — one workspace, else one project, else none — and throws `UsageError` on two of a kind, on both flags at once, and on a workspace that references a project outside the root. `projects(referencedBy:)` reads `contents.xcworkspacedata` with `XMLParser`, resolving `group:`, `container:` and `absolute:` locations through nested groups. The rules are in [Architecture — Configuration](../Architecture/04-configuration.md#xcodecontainer).
+
+---
+
 ## Configuration/TestingFramework.swift
 
 ```swift
@@ -239,7 +262,7 @@ struct ConfigurationFileWriter: Sendable {
 
 Writes `.swift-mutation-testing.yml` at `<projectPath>/.swift-mutation-testing.yml`. Throws if the file already exists.
 
-Generates YAML content using `DetectedProject` values where available, falling back to placeholder comments. Fixed values in the generated file:
+Generates YAML content using `DetectedProject` values where available, falling back to placeholder comments. For an Xcode project the detected container comes first, as `workspace:` or `project:`; when none was chosen, the reason and every candidate, commented out. Fixed values in the generated file:
 
 - `timeout: 60` — matches `RunnerConfiguration.defaultTimeout`
 - `concurrency` — written as a comment (`# concurrency: 4`); the code default (`max(1, CPU count - 1)`) applies when absent
@@ -254,10 +277,10 @@ Generates YAML content using `DetectedProject` values where available, falling b
 struct ProjectDetector: Sendable {
     init(launcher: any ProcessLaunching)
     func detect(at projectPath: String) async -> DetectedProject
-    private func findContainer(in: String) -> (flag: String, path: String)?
+    private func detectXcode(at: URL, candidates: XcodeContainerLocator.Candidates) async -> DetectedProject
     private func listProject(container:workingDirectory:) async -> (schemes: [String], projectName: String?, testTarget: String?)
     private func listSPMTestTargets(in: String) async -> [String]
-    private func detectDestination(in: String) async -> String
+    private func detectDestination(in: URL, container: XcodeContainer?) async -> String
     private func detectTestingFramework(at:testTarget:) -> TestingFramework
 }
 ```
@@ -291,7 +314,10 @@ flowchart TD
 struct DetectedProject: Sendable {
     let kind: Kind
     let testTarget: String?
-    let testingFramework: TestingFramework
+    var testingFramework: TestingFramework
+    var xcodeContainer: XcodeContainer?          // what init writes as workspace: / project:
+    var containerNote: String?                   // why none was chosen
+    var containerCandidates: [XcodeContainer]    // written commented out when none was chosen
 
     enum Kind: Sendable {
         case xcode(scheme: String?, allSchemes: [String], destination: String)
