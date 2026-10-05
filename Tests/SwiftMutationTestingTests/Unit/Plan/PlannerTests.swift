@@ -95,4 +95,27 @@ struct PlannerTests {
             operators: ["BooleanLiteralReplacement", "LogicalOperatorReplacement"]
         )
     }
+
+    @Test("Given an Xcode container, when planned, then the plan carries it; a package plan has no such key")
+    func theContainerIsInThePlan() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try writeProject(in: dir)
+
+        let xcode = try await Planner().plan(
+            input: makeDiscoveryInput(
+                projectPath: dir.path, projectType: .xcode(scheme: "App", destination: "platform=macOS"),
+                sourcesPath: dir.path
+            ),
+            container: .workspace("Apps/App.xcworkspace")
+        ).plan
+        let package = try await Planner().plan(input: input(for: dir)).plan
+
+        #expect(xcode.project.workspace == "Apps/App.xcworkspace")
+        #expect(xcode.project.xcodeContainer == .workspace("Apps/App.xcworkspace"))
+        let text = String(decoding: try PlanStore.encode(package), as: UTF8.self)
+        #expect(!text.contains("workspace") && !text.contains("xcodeProject"))
+        let applied = try makeRunnerConfiguration(projectPath: dir.path).applying(xcode)
+        #expect(applied.build.xcodeContainer == .workspace("Apps/App.xcworkspace"))
+    }
 }

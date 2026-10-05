@@ -336,4 +336,11 @@ struct CommandLineParserTests {
 
         #expect(result.filter.disabledMutators == ["RemoveSideEffects", "SwapTernary"])
     }
+
+    @Test("Given --workspace or --project, when parsed, then each is kept as the Xcode container")
+    func containerFlags() throws {
+        #expect(try parser.parse(["--workspace", "Apps/App.xcworkspace"]).build.workspace == "Apps/App.xcworkspace")
+        #expect(try parser.parse(["--project", "App.xcodeproj"]).build.xcodeProject == "App.xcodeproj")
+        #expect(try parser.parse(["plan", "--project", "App.xcodeproj"]).build.xcodeProject == "App.xcodeproj")
+    }
 }

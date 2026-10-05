@@ -25,6 +25,7 @@ struct BuildStageTests {
 
         let artifact = try await stage.build(
             sandbox: sandbox,
+            container: nil,
             scheme: "App",
             destination: "platform=macOS,arch=arm64",
             timeout: 60
@@ -44,6 +45,7 @@ struct BuildStageTests {
         await #expect(throws: BuildError.timedOut(seconds: 5, output: "")) {
             try await stage.build(
                 sandbox: Sandbox(rootURL: projectDir),
+                container: nil,
                 scheme: "App",
                 destination: "platform=macOS",
                 timeout: 5
@@ -51,7 +53,9 @@ struct BuildStageTests {
         }
     }
 
-    @Test("Given the SPM build is killed by its timeout, when buildSPM called, then throws timedOut not compilationFailed")
+    @Test(
+        "Given the SPM build is killed by its timeout, when buildSPM called, then throws timedOut not compilationFailed"
+    )
     func throwsTimedOutWhenSPMBuildIsKilledByTimeout() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(projectDir) }
@@ -74,6 +78,7 @@ struct BuildStageTests {
         await #expect {
             try await stage.build(
                 sandbox: sandbox,
+                container: nil,
                 scheme: "App",
                 destination: "platform=macOS,arch=arm64",
                 timeout: 60
@@ -84,7 +89,7 @@ struct BuildStageTests {
         }
     }
 
-    @Test("Given xcworkspace in sandbox, when build called, then workspace flag is passed")
+    @Test("Given a workspace container, when build called, then -workspace and its relative path are passed")
     func usesWorkspaceFlagWhenXcworkspacePresent() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(projectDir) }
@@ -103,16 +108,22 @@ struct BuildStageTests {
         try plistData.write(to: productsDir.appendingPathComponent("App.xctestrun"))
 
         let sandbox = Sandbox(rootURL: projectDir)
-        let stage = BuildStage(launcher: MockProcessLauncher(exitCode: 0))
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+        let stage = BuildStage(launcher: launcher)
 
         let artifact = try await stage.build(
-            sandbox: sandbox, scheme: "App", destination: "platform=macOS", timeout: 60
+            sandbox: sandbox, container: .workspace("App/MyApp.xcworkspace"), scheme: "App",
+            destination: "platform=macOS",
+            timeout: 60
         )
+
+        let arguments = try #require(await launcher.requests.first).arguments
+        #expect(arguments.suffix(2) == ["-workspace", "App/MyApp.xcworkspace"])
 
         #expect(artifact.xctestrunURL?.lastPathComponent == "App.xctestrun")
     }
 
-    @Test("Given xcodeproj in sandbox, when build called, then project flag is passed")
+    @Test("Given a project container, when build called, then -project and its relative path are passed")
     func usesProjectFlagWhenXcodeprojPresent() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(projectDir) }
@@ -131,11 +142,16 @@ struct BuildStageTests {
         try plistData.write(to: productsDir.appendingPathComponent("App.xctestrun"))
 
         let sandbox = Sandbox(rootURL: projectDir)
-        let stage = BuildStage(launcher: MockProcessLauncher(exitCode: 0))
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+        let stage = BuildStage(launcher: launcher)
 
         let artifact = try await stage.build(
-            sandbox: sandbox, scheme: "App", destination: "platform=macOS", timeout: 60
+            sandbox: sandbox, container: .project("App/MyApp.xcodeproj"), scheme: "App", destination: "platform=macOS",
+            timeout: 60
         )
+
+        let arguments = try #require(await launcher.requests.first).arguments
+        #expect(arguments.suffix(2) == ["-project", "App/MyApp.xcodeproj"])
 
         #expect(artifact.xctestrunURL?.lastPathComponent == "App.xctestrun")
     }
@@ -154,7 +170,7 @@ struct BuildStageTests {
 
         await #expect(throws: BuildError.xctestrunNotFound) {
             try await stage.build(
-                sandbox: sandbox, scheme: "App", destination: "platform=macOS", timeout: 60
+                sandbox: sandbox, container: nil, scheme: "App", destination: "platform=macOS", timeout: 60
             )
         }
     }
@@ -173,6 +189,7 @@ struct BuildStageTests {
         await #expect(throws: BuildError.xctestrunNotFound) {
             try await stage.build(
                 sandbox: sandbox,
+                container: nil,
                 scheme: "App",
                 destination: "platform=macOS,arch=arm64",
                 timeout: 60
