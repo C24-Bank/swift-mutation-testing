@@ -26,6 +26,9 @@ enum HelpText {
         OPTIONS:
           --scheme <scheme>             Xcode scheme to build and test (Xcode projects only)
           --destination <destination>   xcodebuild destination specifier (Xcode projects only)
+          --workspace <path>            The .xcworkspace to build, relative to the project (Xcode only)
+          --project <path>              The .xcodeproj to build, relative to the project (Xcode only).
+                                        Without either, the one container at the root; two are an error
           --testing-framework <fw>       Testing framework: xctest or swift-testing (default: swift-testing)
           --target <test-target>        Test target name
           --timeout <seconds>           Per-mutant test timeout in seconds (default: 120 Xcode, 30 SPM)

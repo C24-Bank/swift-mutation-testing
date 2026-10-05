@@ -5,6 +5,7 @@ struct BuildStage: Sendable {
 
     func build(
         sandbox: Sandbox,
+        container: XcodeContainer?,
         scheme: String,
         destination: String,
         timeout: Double
@@ -18,11 +19,7 @@ struct BuildStage: Sendable {
             "-derivedDataPath", derivedDataURL.path,
         ]
 
-        if let workspaceURL = findXcworkspace(in: sandbox.rootURL) {
-            arguments += ["-workspace", workspaceURL.path]
-        } else if let projectURL = findXcodeproj(in: sandbox.rootURL) {
-            arguments += ["-project", projectURL.path]
-        }
+        arguments += container?.arguments ?? []
 
         let (exitCode, buildOutput) = try await launcher.launchCapturing(
             ProcessRequest(
@@ -90,24 +87,6 @@ struct BuildStage: Sendable {
             xctestrunURL: nil,
             plist: nil
         )
-    }
-
-    private func findXcworkspace(in directory: URL) -> URL? {
-        let items =
-            (try? FileManager.default.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: nil
-            )) ?? []
-        return items.first { $0.pathExtension == "xcworkspace" }
-    }
-
-    private func findXcodeproj(in directory: URL) -> URL? {
-        let items =
-            (try? FileManager.default.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: nil
-            )) ?? []
-        return items.first { $0.pathExtension == "xcodeproj" }
     }
 
     private func findXctestrun(in directory: URL) -> URL? {

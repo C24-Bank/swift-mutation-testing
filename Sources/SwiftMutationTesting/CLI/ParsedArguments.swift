@@ -26,6 +26,8 @@ struct ParsedArguments: Sendable {
         var concurrency: Int?
         var noCache: Bool = false
         var testingFramework: String?
+        var workspace: String?
+        var xcodeProject: String?
     }
 
     struct ReportingOptions: Sendable {

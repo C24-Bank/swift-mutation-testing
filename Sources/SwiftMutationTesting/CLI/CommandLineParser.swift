@@ -8,6 +8,8 @@ struct CommandLineParser: Sendable {
         var concurrency: Int?
         var noCache = false
         var testingFramework: String?
+        var workspace: String?
+        var xcodeProject: String?
         var output: String?
         var htmlOutput: String?
         var sonarOutput: String?
@@ -138,7 +140,9 @@ struct CommandLineParser: Sendable {
                 buildTimeout: flags.buildTimeout,
                 concurrency: flags.concurrency,
                 noCache: flags.noCache,
-                testingFramework: flags.testingFramework
+                testingFramework: flags.testingFramework,
+                workspace: flags.workspace,
+                xcodeProject: flags.xcodeProject
             ),
             reporting: .init(
                 output: flags.output,
@@ -228,6 +232,12 @@ struct CommandLineParser: Sendable {
 
         case "--target":
             values.testTarget = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--workspace":
+            values.workspace = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--project":
+            values.xcodeProject = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--timeout":
             values.timeout = try nextDouble(for: flag, at: &index, in: arguments)

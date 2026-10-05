@@ -14,6 +14,8 @@ struct RunnerConfiguration: Sendable {
 
     struct BuildOptions: Sendable {
         var projectType: ProjectType
+        /// The workspace or project `xcodebuild` builds; `nil` for a package, or an Xcode root with none.
+        var xcodeContainer: XcodeContainer?
         var testTarget: String?
         var timeout: Double
         var buildTimeout: Double

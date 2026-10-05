@@ -1,3 +1,3 @@
-struct UsageError: Error, Sendable {
+struct UsageError: Error, Sendable, Equatable {
     let message: String
 }
