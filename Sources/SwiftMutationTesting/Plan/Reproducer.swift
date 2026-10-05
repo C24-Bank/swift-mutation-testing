@@ -13,7 +13,8 @@ struct Reproducer: Sendable {
         let (index, mutant) = try Self.mutant(matching: reference, in: plan)
 
         var configuration = configuration
-        configuration.build.reproducing = true
+        let reproduction = Reproduction()
+        configuration.build.reproduction = reproduction
         configuration.build.noCache = true
         configuration.build.concurrency = 1
         let logs = configuration.reporting.keepLogsPath ?? Self.logsDirectory(for: mutant).path
@@ -35,7 +36,7 @@ struct Reproducer: Sendable {
 
         let results = try await MutantExecutor(configuration: configuration, launcher: launcher).execute(input)
 
-        for sandbox in Self.keptSandboxes() {
+        for sandbox in reproduction.keptSandboxes {
             StandardOutput.write("Sandbox: \(sandbox)")
         }
         StandardOutput.write("")
@@ -78,15 +79,6 @@ struct Reproducer: Sendable {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("swift-mutation-testing-reproduce")
             .appendingPathComponent(mutant.fingerprint)
-    }
-
-    private static func keptSandboxes() -> [String] {
-        let directory = SandboxName.directory
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        return names
-            .filter { SandboxName.ownerPID(of: $0) == getpid() }
-            .sorted()
-            .map { directory.appendingPathComponent($0).path }
     }
 
     private static func diff(of mutant: Plan.Mutant, in projectPath: String) -> String {

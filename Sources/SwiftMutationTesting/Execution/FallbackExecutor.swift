@@ -29,11 +29,7 @@ struct FallbackExecutor: Sendable {
             projectPath: input.projectPath,
             schematizedFiles: [file]
         )
-        defer {
-            if !configuration.build.reproducing {
-                try? sandbox.cleanup()
-            }
-        }
+        defer { sandbox.release(keepingFor: configuration.build.reproduction) }
 
         try ApplicationVerifier().verify(
             schematizedFiles: [file], mutants: fileMutants, sandbox: sandbox, projectPath: input.projectPath
