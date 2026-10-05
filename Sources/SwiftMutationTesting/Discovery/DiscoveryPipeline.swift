@@ -1,7 +1,7 @@
 struct DiscoveryPipeline: Sendable {
     private static let registry: [(name: String, tier: OperatorTier, operator: any MutationOperator)] = [
         (name: "RelationalOperatorReplacement", tier: .experimental, operator: RelationalOperatorReplacement()),
-        (name: "BooleanLiteralReplacement", tier: .default, operator: BooleanLiteralReplacement()),
+        (name: "BooleanLiteralReplacement", tier: .experimental, operator: BooleanLiteralReplacement()),
         (name: "LogicalOperatorReplacement", tier: .conservative, operator: LogicalOperatorReplacement()),
         (name: "ArithmeticOperatorReplacement", tier: .experimental, operator: ArithmeticOperatorReplacement()),
         (name: "NegateConditional", tier: .conservative, operator: NegateConditional()),
