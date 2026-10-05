@@ -12,6 +12,7 @@ actor CacheStore {
 
     static let directoryName = ".swift-mutation-testing-cache"
     static let formatVersion = 2
+    static let journalName = "journal.jsonl"
 
     private let storePath: String
     private let noCache: Bool
@@ -22,6 +23,14 @@ actor CacheStore {
     private var metadataPath: String {
         let url = URL(fileURLWithPath: storePath)
         return url.deletingLastPathComponent().appendingPathComponent("metadata.json").path
+    }
+
+    /// One verdict per line, appended as soon as it is known. A run that ends before `persist()` — a
+    /// `Ctrl+C`, a crash, a lost machine — leaves its verdicts here, and the next `load()` replays them, so
+    /// the run continues where it stopped. `persist()` folds the journal into the results file and removes it.
+    private var journalPath: String {
+        let url = URL(fileURLWithPath: storePath)
+        return url.deletingLastPathComponent().appendingPathComponent(Self.journalName).path
     }
 
     private struct CacheEntry: Codable {
@@ -70,11 +79,16 @@ actor CacheStore {
         if let activated {
             activations[key] = activated
         }
+
+        journal(CacheEntry(key: key, status: status, killerTestFile: killerTestFile, activated: activated))
     }
 
     func load() throws {
         guard !noCache else { return }
-        guard FileManager.default.fileExists(atPath: storePath) else { return }
+        guard FileManager.default.fileExists(atPath: storePath) else {
+            apply(journaledEntries())
+            return
+        }
 
         if FileManager.default.fileExists(atPath: metadataPath), try loadMetadata() == nil {
             discardUnreadable()
@@ -87,18 +101,45 @@ actor CacheStore {
             return
         }
         entries = [:]
-        for entry in loaded {
-            entries[entry.key] = entry.status
-        }
         killerTestFiles = [:]
         activations = [:]
+        apply(loaded + journaledEntries())
+    }
+
+    private func apply(_ loaded: [CacheEntry]) {
         for entry in loaded {
+            entries[entry.key] = entry.status
             if let file = entry.killerTestFile {
                 killerTestFiles[entry.key] = file
             }
             if let activated = entry.activated {
                 activations[entry.key] = activated
             }
+        }
+    }
+
+    private func journaledEntries() -> [CacheEntry] {
+        guard let data = FileManager.default.contents(atPath: journalPath) else { return [] }
+
+        return data.split(separator: UInt8(ascii: "\n")).compactMap { line in
+            try? JSONDecoder().decode(CacheEntry.self, from: line)
+        }
+    }
+
+    private func journal(_ entry: CacheEntry) {
+        guard var line = try? JSONEncoder().encode(entry) else { return }
+        line.append(UInt8(ascii: "\n"))
+
+        let url = URL(fileURLWithPath: journalPath)
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: line)
+        } else {
+            try? line.write(to: url)
         }
     }
 
@@ -117,6 +158,7 @@ actor CacheStore {
             withIntermediateDirectories: true
         )
         try data.write(to: url, options: .atomic)
+        try? FileManager.default.removeItem(atPath: journalPath)
     }
 
     func loadMetadata() throws -> CacheMetadata? {
