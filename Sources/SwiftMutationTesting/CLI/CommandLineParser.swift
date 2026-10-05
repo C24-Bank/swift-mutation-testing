@@ -21,6 +21,7 @@ struct CommandLineParser: Sendable {
         var disabledMutators: [String] = []
         var operatorTier: String?
         var gate = ParsedArguments.GateOptions()
+        var plan = ParsedArguments.PlanOptions()
     }
 
     func parse(_ arguments: [String]) throws -> ParsedArguments {
@@ -51,22 +52,78 @@ struct CommandLineParser: Sendable {
             return ParsedArguments(projectPath: projectPath, showInit: true)
         }
 
-        if remaining[0] == "run" {
+        let command = Self.command(named: remaining[0])
+        if command != .run || remaining[0] == "run" {
             remaining.removeFirst()
         }
 
-        if let next = remaining.first, !next.hasPrefix("-") {
-            projectPath = next
+        var positionals: [String] = []
+        while let next = remaining.first, !next.hasPrefix("-") {
+            positionals.append(next)
             remaining.removeFirst()
         }
 
-        let flags = try parseFlags(remaining)
-        return parsedArguments(projectPath: projectPath, flags: flags)
+        var flags = try parseFlags(remaining)
+        projectPath = try apply(positionals, of: command, to: &flags)
+
+        if command == .plan {
+            flags.plan.path = flags.output
+            flags.output = nil
+        }
+        if flags.plan.shard != nil, command != .run {
+            throw UsageError(message: "--shard only applies to run")
+        }
+
+        return parsedArguments(command: command, projectPath: projectPath, flags: flags)
     }
 
-    private func parsedArguments(projectPath: String, flags: FlagValues) -> ParsedArguments {
+    private static func command(named word: String) -> ParsedArguments.Command {
+        switch word {
+        case "plan": .plan
+        case "merge": .merge
+        case "reproduce": .reproduce
+        default: .run
+        }
+    }
+
+    /// What the words before the flags mean for each command; returns the project path.
+    private func apply(
+        _ positionals: [String], of command: ParsedArguments.Command, to flags: inout FlagValues
+    ) throws -> String {
+        switch command {
+        case .run, .plan:
+            guard positionals.count <= 1 else {
+                throw UsageError(message: "unexpected argument '\(positionals[1])'")
+            }
+            return positionals.first ?? "."
+
+        case .merge:
+            guard !positionals.isEmpty else {
+                throw UsageError(message: "merge needs the result files to join")
+            }
+            flags.plan.results = positionals
+            return "."
+
+        case .reproduce:
+            guard let mutant = positionals.first else {
+                throw UsageError(
+                    message: "reproduce needs a mutant: a fingerprint or an id such as swift-mutation-testing_12")
+            }
+            guard positionals.count <= 2 else {
+                throw UsageError(message: "unexpected argument '\(positionals[2])'")
+            }
+            flags.plan.mutant = mutant
+            return positionals.count == 2 ? positionals[1] : "."
+        }
+    }
+
+    private func parsedArguments(
+        command: ParsedArguments.Command, projectPath: String, flags: FlagValues
+    ) -> ParsedArguments {
         ParsedArguments(
+            command: command,
             projectPath: projectPath,
+            plan: flags.plan,
             build: .init(
                 scheme: flags.scheme,
                 destination: flags.destination,
@@ -119,8 +176,32 @@ struct CommandLineParser: Sendable {
         if try applyReportingFlag(flag, to: &values, at: &index, in: arguments) { return }
         if try applyFilterFlag(flag, to: &values, at: &index, in: arguments) { return }
         if try applyGateFlag(flag, to: &values, at: &index, in: arguments) { return }
+        if try applyPlanFlag(flag, to: &values, at: &index, in: arguments) { return }
 
         throw UsageError(message: "unknown option '\(flag)'")
+    }
+
+    private func applyPlanFlag(
+        _ flag: String,
+        to values: inout FlagValues,
+        at index: inout Int,
+        in arguments: [String]
+    ) throws -> Bool {
+        switch flag {
+        case "--plan":
+            values.plan.path = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--shard":
+            let raw = try nextValue(for: flag, at: &index, in: arguments)
+            guard Shard(parsing: raw) != nil else {
+                throw UsageError(message: PlanError.invalidShard(raw).errorDescription ?? raw)
+            }
+            values.plan.shard = raw
+
+        default:
+            return false
+        }
+        return true
     }
 
     private func applyBuildFlag(

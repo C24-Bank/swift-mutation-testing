@@ -7,9 +7,9 @@ struct RunnerConfiguration: Sendable {
     static let defaultConcurrency: Int = max(1, ProcessInfo.processInfo.processorCount - 1)
 
     let projectPath: String
-    let build: BuildOptions
-    let reporting: ReportingOptions
-    let filter: FilterOptions
+    var build: BuildOptions
+    var reporting: ReportingOptions
+    var filter: FilterOptions
     var gate: GateOptions = GateOptions()
 
     struct BuildOptions: Sendable {

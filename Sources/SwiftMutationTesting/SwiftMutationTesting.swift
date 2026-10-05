@@ -40,24 +40,53 @@ public struct SwiftMutationTesting {
         }
 
         let fileValues = try ConfigurationFileParser().parse(at: parsed.projectPath)
-        let configuration = try ConfigurationResolver().resolve(
+        var configuration = try ConfigurationResolver().resolve(
             cliArguments: parsed,
             fileValues: fileValues
         )
 
+        switch parsed.command {
+        case .plan:
+            return try await writePlan(configuration: configuration, to: parsed.plan.path ?? "plan.json")
+
+        case .merge:
+            return try merge(parsed.plan, configuration: configuration)
+
+        case .reproduce:
+            return try await reproduce(parsed.plan, configuration: configuration, launcher: launcher)
+
+        case .run:
+            break
+        }
+
+        var planned: PlannedRun?
+        if let path = parsed.plan.path {
+            let plan = try PlanStore().read(from: path)
+            configuration = try configuration.applying(plan)
+            planned = PlannedRun(plan: plan, shard: parsed.plan.shard.flatMap(Shard.init(parsing:)))
+        }
+
         let baseline = try loadBaseline(for: configuration)
 
         return try await SleepInhibitor.preventingIdleSleep {
-            try await runPipeline(configuration: configuration, baseline: baseline, launcher: launcher)
+            try await runPipeline(
+                configuration: configuration, baseline: baseline, launcher: launcher, planned: planned
+            )
         }
+    }
+
+    struct PlannedRun: Sendable {
+        let plan: Plan
+        let shard: Shard?
     }
 
     private static func runPipeline(
         configuration: RunnerConfiguration,
         baseline: Baseline?,
-        launcher: (any ProcessLaunching)?
+        launcher: (any ProcessLaunching)?,
+        planned: PlannedRun? = nil
     ) async throws -> ExitCode {
-        let (input, discoveryDuration) = try await discover(configuration: configuration)
+        let (input, identity, discoveryDuration) = try await discover(configuration: configuration, planned: planned)
 
         if !configuration.reporting.quiet {
             let schematizable = input.mutants.filter { $0.isSchematizable }.count
@@ -83,9 +112,43 @@ public struct SwiftMutationTesting {
         let summary = RunnerSummary(results: results, totalDuration: duration)
         TextReporter(projectRoot: configuration.projectPath).report(summary)
         let gate = evaluateGate(summary, configuration: configuration, baseline: baseline)
-        writeReports(summary, configuration: configuration, gate: gate)
+        writeReports(summary, configuration: configuration, gate: gate, identity: identity)
 
         return try applyGate(gate, summary: summary, configuration: configuration)
+    }
+
+    private static func writePlan(configuration: RunnerConfiguration, to path: String) async throws -> ExitCode {
+        let start = Date()
+        let planned = try await Planner().plan(
+            input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget
+        )
+        try PlanStore().write(planned.plan, to: path)
+
+        let plan = planned.plan
+        if !configuration.reporting.quiet {
+            let schematizable = plan.mutants.filter(\.schematizable).count
+            await ConsoleProgressReporter().report(
+                .discoveryFinished(
+                    mutantCount: plan.mutants.count,
+                    schematizableCount: schematizable,
+                    incompatibleCount: plan.mutants.count - schematizable,
+                    duration: Date().timeIntervalSince(start)
+                ))
+        }
+        StandardOutput.write("  ✓ Plan: \(path) (\(plan.mutants.count) mutants in \(plan.files.count) files)")
+        return .success
+    }
+
+    private static func merge(
+        _ options: ParsedArguments.PlanOptions, configuration: RunnerConfiguration
+    ) throws -> ExitCode {
+        throw UsageError(message: "merge is not available yet")
+    }
+
+    private static func reproduce(
+        _ options: ParsedArguments.PlanOptions, configuration: RunnerConfiguration, launcher: (any ProcessLaunching)?
+    ) async throws -> ExitCode {
+        throw UsageError(message: "reproduce is not available yet")
     }
 
     static func loadBaseline(for configuration: RunnerConfiguration) throws -> Baseline? {
@@ -141,9 +204,39 @@ public struct SwiftMutationTesting {
         return exitCode
     }
 
-    private static func discover(configuration: RunnerConfiguration) async throws -> (RunnerInput, TimeInterval) {
+    /// The run's input and identity: from the plan given, a slice of it under `--shard`, or from a plan
+    /// made now and materialized at once, which is the plain run.
+    private static func discover(
+        configuration: RunnerConfiguration, planned: PlannedRun?
+    ) async throws -> (RunnerInput, RunIdentity, TimeInterval) {
         let start = Date()
-        let discoveryInput = DiscoveryInput(
+        let execution = PlanMaterializer.ExecutionOptions(
+            timeout: configuration.build.timeout,
+            concurrency: configuration.build.concurrency,
+            noCache: configuration.build.noCache
+        )
+
+        if let planned {
+            let selection = planned.shard.map { ShardSelector.mutants(of: planned.plan, in: $0) }
+            let input = try await PlanMaterializer().materialize(
+                plan: planned.plan, projectPath: configuration.projectPath, execution: execution, mutants: selection
+            )
+            let identity = RunIdentity(planSha256: try PlanStore.sha256(of: planned.plan), shard: planned.shard)
+            return (input, identity, Date().timeIntervalSince(start))
+        }
+
+        let made = try await Planner().plan(
+            input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget
+        )
+        let input = try PlanMaterializer().materialize(
+            plan: made.plan, projectPath: configuration.projectPath, sources: made.sources, execution: execution
+        )
+        let identity = RunIdentity(planSha256: try PlanStore.sha256(of: made.plan), shard: nil)
+        return (input, identity, Date().timeIntervalSince(start))
+    }
+
+    private static func discoveryInput(for configuration: RunnerConfiguration) -> DiscoveryInput {
+        DiscoveryInput(
             projectPath: configuration.projectPath,
             projectType: configuration.build.projectType,
             timeout: configuration.build.timeout,
@@ -153,11 +246,12 @@ public struct SwiftMutationTesting {
             excludePatterns: configuration.filter.excludePatterns,
             operators: configuration.filter.operators
         )
-        let input = try await DiscoveryPipeline().run(input: discoveryInput)
-        return (input, Date().timeIntervalSince(start))
     }
 
-    static func writeReports(_ summary: RunnerSummary, configuration: RunnerConfiguration, gate: GateResult? = nil) {
+    static func writeReports(
+        _ summary: RunnerSummary, configuration: RunnerConfiguration, gate: GateResult? = nil,
+        identity: RunIdentity? = nil
+    ) {
         let reporting = configuration.reporting
         let hasReports = [
             reporting.output, reporting.htmlOutput, reporting.sonarOutput, reporting.sarifOutput,
@@ -168,7 +262,8 @@ public struct SwiftMutationTesting {
 
         if let output = configuration.reporting.output {
             writeReport(label: "JSON", to: output) {
-                try JsonReporter(outputPath: output, projectRoot: configuration.projectPath).report(summary)
+                try JsonReporter(outputPath: output, projectRoot: configuration.projectPath)
+                    .report(summary, identity: identity)
             }
         }
 
