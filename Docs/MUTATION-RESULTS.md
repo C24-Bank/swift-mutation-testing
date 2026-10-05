@@ -175,6 +175,10 @@ This is the formula the [Stryker report schema](STRYKER-COMPATIBILITY.md) applie
 
 A score of 100% means every mutant that could be executed was detected by at least one test or by the suite failing to finish.
 
+### The number on the README badge
+
+The badge is this repository's own score on the `default` tier, taken from the self-run of the operator campaign — the entry `"."` of `Scripts/operator-campaign/corpus.json`, with its arguments: `Fixtures/` (test data), `Scripts/` (the campaign tooling, which no test runs) and the two sandbox files whose mutants would delete the run's own sandboxes are left out, and the timeout is 300 s so that a surviving mutant's full suite fits. The campaign runs every operator, so the badge's number is the score recomputed over the mutants of the `default` tier's operators in that report; `Docs/OPERATORS.md` has the full result and the date. It is a record run, not a push-time number: it moves when the campaign is rerun.
+
 ---
 
 ## Schematizable vs incompatible mutants

@@ -12,6 +12,24 @@ Every operator has a **tier**, and the tier comes from measured data, not from o
 
 The limits were proposed before any data existed. A campaign may show they need to move; every change is recorded under [Decisions](#decisions) with its reason. The first campaign moved one: a project qualifies with 10 mutants of an operator, not 30.
 
+## Metrics
+
+Every number comes from the tool's own JSON reports, one per project, read by `Scripts/operator-campaign/campaign.swift aggregate`; the per-(operator, project) rows are in [`operators/results.csv`](operators/results.csv). A *cell* below is one operator in one project.
+
+| Metric | Definition |
+|---|---|
+| Generated | mutants the operator produced in the project, every status included |
+| Detected / undetected | detected = killed + timeout; undetected = survived + no coverage, the score's own split |
+| Kill rate | detected ÷ (detected + undetected), per cell; unviable mutants are outside both sides, as in the score |
+| Median kill rate | the median of the kill rates of the *qualified* cells of the operator, one value per project, so a project with 600 mutants weighs the same as one with 12 |
+| Unviable | unviable ÷ generated over all the operator's cells, qualified or not: a mutant that does not compile is the operator's doing, whatever the project |
+| No coverage | no coverage ÷ generated, per cell; reported, not a criterion |
+| Cost per mutant | the mean `duration` of the operator's mutants, the time their tests took, cached results excluded; it says what a run spends on the operator, and it depends on the suite and on the stop rule, so compare operators within a project rather than projects with each other |
+| Equivalent (reviewed) | equivalent ÷ (equivalent + not equivalent) over the operator's hand-reviewed survivors, every project together; the count in parentheses is the reviews behind the share. A review marked *not measurable* counts on neither side |
+| Qualified projects | a cell qualifies when it holds at least 10 mutants of the operator (`--min-mutants`); an operator needs 3 qualified cells to be judged at all, else it is `experimental` for insufficient data |
+
+The tier then follows the [criteria](#tiers) in that order: fewer than 3 qualified projects, or a median kill rate under 40%, or more than 15% unviable, is `experimental`; otherwise a median of at least 70% with at most 5% unviable and 10% equivalent is `conservative`; otherwise at most 25% equivalent is `default`; the rest is `experimental`. An operator with the kill rates to qualify but no reviewed survivor yet is *pending review*.
+
 ## Current tiers
 
 Assigned on 2026-10-05 from the second run of the record campaign, by the criteria above:
@@ -109,6 +127,33 @@ Every verdict carries a one-line reason in the CSV. The first run of this campai
 | swift-mutation-testing | `RelationalOperatorReplacement` | 361 | 282 | 77 | 0 | 2 | 78.6% | 16979 ms |
 | swift-mutation-testing | `RemoveSideEffects` | 310 | 214 | 95 | 0 | 1 | 69.3% | 39433 ms |
 | swift-mutation-testing | `SwapTernary` | 58 | 55 | 3 | 0 | 0 | 94.8% | 16951 ms |
+
+## Reproducing the campaign
+
+The campaign is three commands of a Foundation-only script, run from the root of this repository, plus one afternoon of reading. It needs a release build of the tool, Xcode's toolchain and the network for the clones.
+
+```bash
+swift build -c release
+swift Scripts/operator-campaign/campaign.swift run Scripts/operator-campaign/corpus.json out/campaign \
+    --tool "$PWD/.build/release/swift-mutation-testing"
+```
+
+`run` clones each project of [`corpus.json`](../Scripts/operator-campaign/corpus.json) at its commit into a temporary directory, runs the tool over it with `--no-cache --operator-tier experimental` and the project's own arguments (test target, exclusions, timeout), and leaves three files per project in the output directory: the JSON report, the console output and a `meta.json` with the commit, the tool and Swift versions, the machine, the date and the wall time. The entry `"."` is this repository, run from the working tree at `HEAD`. The whole corpus takes about four hours on an Apple M4 Max, two and a half of them this repository's run.
+
+```bash
+swift Scripts/operator-campaign/campaign.swift sample out/campaign --csv out/equivalence.csv
+```
+
+`sample` draws up to 20 survivors per (operator, project) with a fixed seed (20261001), so the same reports give the same draw, and writes them with empty `verdict` and `note` columns. Those are filled by hand, one survivor at a time, read in its source: `equivalent` when no input could make the mutated program behave differently through anything observable, `not-equivalent` when some input could, even if no test checks it, and `not-measurable` only for code the build leaves out. A doubt is resolved as *not equivalent*, which never demotes an operator. The verdicts of the record campaign are in [`operators/equivalence.csv`](operators/equivalence.csv), keyed by the mutant's fingerprint, so a rerun that draws the same survivor can carry its verdict over; `sample` refuses to overwrite a file that may hold reviews unless told `--force`.
+
+```bash
+swift Scripts/operator-campaign/campaign.swift aggregate out/campaign \
+    --markdown Docs/operators/results.md --csv Docs/operators/results.csv --equivalence out/equivalence.csv
+```
+
+`aggregate` computes the [metrics](#metrics) and the tier by the criteria for every operator, and the per-cell table. `campaign.swift check` aggregates a small fixture under `Scripts/operator-campaign/check/` and compares with its expected output; the pull-request workflow runs it, so the arithmetic cannot drift unnoticed.
+
+**What to expect between runs.** Discovery is deterministic: the same commit of a project and the same commit of the tool give the same mutants. Kills are stable — `swift-algorithms` reported the same 857 kills in six runs — and the survivors with them, so the sample, and the verdicts that carry over, barely move. What moves is the handful of mutants at the edge of the timeout, and the integrity warnings of a suite that is not deterministic under load (`swift-cpd` had 3 in one run and 7 in the next, on the same commits). A kill rate moving by more than a point between two runs on the same commits is a signal to look at the console output, not at the operator. A different machine changes the cost per mutant and the wall times, nothing else.
 
 ## Decisions
 
