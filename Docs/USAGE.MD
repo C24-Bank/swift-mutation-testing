@@ -463,7 +463,10 @@ The shards must check out the same commit the plan was made from; a different co
 
 ### Resuming an interrupted run
 
-Every verdict is written to the cache's journal (`.swift-mutation-testing-cache/journal.jsonl`) the moment it is known. A run that ends early — `Ctrl+C`, a crash, a lost machine — leaves its verdicts there, and the next run over the same code reads them back and continues with the mutants that have none. Nothing to pass: it is the cache doing its job, so it does not happen under `--no-cache`. A plan's files are hashed the same way the cache keys are, so this holds for `run --plan` too, shard by shard.
+Every verdict is written down the moment it is known, in two places. A run that ends early — `Ctrl+C`, a crash, a lost machine — leaves its verdicts behind, and the next run continues with the mutants that have none. Nothing to pass.
+
+- **The cache's journal** (`.swift-mutation-testing-cache/journal.jsonl`) serves every run, planned or not. It is the cache doing its job, so it does not exist under `--no-cache`.
+- **The plan's journal** (`.swift-mutation-testing-cache/plans/<plan hash>[-<i>-of-<n>].jsonl`) serves `run --plan`: one per plan and shard, read by the next `run --plan` of the same plan and shard, which runs only the mutants it has no verdict for (`✓ Resumed 4 verdicts from an interrupted run of this plan`) and removes the journal when it finishes. It is kept even under `--no-cache`: it holds only the progress of a run that did not finish, over files the plan's hashes pin, so a finished run leaves nothing behind and the next one measures everything again.
 
 ### Reproducing one mutant
 

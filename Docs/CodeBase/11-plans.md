@@ -87,6 +87,22 @@ enum ShardSelector {
 
 Files in path order, each to the shard with the fewest mutants so far, ties to the lowest index.
 
+## Plan/PlanJournal.swift
+
+```swift
+struct PlanJournal: Sendable {
+    struct Entry: Codable, Equatable { let fingerprint: String; let status: ExecutionStatus
+                                       let killerTestFile: String?; let activated: Bool?; let duration: Double }
+    init(path: String, mutants: [MutantDescriptor])
+    static func path(projectPath: String, planSha256: String, shard: Shard?) -> String
+    func record(status:for:killerTestFile:activated:duration:)
+    static func entries(at path: String) -> [String: Entry]
+    static func remove(at path: String)
+}
+```
+
+The progress of one run of a plan or shard. `record` maps the cache key to the mutant's fingerprint and appends one line; `entries` reads them back, the last line winning and a cut-short line skipped. `MutantExecutor(configuration:launcher:planJournal:)` hands it to `CacheStore`, whose `store(…, duration:)` records into it before its `noCache` and timeout guards. `SwiftMutationTesting.discover` reads it for `run --plan`, leaves the journaled mutants out of the materialized input and rebuilds their results; the run removes it when it has its results.
+
 ## Plan/RunIdentity.swift
 
 ```swift

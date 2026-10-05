@@ -50,7 +50,12 @@ Every JSON report carries `config.planSha256` and, for a shard, `config.shard` (
 
 ## Resuming
 
-`CacheStore` appends every verdict to `journal.jsonl` as soon as it is stored and replays the journal on `load()`, folding it into `results.json` on `persist()`. The cache's metadata (the test files' hashes) is written at the start of the run, so an interrupted run's journal is read back against the test files it ran with. The cache key is the file's content hash, the same the plan carries, so a `run --plan` resumes the same way, shard by shard. Nothing is indexed by plan: the content already is the identity.
+Two layers.
+
+1. **The cache's journal**, for every run. `CacheStore` appends every verdict to `journal.jsonl` as soon as it is stored and replays the journal on `load()`, folding it into `results.json` on `persist()`. The cache's metadata (the test files' hashes) is written at the start of the run, so an interrupted run's journal is read back against the test files it ran with. Under `--no-cache` there is none.
+2. **The plan's journal**, for `run --plan`. `PlanJournal` is a JSON-lines file per plan and shard, `.swift-mutation-testing-cache/plans/<planSha256>[-<i>-of-<n>].jsonl`, with each verdict's fingerprint, status, killer test file, activation and duration. `CacheStore.store` feeds it before its own `noCache` and timeout guards, so it records every final verdict, timeouts included, whatever the cache does. `run --plan` reads it first, materializes only the mutants with no entry, rebuilds the others' results from the plan (`PlanMaterializer.descriptor(of:at:in:projectPath:)`, the same as the merge), and removes the journal once the run has its results. A journal therefore only ever holds what an interrupted run of that plan and shard reached, which is why `--no-cache` does not switch it off: a finished run leaves nothing to replay.
+
+A test sends a real `SIGINT` to the built tool in the middle of a `run --plan --no-cache`, then runs the plan again and checks that exactly the mutants without a journaled verdict are tested and that the report holds every mutant with the journaled verdicts unchanged.
 
 ## Reproduce
 
@@ -66,4 +71,5 @@ Every JSON report carries `config.planSha256` and, for a shard, `config.shard` (
 | The direct flow and `run --plan` give the same input | one `PlanMaterializer`; a test compares the two |
 | Shards partition the plan | `ShardSelector` tests: union is the plan, intersection is empty |
 | A merge is complete or it has no score | `ResultMerger` throws `MergeError.missing` |
-| An interrupted run loses no verdict | the journal is written per verdict, before any report |
+| An interrupted run loses no verdict | both journals are written per verdict, before any report; a `SIGINT` test on the built tool |
+| Shards merged are the single run | a test runs a plan whole and as 4 shards, each on its own copy of the package, and compares the merged report with the single one field by field, durations aside |
