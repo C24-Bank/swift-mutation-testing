@@ -6,20 +6,9 @@ struct ProjectDetector: Sendable {
     func detect(at projectPath: String) async -> DetectedProject {
         let projectURL = resolvedURL(for: projectPath)
 
-        if let container = findContainer(in: projectURL) {
-            let (schemes, projectName, testTarget) = await listProject(
-                container: container, workingDirectory: projectURL)
-            let destination = await detectDestination(in: projectURL)
-            let framework = detectTestingFramework(at: projectURL, testTarget: testTarget)
-            return DetectedProject(
-                kind: .xcode(
-                    scheme: selectScheme(from: schemes, projectName: projectName),
-                    allSchemes: schemes,
-                    destination: destination
-                ),
-                testTarget: testTarget,
-                testingFramework: framework
-            )
+        let found = XcodeContainerLocator.candidates(in: projectURL)
+        if !found.workspaces.isEmpty || !found.projects.isEmpty {
+            return await detectXcode(at: projectURL, candidates: found)
         }
 
         if FileManager.default.fileExists(atPath: projectURL.appendingPathComponent("Package.swift").path) {
@@ -42,25 +31,45 @@ struct ProjectDetector: Sendable {
         return URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
     }
 
-    private func findContainer(in projectURL: URL) -> (flag: String, path: String)? {
-        guard
-            let items = try? FileManager.default.contentsOfDirectory(
-                at: projectURL,
-                includingPropertiesForKeys: [.isDirectoryKey]
-            )
-        else {
-            return nil
+    /// The container the locator would choose, its schemes and its platform; when it would choose none,
+    /// the reason and the candidates instead, and no `xcodebuild -list` of a container picked at random.
+    private func detectXcode(at projectURL: URL, candidates: XcodeContainerLocator.Candidates) async -> DetectedProject
+    {
+        let container: XcodeContainer?
+        var note: String?
+        do {
+            container = try XcodeContainerLocator.locate(in: projectURL, workspace: nil, project: nil)
+        } catch {
+            container = nil
+            note = (error as? UsageError)?.message ?? error.localizedDescription
         }
 
-        if let workspace = items.first(where: { $0.pathExtension == "xcworkspace" }) {
-            return ("-workspace", workspace.path)
+        var schemes: [String] = []
+        var projectName: String?
+        var testTarget: String?
+        if let container {
+            let flag = container.arguments[0]
+            let path = projectURL.appendingPathComponent(container.path).path
+            (schemes, projectName, testTarget) = await listProject(
+                container: (flag, path), workingDirectory: projectURL)
         }
-
-        if let project = items.first(where: { $0.pathExtension == "xcodeproj" }) {
-            return ("-project", project.path)
+        let destination = await detectDestination(in: projectURL, container: container)
+        var detected = DetectedProject(
+            kind: .xcode(
+                scheme: selectScheme(from: schemes, projectName: projectName),
+                allSchemes: schemes,
+                destination: destination
+            ),
+            testTarget: testTarget,
+            testingFramework: detectTestingFramework(at: projectURL, testTarget: testTarget)
+        )
+        detected.xcodeContainer = container
+        detected.containerNote = note
+        if note != nil {
+            detected.containerCandidates =
+                candidates.workspaces.map(XcodeContainer.workspace) + candidates.projects.map(XcodeContainer.project)
         }
-
-        return nil
+        return detected
     }
 
     private func listProject(
@@ -141,15 +150,19 @@ struct ProjectDetector: Sendable {
         return schemes.first { $0 == projectName } ?? schemes.first
     }
 
-    private func detectDestination(in projectURL: URL) async -> String {
+    /// The platform from the SDK of the project the container builds: the project itself, or the first one a
+    /// workspace references, or else the first at the root.
+    private func detectDestination(in projectURL: URL, container: XcodeContainer?) async -> String {
+        let projectPath: String? =
+            switch container {
+            case .project(let path): path
+            case .workspace(let path): XcodeContainerLocator.projects(referencedBy: path, in: projectURL).first
+            case nil: XcodeContainerLocator.candidates(in: projectURL).projects.first
+            }
         guard
-            let items = try? FileManager.default.contentsOfDirectory(
-                at: projectURL,
-                includingPropertiesForKeys: [.isDirectoryKey]
-            ),
-            let xcodeprojURL = items.first(where: { $0.pathExtension == "xcodeproj" }),
+            let projectPath,
             let content = try? String(
-                contentsOf: xcodeprojURL.appendingPathComponent("project.pbxproj"),
+                contentsOf: projectURL.appendingPathComponent(projectPath).appendingPathComponent("project.pbxproj"),
                 encoding: .utf8
             )
         else {

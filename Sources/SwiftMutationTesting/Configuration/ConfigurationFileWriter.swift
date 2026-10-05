@@ -21,7 +21,8 @@ struct ConfigurationFileWriter: Sendable {
                 allSchemes: allSchemes,
                 destination: destination,
                 testTarget: project.testTarget,
-                testingFramework: project.testingFramework
+                testingFramework: project.testingFramework,
+                container: containerLines(project)
             )
         case .spm(let testTargets):
             return generateSPMContent(testTargets: testTargets, testTarget: project.testTarget)
@@ -33,13 +34,15 @@ struct ConfigurationFileWriter: Sendable {
         allSchemes: [String],
         destination: String,
         testTarget: String?,
-        testingFramework: TestingFramework
+        testingFramework: TestingFramework,
+        container: [String]
     ) -> String {
         var lines: [String] = []
 
         lines.append("# swift-mutation-testing configuration")
         lines.append("# All settings are optional. CLI flags override file values.")
         lines.append("")
+        lines.append(contentsOf: container)
 
         if allSchemes.count > 1 {
             lines.append("# Available schemes: \(allSchemes.joined(separator: ", "))")
@@ -69,6 +72,17 @@ struct ConfigurationFileWriter: Sendable {
         lines.append(contentsOf: xcodeRunSection(testingFramework: testingFramework, testTarget: testTarget))
 
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// `workspace:` or `project:`, the container the run builds; when none could be chosen, why, and every
+    /// candidate commented out for the user to pick.
+    private func containerLines(_ project: DetectedProject) -> [String] {
+        if let container = project.xcodeContainer {
+            return ["\(container.key): \(container.path)", ""]
+        }
+        guard let note = project.containerNote else { return [] }
+        return ["# No workspace or project was chosen: \(note)", "# Uncomment the one to build:"]
+            + project.containerCandidates.map { "# \($0.key): \($0.path)" } + [""]
     }
 
     private func xcodeRunSection(testingFramework: TestingFramework, testTarget: String?) -> [String] {
