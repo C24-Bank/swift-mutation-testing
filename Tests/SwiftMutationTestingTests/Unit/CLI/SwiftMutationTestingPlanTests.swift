@@ -62,7 +62,9 @@ struct SwiftMutationTestingPlanTests {
 
         let launcher = RecordingProcessLauncher(responses: [(0, "")])
         let result = await SwiftMutationTesting.run(
-            args: ["run", dir.path, "--plan", planPath, "--shard", "2/2", "--quiet", "--output", reportPath, "--no-cache"],
+            args: [
+                "run", dir.path, "--plan", planPath, "--shard", "2/2", "--quiet", "--output", reportPath, "--no-cache",
+            ],
             launcher: launcher
         )
 
@@ -168,8 +170,10 @@ struct SwiftMutationTestingPlanTests {
                 args: ["reproduce", "swift-mutation-testing_0", dir.path], launcher: MockProcessLauncher(exitCode: 1)
             )
         }
-        let sandboxes = output.split(separator: "\n").filter { $0.hasPrefix("Sandbox: ") }.map { String($0.dropFirst(9)) }
-        defer { sandboxes.forEach { try? FileManager.default.removeItem(atPath: $0) } }
+        let sandboxes = output.split(separator: "\n").filter { $0.hasPrefix("Sandbox: ") }.map {
+            String($0.dropFirst(9))
+        }
+        defer { for sandbox in sandboxes { try? FileManager.default.removeItem(atPath: sandbox) } }
 
         #expect(result == .success)
         #expect(output.contains("Reproducing swift-mutation-testing_0"))
@@ -189,16 +193,110 @@ struct SwiftMutationTestingPlanTests {
         #expect(result == .error)
     }
 
+    @Test("Given a plan run that was interrupted, when run again, then only the mutants without a verdict run")
+    func anInterruptedPlanRunResumes() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+        let planPath = dir.appendingPathComponent("plan.json").path
+        _ = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+        let plan = try PlanStore().read(from: planPath)
+        let journalPath = PlanJournal.path(
+            projectPath: dir.path, planSha256: try PlanStore.sha256(of: plan), shard: nil
+        )
+        let first = PlanMaterializer.descriptor(of: plan.mutants[0], at: 0, in: plan, projectPath: dir.path)
+        PlanJournal(path: journalPath, mutants: [first]).record(
+            status: .killed(by: "Earlier.test"), for: MutantCacheKey.make(for: first), killerTestFile: nil,
+            activated: true, duration: 1
+        )
+        let reportPath = dir.appendingPathComponent("r.json").path
+
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+        var result: ExitCode = .error
+        let output = await captureOutput {
+            result = await SwiftMutationTesting.run(
+                args: ["run", dir.path, "--plan", planPath, "--no-cache", "--output", reportPath],
+                launcher: launcher
+            )
+        }
+
+        #expect(result == .success)
+        #expect(output.contains("Resumed 1 verdicts from an interrupted run of this plan"))
+        let tested = await launcher.requests.compactMap { $0.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] }
+            .filter { !$0.isEmpty }
+        #expect(Set(tested) == Set((1 ..< plan.mutants.count).map(Plan.mutantID(at:))))
+        let report = try Self.verdicts(at: reportPath)
+        #expect(report.count == plan.mutants.count)
+        #expect(report[plan.mutants[0].fingerprint] == "Killed")
+        #expect(!FileManager.default.fileExists(atPath: journalPath))
+    }
+
+    @Test("Given an interrupted run whose every mutant has a verdict, when run again, then nothing is built")
+    func aFullyJournaledRunBuildsNothing() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+        let planPath = dir.appendingPathComponent("plan.json").path
+        _ = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+        let plan = try PlanStore().read(from: planPath)
+        let journalPath = PlanJournal.path(
+            projectPath: dir.path, planSha256: try PlanStore.sha256(of: plan), shard: nil)
+        let descriptors = plan.mutants.enumerated().map {
+            PlanMaterializer.descriptor(of: $0.element, at: $0.offset, in: plan, projectPath: dir.path)
+        }
+        let journal = PlanJournal(path: journalPath, mutants: descriptors)
+        for descriptor in descriptors {
+            journal.record(
+                status: .survived, for: MutantCacheKey.make(for: descriptor), killerTestFile: nil, activated: true,
+                duration: 1
+            )
+        }
+
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+        let result = await SwiftMutationTesting.run(
+            args: ["run", dir.path, "--plan", planPath, "--no-cache", "--quiet"], launcher: launcher
+        )
+
+        #expect(result == .success)
+        #expect(await launcher.requests.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: journalPath))
+    }
+
+    @Test("Given a finished plan run, when run again, then every mutant runs: the journal only resumes interruptions")
+    func aFinishedRunLeavesNoJournal() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+        let planPath = dir.appendingPathComponent("plan.json").path
+        _ = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+        let plan = try PlanStore().read(from: planPath)
+        _ = await SwiftMutationTesting.run(
+            args: ["run", dir.path, "--plan", planPath, "--no-cache", "--quiet"],
+            launcher: MockProcessLauncher(exitCode: 1)
+        )
+
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+        _ = await SwiftMutationTesting.run(
+            args: ["run", dir.path, "--plan", planPath, "--no-cache", "--quiet"], launcher: launcher
+        )
+
+        let tested = await launcher.requests.compactMap { $0.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] }
+            .filter { !$0.isEmpty }
+        #expect(Set(tested).count == plan.mutants.count)
+    }
+
     static func verdicts(at path: String) throws -> [String: String] {
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
         let payload = try JSONDecoder().decode(MutationReportPayload.self, from: data)
-        return Dictionary(uniqueKeysWithValues: payload.files.values.flatMap(\.mutants).map { ($0.fingerprint, $0.status) })
+        return Dictionary(
+            uniqueKeysWithValues: payload.files.values.flatMap(\.mutants).map { ($0.fingerprint, $0.status) })
     }
 
     static func writeProject(in dir: URL) throws {
-        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\nfunc h(_ x: Int) -> Bool { x > 0 ? true : false }\n".write(
-            to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
-        )
+        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\nfunc h(_ x: Int) -> Bool { x > 0 ? true : false }\n"
+            .write(
+                to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
+            )
         try "// swift-tools-version: 5.9\nimport PackageDescription\nlet package = Package(name: \"P\")\n".write(
             to: dir.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8
         )
