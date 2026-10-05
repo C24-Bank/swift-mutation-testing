@@ -1,10 +1,24 @@
 enum HelpText {
     static let usage = """
-        USAGE: swift-mutation-testing [<project-path>] [options]
+        USAGE: swift-mutation-testing [run] [<project-path>] [options]
                swift-mutation-testing init [<project-path>]
+               swift-mutation-testing plan [<project-path>] --output <plan.json> [options]
+               swift-mutation-testing run [<project-path>] --plan <plan.json> [--shard <i/n>] [options]
+               swift-mutation-testing merge <result.json>... --plan <plan.json> [--project <path>] [options]
+               swift-mutation-testing reproduce <mutant> [<project-path>] [--plan <plan.json>] [options]
 
         COMMANDS:
+          run                           Discover and test every mutant (the default when no command is given)
           init                          Generate a .swift-mutation-testing.yml config file
+          plan                          Discover the mutants and write them to a plan, without building
+          merge                         Join the results of a plan's shards into one report
+          reproduce                     Run one mutant, by fingerprint or id, keep its sandbox and show everything
+
+        PLANS:
+          --plan <plan.json>            Run (or merge, or reproduce) from this plan instead of discovering;
+                                        the run refuses a plan whose files changed since it was made
+          --shard <i/n>                 Run the i-th of n slices of the plan, split by file (run only)
+          --project <path>              The project a merge reports on (merge only; default: .)
 
         ARGUMENTS:
           <project-path>                Path to the Xcode project root (default: .)

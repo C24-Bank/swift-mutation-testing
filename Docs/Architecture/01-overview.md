@@ -25,7 +25,11 @@ graph TD
     CACHE["Cache\n(CacheStore · MutantCacheKey · TestFileDiff\nKillerTestFileResolver)"]
     SANDBOX["Sandbox\n(SandboxFactory · SandboxName · SandboxCleaner)"]
     GATE["Gate\n(QualityGate · Baseline · BaselineStore)"]
+    PLAN["Plan\n(Planner · PlanMaterializer · PlanStore\nShardSelector · ResultMerger · Reproducer)"]
 
+    CLI --> PLAN
+    PLAN --> DISCOVERY
+    PLAN --> EXECUTION
     CLI --> CONFIG
     CLI --> DISCOVERY
     CLI --> EXECUTION
@@ -48,6 +52,7 @@ graph TD
 | **Cache** | Granular per-file cache invalidation (`CacheStore`, `TestFileDiff`), killer test file resolution (`KillerTestFileResolver`), cache key computation (`MutantCacheKey`) |
 | **Reporting** | Progress output, mutation report generation (text, JSON, HTML, Sonar, SARIF, Markdown) |
 | **Gate** | Quality gate policies, baselines of undetected mutants matched by fingerprint, gate exit code |
+| **Plan** | What a run will do, written down: `Planner` makes it, `PlanMaterializer` turns it into the execution input, `ShardSelector` slices it, `ResultMerger` joins the slices' results, `Reproducer` runs one mutant of it |
 | **Infrastructure** | Process lifecycle management (`ProcessRunner`, `ProcessRequest`, `SPMProcessLauncher`), xctestrun plist manipulation, test file hashing |
 
 ## Entry Point
@@ -60,9 +65,15 @@ flowchart TD
     B -- init --> C[ProjectDetector auto-detects scheme\nand destination]
     C --> D[ConfigurationFileWriter writes\n.swift-mutation-testing.yml]
     D --> EXIT0[Exit 0]
-    B -- default --> E[ConfigurationFileParser reads\n.swift-mutation-testing.yml]
+    B -- run · plan · merge · reproduce --> E[ConfigurationFileParser reads\n.swift-mutation-testing.yml]
     E --> F[ConfigurationResolver merges\nCLI args + file values]
-    F --> G[DiscoveryPipeline\nfinds all mutants]
+    F -- plan --> PW[Planner writes plan.json]
+    PW --> EXIT0
+    F -- merge --> MR[ResultMerger joins the shards' reports]
+    MR --> I
+    F -- reproduce --> RP[Reproducer runs one mutant,\nkeeps the sandbox, prints everything]
+    RP --> EXIT0
+    F -- run --> G[Planner + PlanMaterializer\nfind all mutants, or read --plan]
     G --> H[MutantExecutor\nbuilds and tests each mutant]
     H --> I[TextReporter prints summary]
     I --> J[JsonReporter · HtmlReporter · SonarReporter\n· SarifReporter · MarkdownReporter write files]
@@ -99,6 +110,8 @@ flowchart LR
 
 | Stage | Input | Output |
 |---|---|---|
+| `Planner` | `DiscoveryInput` | `Plan` + `[ParsedSource]` (the four stages below) |
+| `PlanMaterializer` | `Plan` + `[ParsedSource]` (or the files on disk, hashed again) | `RunnerInput` (the two schematization stages) |
 | `FileDiscoveryStage` | `DiscoveryInput` | `[SourceFile]` |
 | `ParsingStage` | `[SourceFile]` | `[ParsedSource]` |
 | `MutantDiscoveryStage` | `[ParsedSource]` | `[MutationPoint]` |

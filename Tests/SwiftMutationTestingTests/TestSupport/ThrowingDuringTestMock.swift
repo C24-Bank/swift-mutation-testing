@@ -3,7 +3,13 @@ import Foundation
 @testable import SwiftMutationTesting
 
 actor ThrowingDuringTestMock: ProcessLaunching {
+    private let throwingOnTestCall: Int
     private var testCallCount = 0
+
+    /// Throws on the n-th `test` request; the first one is the baseline, the mutants follow.
+    init(throwingOnTestCall: Int = 2) {
+        self.throwingOnTestCall = throwingOnTestCall
+    }
 
     func launch(
         executableURL: URL,
@@ -18,7 +24,7 @@ actor ThrowingDuringTestMock: ProcessLaunching {
         request.recordActivation()
         if request.arguments.first == "test" {
             testCallCount += 1
-            if testCallCount > 1 {
+            if testCallCount >= throwingOnTestCall {
                 throw CocoaError(.fileReadNoSuchFile)
             }
         }

@@ -34,6 +34,62 @@ struct JsonReporterTests {
         #expect(files?["/Sources/Calc.swift"] != nil)
     }
 
+    @Test("Given a run identity, when report called, then config carries the plan's hash, the shard and the tool")
+    func theIdentityGoesInConfig() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let outputPath = dir.appendingPathComponent("mutation.json").path
+        let summary = RunnerSummary(
+            results: [makeExecutionResult(id: "1", filePath: "/abs/MyApp/Sources/Calc.swift", status: .survived)],
+            totalDuration: 1
+        )
+
+        try JsonReporter(outputPath: outputPath, projectRoot: "/abs/MyApp")
+            .report(summary, identity: RunIdentity(planSha256: "abc123", shard: Shard(index: 2, count: 3)))
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: outputPath))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let config = json?["config"] as? [String: Any]
+        #expect(config?["planSha256"] as? String == "abc123")
+        #expect(config?["shard"] as? String == "2/3")
+        #expect(config?["toolVersion"] as? String == Version.number)
+    }
+
+    @Test("Given no identity, when report called, then there is no config object")
+    func noIdentityNoConfig() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let outputPath = dir.appendingPathComponent("mutation.json").path
+        let summary = RunnerSummary(results: [], totalDuration: 1)
+
+        try JsonReporter(outputPath: outputPath, projectRoot: "/abs/MyApp").report(summary)
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: outputPath))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(json?["config"] == nil)
+    }
+
+    @Test("Given a measured mutant, when report called, then its activation is in the report")
+    func activationIsReported() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let outputPath = dir.appendingPathComponent("mutation.json").path
+        let result = ExecutionResult(
+            descriptor: makeMutantDescriptor(id: "1", filePath: "/abs/MyApp/Sources/Calc.swift"),
+            status: .killed(by: "Suite.test"), testDuration: 1, activated: false
+        )
+
+        try JsonReporter(outputPath: outputPath, projectRoot: "/abs/MyApp")
+            .report(RunnerSummary(results: [result], totalDuration: 1))
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: outputPath))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let files = json?["files"] as? [String: Any]
+        let file = files?["/Sources/Calc.swift"] as? [String: Any]
+        let mutant = (file?["mutants"] as? [[String: Any]])?.first
+        #expect(mutant?["activated"] as? Bool == false)
+    }
+
     @Test("Given a killed mutant, when report called, then status string is Killed")
     func killedMutantProducesKilledStatus() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

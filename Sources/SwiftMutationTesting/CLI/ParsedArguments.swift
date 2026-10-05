@@ -1,8 +1,17 @@
 struct ParsedArguments: Sendable {
+    enum Command: Sendable, Equatable {
+        case run
+        case plan
+        case merge
+        case reproduce
+    }
+
+    var command: Command = .run
     var projectPath: String = "."
     var showVersion: Bool = false
     var showHelp: Bool = false
     var showInit: Bool = false
+    var plan: PlanOptions = PlanOptions()
     var build: BuildOptions = BuildOptions()
     var reporting: ReportingOptions = ReportingOptions()
     var filter: FilterOptions = FilterOptions()
@@ -35,6 +44,19 @@ struct ParsedArguments: Sendable {
         var operators: [String] = []
         var disabledMutators: [String] = []
         var operatorTier: String?
+    }
+
+    struct PlanOptions: Sendable {
+        /// `plan`: where the plan is written. `run`, `merge`, `reproduce`: the plan to work from.
+        var path: String?
+        var shard: String?
+        /// `merge`: the result files to join.
+        var results: [String] = []
+        /// `reproduce`: the fingerprint or report id of the mutant.
+        var mutant: String?
+        /// `merge`: the project whose sources the reports embed and whose configuration applies; its
+        /// positionals are the results, so the project is a flag.
+        var project: String?
     }
 
     struct GateOptions: Sendable {

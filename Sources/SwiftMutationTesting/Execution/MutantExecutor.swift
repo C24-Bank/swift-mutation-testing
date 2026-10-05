@@ -3,13 +3,15 @@ import SwiftParser
 
 struct MutantExecutor: Sendable {
 
-    init(configuration: RunnerConfiguration, launcher: any ProcessLaunching) {
+    init(configuration: RunnerConfiguration, launcher: any ProcessLaunching, planJournal: PlanJournal? = nil) {
         self.configuration = configuration
         self.launcher = launcher
+        self.planJournal = planJournal
     }
 
     private let configuration: RunnerConfiguration
     private let launcher: any ProcessLaunching
+    private let planJournal: PlanJournal?
 
     private struct MutantRunContext {
         let deps: ExecutionDeps
@@ -35,6 +37,9 @@ struct MutantExecutor: Sendable {
             : ConsoleProgressReporter()
 
         let (cacheStore, metadata, hasher) = try await prepareCacheStore(input: input)
+        // Written now so that a run that ends before its results are persisted — its verdicts in the
+        // cache's journal — is read back against the test files it ran with, not against none.
+        try await cacheStore.persistMetadata(metadata)
 
         if let cached = await allCached(mutants: input.mutants, cacheStore: cacheStore) {
             await reporter.report(.loadedFromCache(mutantCount: cached.count))
@@ -53,7 +58,7 @@ struct MutantExecutor: Sendable {
         )
         SandboxCleaner.register(sandbox)
         defer {
-            try? sandbox.cleanup()
+            sandbox.release(keepingFor: configuration.build.reproduction)
             SandboxCleaner.deregister()
         }
 
@@ -97,7 +102,9 @@ struct MutantExecutor: Sendable {
     ) async throws -> (CacheStore, CacheStore.CacheMetadata, TestFilesHasher) {
         let cachePath = URL(fileURLWithPath: configuration.projectPath)
             .appendingPathComponent("\(CacheStore.directoryName)/results.json").path
-        let cacheStore = CacheStore(storePath: cachePath, noCache: configuration.build.noCache)
+        let cacheStore = CacheStore(
+            storePath: cachePath, noCache: configuration.build.noCache, planJournal: planJournal
+        )
         try await cacheStore.load()
 
         let hasher = TestFilesHasher()

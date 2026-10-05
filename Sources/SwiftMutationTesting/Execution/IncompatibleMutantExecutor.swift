@@ -71,7 +71,9 @@ struct IncompatibleMutantExecutor: Sendable {
         let share = TestExecutionStage.retryWorkerShare
         let workerCount = max(1, min(configuration.build.concurrency / share, viable.count))
         let workers = try await warmSandboxes(count: workerCount, configuration: configuration)
-        defer { for worker in workers { try? worker.sandbox.cleanup() } }
+        defer {
+            for worker in workers { worker.sandbox.release(keepingFor: configuration.build.reproduction) }
+        }
 
         let ready = workers.filter { $0.build.exitCode == 0 }
 
@@ -236,7 +238,7 @@ struct IncompatibleMutantExecutor: Sendable {
         let index = await deps.counter.increment()
         await deps.reporter.report(
             .mutantFinished(descriptor: mutant, status: status, index: index, total: deps.counter.total))
-        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
+        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile, duration: duration)
 
         return ExecutionResult(
             descriptor: mutant, status: status, testDuration: duration, killerTestFile: killerTestFile
@@ -263,7 +265,7 @@ struct IncompatibleMutantExecutor: Sendable {
             mutatedFilePath: mutant.filePath,
             mutatedContent: content
         )
-        defer { try? sandbox.cleanup() }
+        defer { sandbox.release(keepingFor: configuration.build.reproduction) }
 
         let slot = try await pool.acquire()
         let launched: TestLaunchResult
@@ -292,7 +294,9 @@ struct IncompatibleMutantExecutor: Sendable {
         let total = deps.counter.total
         let index = await deps.counter.increment()
         await deps.reporter.report(.mutantFinished(descriptor: mutant, status: status, index: index, total: total))
-        await deps.cacheStore.store(status: status, for: key, killerTestFile: killerTestFile)
+        await deps.cacheStore.store(
+            status: status, for: key, killerTestFile: killerTestFile, duration: launched.duration
+        )
         return ExecutionResult(
             descriptor: mutant, status: status, testDuration: launched.duration, killerTestFile: killerTestFile
         )

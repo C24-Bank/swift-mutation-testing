@@ -173,7 +173,8 @@ Invokes `xcresulttool get test-results tests` on the `.xcresult` bundle and pars
 actor CacheStore {
     static let directoryName: String
     static let formatVersion: Int
-    init(storePath: String, noCache: Bool = false)
+    static let journalName: String           // "journal.jsonl"
+    init(storePath: String, noCache: Bool = false, planJournal: PlanJournal? = nil)
     func result(for key: MutantCacheKey) -> ExecutionStatus?
     func killerTestFile(for key: MutantCacheKey) -> String?
     func activated(for key: MutantCacheKey) -> Bool?
@@ -196,7 +197,9 @@ Persists execution results across runs with granular per-file invalidation. All 
 
 Cache is stored at `<project>/.swift-mutation-testing-cache/results.json` as a JSON array of `CacheEntry` values (key + status + killerTestFile + activated).
 
-`load()` is a no-op if the cache file does not exist. `persist()` creates the directory if needed and writes atomically.
+**The journal.** `store(…)` also appends the entry as one JSON line to `journal.jsonl`, next to `results.json`, the moment it is called — before any report, before `persist()`. `load()` reads `results.json` and then replays the journal over it, the journal's verdicts winning, and does the replay even when `results.json` does not exist yet; a line cut short by a crash is skipped. `persist()` writes `results.json` and removes the journal. So a run that ends before `persist()` — `Ctrl+C`, a crash, a lost machine — leaves every verdict it reached, and the next `load()` starts from them. `MutantExecutor` writes the cache's metadata at the start of the run for the same reason: the journal must be read back against the test files it ran with. Under `noCache` nothing is journaled here; a `PlanJournal` given at init still records every verdict, timeouts included, since it is the progress of a planned run rather than a cache (see [11 — Plans](11-plans.md)). `store` takes the mutant's test `duration` for it.
+
+`load()` on a missing cache file replays only the journal. `persist()` creates the directory if needed and writes atomically.
 
 **A cache this version cannot read is discarded, not fatal.** `metadata.json` carries `formatVersion`. `load()` starts empty — printing a warning to stderr — when the metadata is there but undecodable or from another version (a metadata file with no version at all, as 1.4 and 1.5 wrote, counts as another version), or when `results.json` itself does not decode. `loadMetadata()` answers `nil` in the same cases, so `changedTestFiles` treats every test file as new. The next `persist()`/`persistMetadata(_:)` overwrites both files in the current format. Errors reading the files from disk still propagate: those are not a stale cache, and hiding them would hide a broken project directory.
 

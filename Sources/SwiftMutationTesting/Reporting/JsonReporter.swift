@@ -4,15 +4,15 @@ struct JsonReporter: Sendable {
     let outputPath: String
     let projectRoot: String
 
-    func report(_ summary: RunnerSummary) throws {
-        let payload = buildPayload(summary)
+    func report(_ summary: RunnerSummary, identity: RunIdentity? = nil) throws {
+        let payload = buildPayload(summary, identity: identity)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(payload)
         try data.write(to: URL(fileURLWithPath: outputPath))
     }
 
-    private func buildPayload(_ summary: RunnerSummary) -> MutationReportPayload {
+    private func buildPayload(_ summary: RunnerSummary, identity: RunIdentity?) -> MutationReportPayload {
         var fileEntries: [String: MutationReportFile] = [:]
 
         for (filePath, results) in summary.resultsByFile {
@@ -27,7 +27,12 @@ struct JsonReporter: Sendable {
             schemaVersion: "1",
             thresholds: MutationReportThresholds(high: 80, low: 60),
             projectRoot: projectRoot,
-            files: fileEntries
+            files: fileEntries,
+            config: identity.map {
+                MutationReportConfig(
+                    toolVersion: Version.number, planSha256: $0.planSha256, shard: $0.shard?.description
+                )
+            }
         )
     }
 
@@ -48,7 +53,8 @@ struct JsonReporter: Sendable {
             description: descriptor.description,
             killedBy: killedBy(from: result.status),
             duration: milliseconds(of: result.testDuration),
-            fingerprint: descriptor.fingerprint
+            fingerprint: descriptor.fingerprint,
+            activated: result.activated
         )
     }
 

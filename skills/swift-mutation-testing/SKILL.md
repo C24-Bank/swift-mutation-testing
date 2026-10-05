@@ -116,6 +116,8 @@ Never make a survivor go away by changing production code to avoid the mutation,
 
 When a test fails in a way you do not understand, rerun with `--keep-logs <dir>`: each mutant's full test output lands in `<dir>/<mutant-id>.log`, with an `activated:` line in the header saying whether the mutated code ran during that test run.
 
+To look at one verdict closely, `swift-mutation-testing reproduce <id-or-fingerprint>` runs that mutant alone with the whole suite and no stop at the first failure, keeps its sandbox, and prints the sandbox path, the line before and after the mutation, the complete test output and the verdict with its reason. Read the output before writing a test.
+
 ## 6. Mutants that cannot be killed
 
 Some survivors are **equivalent**: the mutation does not change observable behavior (for example `a > b ? a : b` → `a >= b ? a : b`: when `a == b` both return the same value). No test can kill them. Tell the user which ones you believe are equivalent and why, rather than writing a meaningless test.
@@ -126,7 +128,8 @@ To keep code out of the run, prefer `--exclude` (or `exclude:` in the config fil
 
 - **On GitHub**, the usage guide has a complete workflow ("GitHub Actions — annotations, job summary and quality gate"): it installs the tool with Homebrew on a macOS runner, runs it with `--sarif-output` and `--markdown-output`, uploads the SARIF with `github/codeql-action/upload-sarif` so each survivor becomes an annotation on its line in the pull request, writes the Markdown to the job summary, and only then fails the job with the tool's exit code. Uploading SARIF needs `permissions: security-events: write`. Adapt that workflow rather than writing one from scratch.
 - Commit `.swift-mutation-testing.yml` so CI runs with no extra flags: `swift-mutation-testing --quiet --output mutation-report.json`. `--sarif-output` writes a SARIF 2.1.0 report and `--markdown-output` a Markdown summary for CI systems that render it.
-- Cache `.swift-mutation-testing-cache/` between runs (`actions/cache`), keyed on the Swift sources and tests.
+- Cache `.swift-mutation-testing-cache/` between runs (`actions/cache`), keyed on the Swift sources and tests. The cache also holds a journal of verdicts, so a run that was cut short continues on the next run.
+- **A long run can be split across machines.** `swift-mutation-testing plan --output plan.json` writes the mutants without building; `run --plan plan.json --shard i/n` runs one slice on each machine; `merge result-*.json --plan plan.json --output …` joins the slices into one report and runs the gate over it. The usage guide has a GitHub Actions matrix for this under "Plans". A shard must check out the commit the plan was made from, or it refuses to run.
 - Exit codes: `0` the run completed (and the quality gate passed, if set); `1` an error (bad arguments, a build that failed, a suite that fails without mutations, an unusable baseline); `2` the quality gate failed. On `2` the reports were still written.
 - **Quality gate.** Suggest one when the user wants CI to fail on weak tests:
   - `--min-score 80` (or `min-score: 80` in the config file): fail below a score.

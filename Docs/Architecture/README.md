@@ -11,6 +11,7 @@
 | [03 — Execution Pipeline](03-execution.md) | Sandbox, build, simulators, the baseline probe, two-pass test execution, result parsing, caching, reporting |
 | [04 — Configuration](04-configuration.md) | Configuration model, YAML format, CLI arguments, project detection |
 | [05 — Schematization](05-schematization.md) | Embedding mutants into a single binary, per-file support declarations, runtime activation |
+| [06 — Plans](06-plans.md) | The plan as the first decision written down: staleness, shards, merge, resuming, reproduce |
 
 ## Quick Reference
 

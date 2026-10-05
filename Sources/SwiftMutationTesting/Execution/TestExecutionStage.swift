@@ -163,7 +163,9 @@ struct TestExecutionStage: Sendable {
     ) async throws -> (TestRunOutcome, TestLaunchResult) {
         var activated = false
 
-        if let suite = TargetedSuites.suite(for: mutant.filePath, among: context.targetedSuites) {
+        if !context.configuration.build.reproducing,
+            let suite = TargetedSuites.suite(for: mutant.filePath, among: context.targetedSuites)
+        {
             let marker = ActivationMarker(for: mutant.id, in: context.sandbox)
             var targeted = try await launchSPM(
                 mutant: mutant, in: context, timeout: timeout,
@@ -209,7 +211,8 @@ struct TestExecutionStage: Sendable {
             killerTestFile: killerTestFile, activated: launched.activated
         )
         await deps.cacheStore.store(
-            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated
+            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated,
+            duration: duration
         )
         let index = await deps.counter.increment()
         await deps.reporter.report(
@@ -298,6 +301,7 @@ struct TestExecutionStage: Sendable {
                         workingDirectory: context.sandbox.rootURL,
                         timeout: timeout,
                         libraries: bundle.libraries,
+                        stoppingAtFirstFailure: !configuration.build.reproducing,
                         activationFile: run.activationFile
                     )
             }
@@ -308,18 +312,17 @@ struct TestExecutionStage: Sendable {
             arguments += ["--filter", filter]
         }
 
-        return [
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                arguments: arguments,
-                environment: nil,
-                additionalEnvironment: TestBundleInvocation.environment(
-                    mutantID: mutant.id, activationFile: run.activationFile
-                ),
-                workingDirectoryURL: context.sandbox.rootURL,
-                timeout: timeout
-            ).stopping(at: .firstTestFailure)
-        ]
+        let request = ProcessRequest(
+            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
+            arguments: arguments,
+            environment: nil,
+            additionalEnvironment: TestBundleInvocation.environment(
+                mutantID: mutant.id, activationFile: run.activationFile
+            ),
+            workingDirectoryURL: context.sandbox.rootURL,
+            timeout: timeout
+        )
+        return [configuration.build.reproducing ? request : request.stopping(at: .firstTestFailure)]
     }
 
     private func launch(

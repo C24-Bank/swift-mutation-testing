@@ -16,41 +16,20 @@ struct DiscoveryPipeline: Sendable {
     }
 
     func run(input: DiscoveryInput) async throws -> RunnerInput {
-        let sourceFiles = try FileDiscoveryStage().run(input: input)
-        let parsedSources = await ParsingStage().run(sourceFiles: sourceFiles)
-        let ops = resolvedOperators(from: input.operators)
-        let mutationPoints = await MutantDiscoveryStage(operators: ops).run(sources: parsedSources)
-        let indexed = MutantIndexingStage().run(
-            mutationPoints: mutationPoints, sources: parsedSources, projectPath: input.projectPath
-        )
-        let (schematizedFiles, schematizableDescriptors) = SchematizationStage()
-            .run(indexed: indexed, sources: parsedSources)
-        let importStyle = ImportStyle.of(parsedSources)
-        let incompatibleDescriptors = IncompatibleRewritingStage().run(indexed: indexed, sources: parsedSources)
-        let allDescriptors = (schematizableDescriptors + incompatibleDescriptors)
-            .sorted { indexFromID($0.id) < indexFromID($1.id) }
-
-        return RunnerInput(
+        let planned = try await Planner().plan(input: input)
+        return try PlanMaterializer().materialize(
+            plan: planned.plan,
             projectPath: input.projectPath,
-            projectType: input.projectType,
-            timeout: input.timeout,
-            concurrency: input.concurrency,
-            noCache: input.noCache,
-            schematizedFiles: schematizedFiles,
-            mutants: allDescriptors,
-            importStyle: importStyle
+            sources: planned.sources,
+            execution: .init(timeout: input.timeout, concurrency: input.concurrency, noCache: input.noCache)
         )
     }
 
-    private func indexFromID(_ id: String) -> Int {
-        Int(id.replacingOccurrences(of: "swift-mutation-testing_", with: ""))!
-    }
-
-    private func resolvedOperators(from identifiers: [String]) -> [any MutationOperator] {
+    static func operators(named identifiers: [String]) -> [any MutationOperator] {
         if identifiers.isEmpty {
-            return Self.registry.map(\.operator)
+            return registry.map(\.operator)
         }
 
-        return Self.registry.compactMap { identifiers.contains($0.name) ? $0.operator : nil }
+        return registry.compactMap { identifiers.contains($0.name) ? $0.operator : nil }
     }
 }
