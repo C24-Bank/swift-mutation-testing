@@ -166,9 +166,15 @@ struct SandboxFactory: Sendable {
         try FileManager.default.createSymbolicLink(at: destination, withDestinationURL: source)
     }
 
+    /// Every project of the sandbox, the root's and the workspace's alike: a SwiftLint phase left in any
+    /// of them lints the schematized code and fails the build.
     private func disableSwiftLintBuildPhases(in sandboxURL: URL) throws {
-        guard let xcodeprojURL = findXcodeproj(in: sandboxURL) else { return }
+        for xcodeprojURL in Self.xcodeprojs(in: sandboxURL) {
+            try disableSwiftLintBuildPhases(inProject: xcodeprojURL)
+        }
+    }
 
+    private func disableSwiftLintBuildPhases(inProject xcodeprojURL: URL) throws {
         let pbxprojURL = xcodeprojURL.appendingPathComponent("project.pbxproj")
 
         guard FileManager.default.fileExists(atPath: pbxprojURL.path) else { return }
@@ -215,14 +221,27 @@ struct SandboxFactory: Sendable {
         try xmlData.write(to: pbxprojURL, options: .atomic)
     }
 
-    private func findXcodeproj(in directory: URL) -> URL? {
-        let items =
-            (try? FileManager.default.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: nil
-            )) ?? []
-
-        return items.first { $0.pathExtension == "xcodeproj" }
+    /// The `.xcodeproj` directories under `directory`, at any depth, in path order; build products,
+    /// derived data and `Pods/` are not looked into.
+    static func xcodeprojs(in directory: URL) -> [URL] {
+        let skipped: Set<String> = [".build", "DerivedData", "Pods", ".xmr-derived-data", ".derived-data"]
+        var found: [URL] = []
+        var pending = [directory]
+        while let current = pending.popLast() {
+            let items =
+                (try? FileManager.default.contentsOfDirectory(
+                    at: current, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+                )) ?? []
+            for item in items {
+                let values = try? item.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values?.isDirectory == true, values?.isSymbolicLink != true else { continue }
+                if item.pathExtension == "xcodeproj" {
+                    found.append(item)
+                } else if !skipped.contains(item.lastPathComponent), item.pathExtension != "xcworkspace" {
+                    pending.append(item)
+                }
+            }
+        }
+        return found.sorted { $0.path < $1.path }
     }
-
 }
