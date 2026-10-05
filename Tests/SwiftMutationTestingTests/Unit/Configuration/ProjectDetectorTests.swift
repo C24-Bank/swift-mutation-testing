@@ -545,4 +545,31 @@ struct ProjectDetectorTests {
         #expect(result.destination == "platform=macOS")
     }
 
+    @Test("Given a workspace beside its project, when detected, then the workspace is listed and recorded")
+    func aWorkspaceIsDetectedAndRecorded() async throws {
+        let dir = try XcodeContainerLocatorTests.root(["MyApp.xcworkspace", "MyApp.xcodeproj"])
+        defer { FileHelpers.cleanup(dir) }
+        let launcher = RecordingProcessLauncher(responses: [(0, workspaceJSON)])
+
+        let result = await ProjectDetector(launcher: launcher).detect(at: dir.path)
+
+        #expect(result.xcodeContainer == .workspace("MyApp.xcworkspace"))
+        #expect(result.containerNote == nil)
+        let list = try #require(await launcher.requests.first { $0.arguments.contains("-list") })
+        #expect(list.arguments.prefix(2) == ["-workspace", dir.appendingPathComponent("MyApp.xcworkspace").path])
+    }
+
+    @Test("Given two workspaces, when detected, then none is listed and both are offered")
+    func ambiguityIsReportedNotGuessed() async throws {
+        let dir = try XcodeContainerLocatorTests.root(["A.xcworkspace", "B.xcworkspace"])
+        defer { FileHelpers.cleanup(dir) }
+        let launcher = RecordingProcessLauncher(responses: [(0, workspaceJSON)])
+
+        let result = await ProjectDetector(launcher: launcher).detect(at: dir.path)
+
+        #expect(result.xcodeContainer == nil)
+        #expect(result.containerNote?.contains("found A.xcworkspace and B.xcworkspace") == true)
+        #expect(result.containerCandidates == [.workspace("A.xcworkspace"), .workspace("B.xcworkspace")])
+        #expect(await launcher.requests.allSatisfy { !$0.arguments.contains("-list") })
+    }
 }
