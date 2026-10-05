@@ -33,6 +33,21 @@ struct MutantDiscoveryStageTests {
         #expect(result[0].originalText == "false")
     }
 
+    @Test("Given a mutant in an #if branch the host build leaves out, when run, then it is not discovered")
+    func filtersMutantsInInactiveRegions() async {
+        let stage = MutantDiscoveryStage(operators: [BooleanLiteralReplacement()])
+        let code = """
+            #if os(Windows)
+            func windows() { let x = true }
+            #else
+            func other() { let y = false }
+            #endif
+            """
+        let source = makeParsedSource(code, path: "a.swift")
+        let result = await stage.run(sources: [source])
+        #expect(result.map(\.originalText) == ["false"])
+    }
+
     @Test("Given multiple sources, when run, then result is sorted by filePath then utf8Offset")
     func resultIsSortedByFilePathThenOffset() async {
         let stage = MutantDiscoveryStage(operators: [BooleanLiteralReplacement()])

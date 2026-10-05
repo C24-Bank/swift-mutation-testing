@@ -55,7 +55,7 @@ struct ConfigurationResolver: Sendable {
                     keys: ["exclude", "exclude-patterns"],
                     from: fileValues
                 ),
-                operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
+                operators: try resolveOperators(cli: cliArguments, fileValues: fileValues)
             ),
             gate: try resolveGate(cli: cliArguments.gate, fileValues: fileValues, projectPath: projectPath)
         )
@@ -140,23 +140,29 @@ struct ConfigurationResolver: Sendable {
         return framework
     }
 
-    private func resolveOperators(cli: ParsedArguments, fileValues: [String: String]) -> [String] {
-        if !cli.filter.operators.isEmpty {
-            return cli.filter.operators
+    private func resolveOperators(cli: ParsedArguments, fileValues: [String: String]) throws -> [String] {
+        let explicit = resolveList(cli: cli.filter.operators, keys: ["operators"], from: fileValues)
+        if !explicit.isEmpty {
+            return explicit
         }
 
-        if !cli.filter.disabledMutators.isEmpty {
-            let disabled = Set(cli.filter.disabledMutators)
-            return DiscoveryPipeline.allOperatorNames.filter { !disabled.contains($0) }
-        }
-
+        let tier = try resolvedOperatorTier(cli: cli, fileValues: fileValues)
         let fileDisabled = resolveList(cli: [], keys: ["disabled-mutators"], from: fileValues)
-        if !fileDisabled.isEmpty {
-            let disabled = Set(fileDisabled)
-            return DiscoveryPipeline.allOperatorNames.filter { !disabled.contains($0) }
+        let disabled = Set(cli.filter.disabledMutators + fileDisabled)
+
+        return DiscoveryPipeline.operatorNames(upTo: tier).filter { !disabled.contains($0) }
+    }
+
+    private func resolvedOperatorTier(cli: ParsedArguments, fileValues: [String: String]) throws -> OperatorTier {
+        guard let raw = cli.filter.operatorTier ?? fileValues["operator-tier"] else {
+            return .default
         }
 
-        return resolveList(cli: [], keys: ["operators"], from: fileValues)
+        guard let tier = OperatorTier(rawValue: raw) else {
+            throw UsageError(message: OperatorTier.usage)
+        }
+
+        return tier
     }
 
     private func resolveGate(

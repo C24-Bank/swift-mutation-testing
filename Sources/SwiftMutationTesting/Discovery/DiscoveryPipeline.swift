@@ -1,15 +1,19 @@
 struct DiscoveryPipeline: Sendable {
-    private static let registry: [(name: String, operator: any MutationOperator)] = [
-        (name: "RelationalOperatorReplacement", operator: RelationalOperatorReplacement()),
-        (name: "BooleanLiteralReplacement", operator: BooleanLiteralReplacement()),
-        (name: "LogicalOperatorReplacement", operator: LogicalOperatorReplacement()),
-        (name: "ArithmeticOperatorReplacement", operator: ArithmeticOperatorReplacement()),
-        (name: "NegateConditional", operator: NegateConditional()),
-        (name: "SwapTernary", operator: SwapTernary()),
-        (name: "RemoveSideEffects", operator: RemoveSideEffects()),
+    private static let registry: [(name: String, tier: OperatorTier, operator: any MutationOperator)] = [
+        (name: "RelationalOperatorReplacement", tier: .experimental, operator: RelationalOperatorReplacement()),
+        (name: "BooleanLiteralReplacement", tier: .experimental, operator: BooleanLiteralReplacement()),
+        (name: "LogicalOperatorReplacement", tier: .conservative, operator: LogicalOperatorReplacement()),
+        (name: "ArithmeticOperatorReplacement", tier: .experimental, operator: ArithmeticOperatorReplacement()),
+        (name: "NegateConditional", tier: .conservative, operator: NegateConditional()),
+        (name: "SwapTernary", tier: .conservative, operator: SwapTernary()),
+        (name: "RemoveSideEffects", tier: .experimental, operator: RemoveSideEffects()),
     ]
 
     static let allOperatorNames: [String] = registry.map(\.name)
+
+    static func operatorNames(upTo tier: OperatorTier) -> [String] {
+        registry.filter { $0.tier <= tier }.map(\.name)
+    }
 
     func run(input: DiscoveryInput) async throws -> RunnerInput {
         let sourceFiles = try FileDiscoveryStage().run(input: input)
@@ -21,6 +25,7 @@ struct DiscoveryPipeline: Sendable {
         )
         let (schematizedFiles, schematizableDescriptors) = SchematizationStage()
             .run(indexed: indexed, sources: parsedSources)
+        let importStyle = ImportStyle.of(parsedSources)
         let incompatibleDescriptors = IncompatibleRewritingStage().run(indexed: indexed, sources: parsedSources)
         let allDescriptors = (schematizableDescriptors + incompatibleDescriptors)
             .sorted { indexFromID($0.id) < indexFromID($1.id) }
@@ -32,7 +37,8 @@ struct DiscoveryPipeline: Sendable {
             concurrency: input.concurrency,
             noCache: input.noCache,
             schematizedFiles: schematizedFiles,
-            mutants: allDescriptors
+            mutants: allDescriptors,
+            importStyle: importStyle
         )
     }
 

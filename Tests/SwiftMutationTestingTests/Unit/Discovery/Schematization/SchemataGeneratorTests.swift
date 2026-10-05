@@ -51,13 +51,87 @@ struct SchemataGeneratorTests {
         #expect(switchCount == 2)
     }
 
-    @Test("Given generated content, when checked, then it ends with its own private __swiftMutationTestingID")
+    @Test("Given an initializer whose body is one call to another, when generated, then the call is not wrapped")
+    func aDelegatingInitializerIsNotWrappedInATuple() {
+        let source = makeParsedSource("struct S { init() {}; init(c: Bool) { self.init(); print(true) } }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations).content
+
+        #expect(!result.contains(").1"))
+        #expect(result.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\n"))
+    }
+
+    @Test("Given a body that is one switch statement with returns, when generated, then nothing is returned from it")
+    func aSwitchStatementBodyIsNotReturned() {
+        let source = makeParsedSource(
+            "func f(_ n: Int) -> Bool { switch n { case 0: return true\ndefault: return false } }"
+        )
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations).content
+
+        #expect(!result.contains("return \n"))
+        #expect(!result.contains("return switch"))
+        #expect(result.contains("let _ = \(SupportDeclarations.activationCall(for: source.file.path))\n"))
+    }
+
+    @Test("Given a nested function with mutations in both bodies, when generated, then both keep their cases")
+    func nestedFunctionKeepsItsCasesInsideTheEnclosingOnes() {
+        let source = makeParsedSource("func f() -> Bool { func g() -> Bool { return true }; return g() && false }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations)
+
+        #expect(result.discarded.isEmpty)
+        for entry in mutations {
+            #expect(result.content.contains("case \"swift-mutation-testing_\(entry.index)\":"))
+        }
+        let switches = result.content.components(separatedBy: "switch __swiftMutationTestingID").count - 1
+        let innerCases = result.content.components(separatedBy: "case \"swift-mutation-testing_0\":").count - 1
+        #expect(switches == 3, "the inner switch is copied into the outer case and the outer default")
+        #expect(innerCases == 2)
+    }
+
+    @Test("Given a mutation after a nested function, when generated, then it is applied at its own place")
+    func mutationAfterANestedFunctionLandsOnItsOwnText() {
+        let source = makeParsedSource("func f() -> Bool { func g() -> Bool { return true }; return g() && false }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations)
+        let outerCases = result.content.components(separatedBy: "default:").dropLast().joined()
+
+        #expect(outerCases.contains("g() || false") || outerCases.contains("g() && true"))
+        #expect(!result.content.contains("return true || false"))
+    }
+
+    @Test("Given generated content, when checked, then it ends with its own ID variable, named after the file")
     func schematizedContentDeclaresItsOwnIDVariable() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = mutationsWithIndices(source)
         let result = generator.generate(source: source, mutations: mutations).content
-        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile + "\n"))
-        #expect(result.components(separatedBy: "private var __swiftMutationTestingID").count == 2)
+        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile(for: source.file.path) + "\n"))
+        #expect(result.components(separatedBy: "internal var __swiftMutationTestingID_").count == 2)
+        #expect(result.contains("switch \(SupportDeclarations.identifier(for: source.file.path)) {"))
+    }
+
+    @Test("Given a file without a Foundation import, when generated, then one is added in the project's style")
+    func theImportFollowsTheProjectStyle() {
+        let source = makeParsedSource("func f() { let x = true }")
+        let mutations = mutationsWithIndices(source)
+        let block = SupportDeclarations.perFile(for: source.file.path)
+
+        let implicit = generator.generate(source: source, mutations: mutations, importStyle: .implicit).content
+        let explicit = generator.generate(source: source, mutations: mutations, importStyle: .explicit).content
+
+        #expect(implicit.hasSuffix("\n\nimport Foundation\n\n" + block + "\n"))
+        #expect(explicit.hasSuffix("\n\ninternal import Foundation\n\n" + block + "\n"))
+    }
+
+    @Test("Given a file that already imports Foundation, when generated, then no import is added")
+    func anExistingFoundationImportIsEnough() {
+        let source = makeParsedSource("internal import Foundation\nfunc f() { let x = true }")
+        let mutations = mutationsWithIndices(source)
+        let result = generator.generate(source: source, mutations: mutations, importStyle: .explicit).content
+
+        #expect(result.hasSuffix("\n\n" + SupportDeclarations.perFile(for: source.file.path) + "\n"))
+        #expect(result.components(separatedBy: "import Foundation").count == 2)
     }
 
     @Test("Given a body of statements, when generated, then every case records its activation before them")
@@ -69,7 +143,8 @@ struct SchemataGeneratorTests {
         let caseLines = lines.indices.filter { lines[$0].hasPrefix("case \"swift-mutation-testing_") }
 
         #expect(caseLines.count == 2)
-        #expect(caseLines.allSatisfy { lines[$0 + 1] == "let _ = " + SupportDeclarations.activationCall })
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
+        #expect(caseLines.allSatisfy { lines[$0 + 1] == "let _ = " + activation })
         #expect(!result.contains("default:\nlet _ ="))
     }
 
@@ -81,7 +156,7 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        let activation = SupportDeclarations.activationCall
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
         #expect(result.contains("case \"swift-mutation-testing_0\":\n(\(activation), a - b ).1\n"))
         #expect(result.contains("default:\na + b \n"))
         #expect(!result.contains("let _ ="))
@@ -98,7 +173,7 @@ struct SchemataGeneratorTests {
         )
         let result = generator.generate(source: source, mutations: [(index: 0, point: removal)]).content
 
-        let activation = SupportDeclarations.activationCall
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
         #expect(result.contains("case \"swift-mutation-testing_0\":\nlet _ = \(activation)\n \n"))
         #expect(!result.contains(").1"))
     }
@@ -111,7 +186,8 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        #expect(result.contains("let _ = \(SupportDeclarations.activationCall)\nreturn if !(c) { 1 } else { 2 } \n"))
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
+        #expect(result.contains("let _ = \(activation)\nreturn if !(c) { 1 } else { 2 } \n"))
         #expect(result.contains("default:\nreturn if c { 1 } else { 2 } \n"))
     }
 
@@ -123,8 +199,9 @@ struct SchemataGeneratorTests {
         }
         let result = generator.generate(source: source, mutations: mutations).content
 
-        let schema = result.components(separatedBy: SupportDeclarations.perFile)[0]
-        #expect(schema.contains("let _ = \(SupportDeclarations.activationCall)\nif !(c) { print(1) } \n"))
+        let schema = result.components(separatedBy: SupportDeclarations.perFile(for: source.file.path))[0]
+        let activation = SupportDeclarations.activationCall(for: source.file.path)
+        #expect(schema.contains("let _ = \(activation)\nif !(c) { print(1) } \n"))
         #expect(!schema.contains("return"))
     }
 

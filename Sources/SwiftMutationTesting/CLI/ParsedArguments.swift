@@ -34,6 +34,7 @@ struct ParsedArguments: Sendable {
         var excludePatterns: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
+        var operatorTier: String?
     }
 
     struct GateOptions: Sendable {

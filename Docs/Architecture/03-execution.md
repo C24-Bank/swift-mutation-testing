@@ -111,7 +111,7 @@ flowchart TD
 
 ## Baseline Validation (SPM)
 
-Before the first mutant runs, the suite is run once with no mutant selected. `__swiftMutationTestingID` is empty, so every schema falls through to its `default` branch and the original code executes.
+Before the first mutant runs, the suite is run once with no mutant selected. `__swiftMutationTestingID_<hash>` is empty, so every schema falls through to its `default` branch and the original code executes.
 
 The run continues only if that suite passes. A suite that already fails without a mutation kills every mutant it reaches, so every verdict it produces is worthless — and nothing in the report would reveal it. `MutantExecutor` throws `BaselineError` instead, naming the failing tests, the timeout that stopped the suite, or the output it failed with.
 

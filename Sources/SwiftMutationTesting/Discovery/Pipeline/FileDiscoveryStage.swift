@@ -15,6 +15,9 @@ struct FileDiscoveryStage: Sendable {
         "/.swift-mutation-testing-derived-data/",
         "/\(CacheStore.directoryName)/",
         "/DerivedData/",
+        "/Package.swift",
+        "/Package@swift-",
+        "/Snippets/",
     ]
 
     func run(input: DiscoveryInput) throws -> [SourceFile] {

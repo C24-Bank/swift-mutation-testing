@@ -19,6 +19,7 @@ struct CommandLineParser: Sendable {
         var excludePatterns: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
+        var operatorTier: String?
         var gate = ParsedArguments.GateOptions()
     }
 
@@ -89,7 +90,8 @@ struct CommandLineParser: Sendable {
                 sourcesPath: flags.sourcesPath,
                 excludePatterns: flags.excludePatterns,
                 operators: flags.operators,
-                disabledMutators: flags.disabledMutators
+                disabledMutators: flags.disabledMutators,
+                operatorTier: flags.operatorTier
             ),
             gate: flags.gate
         )
@@ -210,6 +212,9 @@ struct CommandLineParser: Sendable {
 
         case "--disable-mutator":
             values.disabledMutators.append(try nextValue(for: flag, at: &index, in: arguments))
+
+        case "--operator-tier":
+            values.operatorTier = try nextValue(for: flag, at: &index, in: arguments)
 
         default:
             return false

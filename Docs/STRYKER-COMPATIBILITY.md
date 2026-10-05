@@ -58,7 +58,7 @@ Each entry in `files` corresponds to one source file that contains at least one 
 | `source` | `string` | full UTF-8 file content | ✓ |
 | `mutants` | `MutantResult[]` | see below | partial |
 
-File paths in the `files` dictionary are relative to `projectRoot` (the absolute project path is stripped from the front of each file path).
+File paths in the `files` dictionary are relative to `projectRoot`, with a leading `/`: both paths are resolved through symlinks before the root is stripped (`ProjectRelativePath`), so a project under `/tmp` or `/var`, which macOS reaches through `/private`, still gets `/Sources/…` keys.
 
 ---
 
@@ -79,6 +79,7 @@ Each object in the `mutants` array describes one mutation point and its outcome.
 | `status` | enum (see below) | one of the schema's values | ✓ — see [status mapping](#status-mapping) |
 | `statusReason` | `string?` | `"crash"` for a mutant killed by a crash; `"killed without activation"`, `"crash without activation"` or `"timed out without activation"` when the mutated code never ran; omitted otherwise | ✓ |
 | `killedBy` | `string[]?` | the name of the test that killed the mutant, omitted when no test is named | ✓ |
+| `duration` | `integer?` | the time the mutant's test run took, in milliseconds; omitted for a result served from the cache, which ran no test | ✓ |
 | `description` | `string?` | `"<original> → <mutated>"` | ✓ |
 | `fingerprint` | — | the mutant's stable identity, see [Baselines](USAGE.MD#baselines) | ✓ — an extra property, which the schema allows |
 

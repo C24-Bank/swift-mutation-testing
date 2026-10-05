@@ -1,0 +1,5 @@
+project,operator,generated,detected,undetected,noCoverage,unviable,killRate,costPerMutantMs
+alpha,OperatorA,3,1,1,0,1,50.0,150.0
+alpha,OperatorB,2,1,1,1,0,50.0,50.0
+beta,OperatorA,2,2,0,0,0,100.0,550.0
+beta,OperatorB,1,0,1,0,0,0.0,300.0

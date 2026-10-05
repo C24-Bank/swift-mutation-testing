@@ -52,17 +52,15 @@ struct MutantExecutor: Sendable {
             schematizedFiles: input.schematizedFiles
         )
         SandboxCleaner.register(sandbox)
-
-        do {
-            try ApplicationVerifier().verify(
-                schematizedFiles: input.schematizedFiles, mutants: input.mutants,
-                sandbox: sandbox, projectPath: input.projectPath
-            )
-        } catch {
+        defer {
             try? sandbox.cleanup()
             SandboxCleaner.deregister()
-            throw error
         }
+
+        try ApplicationVerifier().verify(
+            schematizedFiles: input.schematizedFiles, mutants: input.mutants,
+            sandbox: sandbox, projectPath: input.projectPath
+        )
 
         let (artifact, schemaBuildExcluded) = try await buildArtifact(sandbox: sandbox, input: input, deps: deps)
         let pool = try await makePool(launcher: launcher)
@@ -84,14 +82,10 @@ struct MutantExecutor: Sendable {
             try Self.requireObservedActivation(in: results)
         } catch {
             await pool.tearDown()
-            try? sandbox.cleanup()
-            SandboxCleaner.deregister()
             throw error
         }
 
         await pool.tearDown()
-        try? sandbox.cleanup()
-        SandboxCleaner.deregister()
         try await cacheStore.persist()
         try await cacheStore.persistMetadata(metadata)
 
@@ -169,13 +163,15 @@ struct MutantExecutor: Sendable {
 
         if let artifact {
             var bundles: [TestBundle] = []
+            var testFilter = configuration.build.testTarget
             if case .spm = configuration.build.projectType {
-                bundles = try await probeTestBundles(sandbox: sandbox, deps: deps)
+                (bundles, testFilter) = try await probeTestBundles(sandbox: sandbox, deps: deps)
             }
             let context = TestExecutionContext(
                 artifact: artifact, sandbox: sandbox, pool: pool,
                 configuration: configuration,
                 bundles: bundles,
+                testFilter: testFilter,
                 targetedSuites: TargetedSuites.declared(
                     in: TestFilesHasher().testFilePaths(projectPath: input.projectPath)
                 )
@@ -301,7 +297,8 @@ struct MutantExecutor: Sendable {
                 sandboxPath: sandboxPath,
                 originalPath: originalPath,
                 errorOutput: output,
-                mutantsInFile: mutantsInFile
+                mutantsInFile: mutantsInFile,
+                importStyle: input.importStyle
             )
         }
 
@@ -377,29 +374,36 @@ struct MutantExecutor: Sendable {
             .execute(mutants, configuration: configuration, pool: pool)
     }
 
-    private func probeTestBundles(sandbox: Sandbox, deps: ExecutionDeps) async throws -> [TestBundle] {
-        let urls = TestBundleInvocation.bundleURLs(in: sandbox)
+    private func probeTestBundles(
+        sandbox: Sandbox, deps: ExecutionDeps
+    ) async throws -> (bundles: [TestBundle], filter: String?) {
+        let selection = TestTargetSelection.make(
+            target: configuration.build.testTarget, bundleURLs: TestBundleInvocation.bundleURLs(in: sandbox)
+        )
+        let urls = selection.bundleURLs
 
         guard !urls.isEmpty else {
             try await validateBaseline(running: swiftTestRequest(in: sandbox), deps: deps)
-            return []
+            return ([], selection.filter)
         }
 
         var bundles: [TestBundle] = []
 
         for url in urls {
-            let libraries = try await probeLibraries(of: url, in: sandbox, deps: deps)
+            let libraries = try await probeLibraries(of: url, in: sandbox, filter: selection.filter, deps: deps)
             if !libraries.isEmpty {
                 bundles.append(TestBundle(url: url, libraries: libraries))
             }
         }
 
-        return bundles.isEmpty ? urls.map { TestBundle(url: $0, libraries: TestBundle.allLibraries) } : bundles
+        let probed = bundles.isEmpty ? urls.map { TestBundle(url: $0, libraries: TestBundle.allLibraries) } : bundles
+        return (probed, selection.filter)
     }
 
     private func probeLibraries(
         of bundleURL: URL,
         in sandbox: Sandbox,
+        filter: String?,
         deps: ExecutionDeps
     ) async throws -> Set<TestingFramework> {
         let invocation = TestBundleInvocation(bundleURL: bundleURL, framework: configuration.build.testingFramework)
@@ -407,7 +411,7 @@ struct MutantExecutor: Sendable {
 
         for library in TestBundle.allLibraries {
             let requests = invocation.requests(
-                filter: configuration.build.testTarget,
+                filter: filter,
                 mutantID: "",
                 workingDirectory: sandbox.rootURL,
                 timeout: configuration.build.timeout,
@@ -459,6 +463,7 @@ struct MutantExecutor: Sendable {
             throw BaselineError.didNotFinish(seconds: configuration.build.timeout)
 
         case .testsFailed, .crashed, .unviable, .buildFailed:
+            MutantLogWriter(directory: configuration.reporting.keepLogsPath)?.write(baselineOutput: output)
             let failing = TestOutputParser().failingTests(in: output)
             throw failing.isEmpty
                 ? BaselineError.runFailed(output: output)
@@ -470,7 +475,8 @@ struct MutantExecutor: Sendable {
         sandboxPath: String,
         originalPath: String,
         errorOutput: String,
-        mutantsInFile: [MutantDescriptor]
+        mutantsInFile: [MutantDescriptor],
+        importStyle: ImportStyle
     ) -> [MutantDescriptor] {
         let errorLines = Set(
             errorLocations(in: errorOutput, under: sandboxPath)
@@ -512,7 +518,8 @@ struct MutantExecutor: Sendable {
 
         let kept = mutantsInFile.filter { !problematicIDs.contains($0.id) }
 
-        guard let narrowed = regeneratedSchema(originalPath: originalPath, keeping: kept) else {
+        guard let narrowed = regeneratedSchema(originalPath: originalPath, keeping: kept, importStyle: importStyle)
+        else {
             restoreOriginal(sandboxPath: sandboxPath, originalPath: originalPath)
             return mutantsInFile
         }
@@ -522,7 +529,9 @@ struct MutantExecutor: Sendable {
         return mutantsInFile.filter { problematicIDs.contains($0.id) }
     }
 
-    func regeneratedSchema(originalPath: String, keeping mutants: [MutantDescriptor]) -> String? {
+    func regeneratedSchema(
+        originalPath: String, keeping mutants: [MutantDescriptor], importStyle: ImportStyle = .implicit
+    ) -> String? {
         guard let content = try? String(contentsOfFile: originalPath, encoding: .utf8) else { return nil }
 
         let source = ParsedSource(
@@ -537,7 +546,7 @@ struct MutantExecutor: Sendable {
             entries.append((index: index, point: MutationPoint(descriptor)))
         }
 
-        return SchemataGenerator().generate(source: source, mutations: entries).content
+        return SchemataGenerator().generate(source: source, mutations: entries, importStyle: importStyle).content
     }
 
     private func mutantIndex(from id: String) -> Int? {

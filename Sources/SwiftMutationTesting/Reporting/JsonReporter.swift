@@ -16,7 +16,8 @@ struct JsonReporter: Sendable {
         var fileEntries: [String: MutationReportFile] = [:]
 
         for (filePath, results) in summary.resultsByFile {
-            let relativePath = String(filePath.dropFirst(projectRoot.count))
+            let relative = ProjectRelativePath.make(for: filePath, in: projectRoot)
+            let relativePath = relative == filePath ? filePath : "/" + relative
             let source = (try? String(contentsOfFile: filePath, encoding: .utf8)) ?? ""
             let mutants = results.map { mutationReportMutant(from: $0) }
             fileEntries[relativePath] = MutationReportFile(language: "swift", source: source, mutants: mutants)
@@ -46,8 +47,13 @@ struct JsonReporter: Sendable {
             statusReason: result.reportStatusReason,
             description: descriptor.description,
             killedBy: killedBy(from: result.status),
+            duration: milliseconds(of: result.testDuration),
             fingerprint: descriptor.fingerprint
         )
+    }
+
+    private func milliseconds(of seconds: Double) -> Int? {
+        seconds > 0 ? Int((seconds * 1000).rounded()) : nil
     }
 
     private func killedBy(from status: ExecutionStatus) -> [String]? {

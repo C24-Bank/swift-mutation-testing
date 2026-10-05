@@ -30,6 +30,26 @@ struct BaselineValidationTests {
         #expect(error == .testsFailed(tests: ["FooTests.testBar", "FooTests.testBaz"]))
     }
 
+    @Test("Given baseline suite fails and logs are kept, when execute called, then its output is baseline.log")
+    func failingBaselineOutputIsKept() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let logs = dir.appendingPathComponent("logs")
+        let output = "Test Case '-[FooTests testBar]' failed (0.001 seconds).\nerror: the reason"
+        let executor = MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, keepLogsPath: logs.path),
+            launcher: SPMBaselineOutcomeMock(exitCode: 1, output: output)
+        )
+        let input = try makeSPMInput(in: dir)
+
+        await #expect(throws: BaselineError.self) {
+            _ = try await executor.execute(input)
+        }
+
+        let kept = try String(contentsOf: logs.appendingPathComponent("baseline.log"), encoding: .utf8)
+        #expect(kept == output)
+    }
+
     @Test("Given baseline suite fails, when execute called, then no mutant is tested")
     func failingBaselineTestsNoMutant() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

@@ -263,6 +263,7 @@ struct IncompatibleMutantExecutor: Sendable {
             mutatedFilePath: mutant.filePath,
             mutatedContent: content
         )
+        defer { try? sandbox.cleanup() }
 
         let slot = try await pool.acquire()
         let launched: TestLaunchResult
@@ -271,7 +272,6 @@ struct IncompatibleMutantExecutor: Sendable {
                 scheme: scheme, slot: slot, sandbox: sandbox, configuration: configuration)
         } catch {
             await pool.release(slot)
-            try? sandbox.cleanup()
             throw error
         }
 
@@ -282,8 +282,6 @@ struct IncompatibleMutantExecutor: Sendable {
             projectType: configuration.build.projectType,
             timeout: configuration.build.timeout
         )
-
-        try? sandbox.cleanup()
 
         let status = outcome.asExecutionStatus
         let killerTestFile = resolveKillerTestFile(status: status)

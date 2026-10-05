@@ -9,6 +9,7 @@
 ```swift
 struct DiscoveryPipeline: Sendable {
     static let allOperatorNames: [String]
+    static func operatorNames(upTo tier: OperatorTier) -> [String]
     func run(input: DiscoveryInput) async throws -> RunnerInput
 }
 ```
@@ -27,21 +28,35 @@ flowchart TD
     IR --> OUT
 ```
 
-`allOperatorNames` is the ordered list of all registered operator identifiers. `ConfigurationFileWriter` uses it to populate the operators section of the generated YAML.
+`allOperatorNames` is the ordered list of all registered operator identifiers. `ConfigurationFileWriter` uses it to populate the operators section of the generated YAML. `operatorNames(upTo:)` is the same list cut at a tier: the identifiers whose `OperatorTier` is at most the given one, in registry order.
 
-**Operator registry** (registration order is fixed):
+**Operator registry** (registration order is fixed; the tier comes from the campaign in `Docs/OPERATORS.md`):
 
-| Index | Identifier |
-|---|---|
-| 0 | `RelationalOperatorReplacement` |
-| 1 | `BooleanLiteralReplacement` |
-| 2 | `LogicalOperatorReplacement` |
-| 3 | `ArithmeticOperatorReplacement` |
-| 4 | `NegateConditional` |
-| 5 | `SwapTernary` |
-| 6 | `RemoveSideEffects` |
+| Index | Identifier | Tier |
+|---|---|---|
+| 0 | `RelationalOperatorReplacement` | `experimental` |
+| 1 | `BooleanLiteralReplacement` | `experimental` |
+| 2 | `LogicalOperatorReplacement` | `conservative` |
+| 3 | `ArithmeticOperatorReplacement` | `experimental` |
+| 4 | `NegateConditional` | `conservative` |
+| 5 | `SwapTernary` | `conservative` |
+| 6 | `RemoveSideEffects` | `experimental` |
 
-When `input.operators` is empty, all seven operators are active. Otherwise only the listed identifiers are used.
+When `input.operators` is empty, all seven operators are active; a run resolved through `ConfigurationResolver` gets the `default` tier's three unless told otherwise. Otherwise only the listed identifiers are used. `ConfigurationResolver` always passes the full list, so the empty case is for callers that build a `DiscoveryInput` by hand.
+
+## Discovery/OperatorTier.swift
+
+```swift
+enum OperatorTier: String, Sendable, CaseIterable, Comparable {
+    case conservative
+    case `default`
+    case experimental
+
+    static let usage: String
+}
+```
+
+The three tiers, ordered: `conservative < default < experimental`. A tier selects the operators up to it, so `conservative` is the smallest set and `experimental` holds every operator. `usage` is the `UsageError` message for a name that is no tier.
 
 ---
 
@@ -85,7 +100,7 @@ Recursively enumerates the directory tree under `input.sourcesPath` using `FileM
 
 **Fixed exclusions** (applied regardless of `excludePatterns`):
 
-`/Tests/`, `/Specs/`, `Mock.swift`, `Stub.swift`, `Fake.swift`, `/.build/`, `DerivedData`, `/.xmr-`, `Pods/`, `Carthage/`, `vendor/`, `Generated/`
+`/Tests/`, `/Mocks/`, `/Stubs/`, `/Fakes/`, `/TestHelpers/`, `/TestSupport/`, `Tests.swift`, `Mock.swift`, `Spec.swift`, `/.build/`, `/.swift-mutation-testing-derived-data/`, the cache directory, `/DerivedData/`, the package manifests `/Package.swift` and `/Package@swift-` — a manifest is build configuration, not product code, and a mutation in it changes the build of every mutant — and `/Snippets/`, SwiftPM's directory for documentation snippets, which no test runs
 
 Files matching any `excludePatterns` glob pattern are also excluded.
 
@@ -130,9 +145,9 @@ struct MutantDiscoveryStage: Sendable {
 
 Applies all active operators concurrently across sources via `withTaskGroup`. For each source:
 
-1. Extracts suppressed ranges via `SuppressionAnnotationExtractor`
+1. Extracts suppressed ranges via `SuppressionAnnotationExtractor`, `while`/`repeat` bodies via `InfiniteLoopBodyExtractor` and the `#if` clauses the host build leaves out via `InactiveRegionExtractor`
 2. Collects mutation points from every operator
-3. Removes suppressed points via `SuppressionFilter`
+3. Removes suppressed points via `SuppressionFilter`, then the loop-risking points via `InfiniteLoopFilter`, then the points in inactive clauses via `InactiveRegionFilter`
 
 Results are sorted by `filePath` then `utf8Offset`.
 
@@ -202,7 +217,7 @@ struct IndexedMutationPoint: Sendable {
 |---|---|
 | `index` | Position in the run's ordering, assigned by `MutantIndexingStage` |
 | `mutation` | The original mutation point |
-| `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID` is compared against in the schema |
+| `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID_<hash>` is compared against in the schema |
 | `isSchematizable` | `true` if the mutation falls inside a function body (determined by `TypeScopeVisitor`) |
 | `fingerprint` | The mutant's `MutantFingerprint`, stable across runs |
 
@@ -225,7 +240,7 @@ flowchart TD
     SCHEMA --> RESULT["([SchematizedFile], [MutantDescriptor])"]
 ```
 
-Every schematized file ends with `SupportDeclarations.perFile`, its own private `__swiftMutationTestingID`, appended by `SchemataGenerator` — see [05 — Schematization](05-schematization.md).
+Every schematized file ends with `SupportDeclarations.perFile(for:)`, its own `__swiftMutationTestingID_<hash>`, appended by `SchemataGenerator` — see [05 — Schematization](05-schematization.md).
 
 ---
 

@@ -1,5 +1,6 @@
 struct SchematizationStage: Sendable {
     func run(indexed: [IndexedMutationPoint], sources: [ParsedSource]) -> ([SchematizedFile], [MutantDescriptor]) {
+        let importStyle = ImportStyle.of(sources)
         let schematizable = indexed.filter { $0.isSchematizable }
         let sourceByPath = Dictionary(uniqueKeysWithValues: sources.map { ($0.file.path, $0) })
         let byFile = Dictionary(grouping: schematizable) { $0.mutation.filePath }
@@ -11,7 +12,7 @@ struct SchematizationStage: Sendable {
             guard let source = sourceByPath[filePath] else { continue }
 
             let mutations = entries.map { (index: $0.index, point: $0.mutation) }
-            let content = generator.generate(source: source, mutations: mutations).content
+            let content = generator.generate(source: source, mutations: mutations, importStyle: importStyle).content
             schematizedFiles.append(SchematizedFile(originalPath: filePath, schematizedContent: content))
 
             let sourceHash = MutantCacheKey.hash(of: source.file.content)

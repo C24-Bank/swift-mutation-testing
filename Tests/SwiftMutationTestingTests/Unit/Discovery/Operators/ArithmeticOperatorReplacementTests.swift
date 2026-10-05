@@ -6,6 +6,23 @@ import Testing
 struct ArithmeticOperatorReplacementTests {
     private let op = ArithmeticOperatorReplacement()
 
+    @Test("Given the wildcard of an availability check, when visited, then it is not an operator")
+    func anAvailabilityWildcardIsNotAnOperator() {
+        let source = makeParsedSource("func f() { if #available(macOS 10.15, *) { g() } }")
+
+        #expect(op.mutations(in: source).isEmpty)
+    }
+
+    @Test("Given a product next to an availability check, when visited, then only the product is mutated")
+    func aProductNextToAnAvailabilityCheckIsStillMutated() {
+        let source = makeParsedSource("func f(_ a: Int) -> Int { if #available(macOS 10.15, *) { return a * 2 }; return a }")
+        let result = op.mutations(in: source)
+
+        #expect(result.count == 1)
+        #expect(result[0].originalText == "*")
+        #expect(result[0].line == 1)
+    }
+
     @Test("Given string literal concatenation, when visited, then returns no mutations")
     func stringLiteralConcatenationProducesNoMutations() {
         let source = makeParsedSource(#"func f() { let x = "a" + "b" }"#)

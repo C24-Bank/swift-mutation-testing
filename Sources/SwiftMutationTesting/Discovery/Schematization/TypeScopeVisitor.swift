@@ -53,9 +53,43 @@ final class TypeScopeVisitor: SyntaxVisitor {
 
         guard let expression else { return .statements }
 
-        return expression.is(IfExprSyntax.self) || expression.is(SwitchExprSyntax.self)
-            ? .conditional(returnsValue: returnsValue)
-            : .expression
+        if expression.is(IfExprSyntax.self) || expression.is(SwitchExprSyntax.self) {
+            return isExpression(expression) ? .conditional(returnsValue: returnsValue) : .statements
+        }
+
+        return returnsValue ? .expression : .statements
+    }
+
+    private static func isExpression(_ expression: ExprSyntax) -> Bool {
+        if let switchExpr = expression.as(SwitchExprSyntax.self) {
+            return switchExpr.cases.allSatisfy { element in
+                guard case .switchCase(let switchCase) = element else { return false }
+                return isSingleExpression(switchCase.statements)
+            }
+        }
+
+        guard let ifExpr = expression.as(IfExprSyntax.self), isSingleExpression(ifExpr.body.statements) else {
+            return false
+        }
+
+        switch ifExpr.elseBody {
+        case .codeBlock(let block): return isSingleExpression(block.statements)
+        case .ifExpr(let nested): return isExpression(ExprSyntax(nested))
+        case nil: return false
+        }
+    }
+
+    private static func isSingleExpression(_ statements: CodeBlockItemListSyntax) -> Bool {
+        guard statements.count == 1, let item = statements.first?.item else { return false }
+
+        switch item {
+        case .expr(let expr):
+            return expr.is(IfExprSyntax.self) || expr.is(SwitchExprSyntax.self) ? isExpression(expr) : true
+        case .stmt(let stmt):
+            return stmt.as(ExpressionStmtSyntax.self).map { isExpression($0.expression) } ?? false
+        case .decl:
+            return false
+        }
     }
 
     private static func returnsValue(_ returnClause: ReturnClauseSyntax?) -> Bool {

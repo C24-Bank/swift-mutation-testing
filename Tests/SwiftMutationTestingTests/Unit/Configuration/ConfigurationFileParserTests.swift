@@ -36,6 +36,16 @@ struct ConfigurationFileParserTests {
         #expect(result["concurrency"] == "3")
     }
 
+    @Test("Given a config file with an operator-tier key, when parsed, then the tier is returned as written")
+    func parsesOperatorTier() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try FileHelpers.write("operator-tier: experimental\n", named: ".swift-mutation-testing.yml", in: dir)
+
+        #expect(try parser.parse(at: dir.path)["operator-tier"] == "experimental")
+    }
+
     @Test("Given a config file with double-quoted values, when parsed, then quotes are stripped")
     func stripsDoubleQuotes() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

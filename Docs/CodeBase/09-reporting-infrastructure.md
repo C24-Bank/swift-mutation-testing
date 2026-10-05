@@ -177,7 +177,7 @@ struct JsonReporter: Sendable {
 }
 ```
 
-Writes a Stryker-compatible JSON report to `outputPath`. Encodes a `MutationReportPayload` with `JSONEncoder` (pretty-printed, sorted keys).
+Writes a Stryker-compatible JSON report to `outputPath`. Encodes a `MutationReportPayload` with `JSONEncoder` (pretty-printed, sorted keys). Each file's key is its path relative to `projectRoot` with a leading `/`, computed by `ProjectRelativePath` so that a root reached through a symlink still yields `/Sources/…`.
 
 Fixed thresholds: `high = 80`, `low = 60`.
 

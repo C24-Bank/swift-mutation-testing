@@ -30,6 +30,18 @@ struct MutantLogWriterTests {
         #expect(FileManager.default.fileExists(atPath: file.path))
     }
 
+    @Test("Given a failing baseline's output, when written, then it is kept as baseline.log, as it was")
+    func baselineOutputIsKeptAsIs() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let writer = try #require(MutantLogWriter(directory: dir.appendingPathComponent("logs").path))
+
+        writer.write(baselineOutput: "✘ Test \"a\" recorded an issue\n")
+
+        let kept = try String(contentsOf: dir.appendingPathComponent("logs/baseline.log"), encoding: .utf8)
+        #expect(kept == "✘ Test \"a\" recorded an issue\n")
+    }
+
     @Test("Given a verdict, when written, then the header identifies the mutant and the result")
     func headerCarriesTheMutantAndVerdict() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

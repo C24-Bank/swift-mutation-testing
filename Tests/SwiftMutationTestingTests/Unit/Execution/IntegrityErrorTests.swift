@@ -6,9 +6,9 @@ import Testing
 struct IntegrityErrorTests {
     @Test("Given one mutant not applied, when described, then the message names it and says the run stopped")
     func oneMutantNotApplied() {
-        let message = IntegrityError.mutantsNotApplied(ids: ["m0"]).errorDescription
+        let message = IntegrityError.mutantsNotApplied(mutants: ["m0 (Foo.swift:1)"]).errorDescription
 
-        #expect(message?.hasPrefix("1 mutant was not applied to the sandbox: m0.") == true)
+        #expect(message?.hasPrefix("1 mutant was not applied to the sandbox: m0 (Foo.swift:1).") == true)
         #expect(message?.contains("The run is stopped") == true)
     }
 
@@ -16,7 +16,7 @@ struct IntegrityErrorTests {
     func manyMutantsNotApplied() {
         let ids = (0 ..< 12).map { "m\($0)" }
 
-        let message = IntegrityError.mutantsNotApplied(ids: ids).errorDescription
+        let message = IntegrityError.mutantsNotApplied(mutants: ids).errorDescription
 
         let listed = "m0, m1, m2, m3, m4, m5, m6, m7, m8, m9 and 2 more"
         #expect(message?.hasPrefix("12 mutants were not applied to the sandbox: \(listed).") == true)

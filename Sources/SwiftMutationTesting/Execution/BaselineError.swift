@@ -16,7 +16,7 @@ enum BaselineError: Error, Equatable, LocalizedError {
                 + tests.map { "  - \($0)" }.joined(separator: "\n")
                 + "\n\nTests run against a sandbox copy of the project under the system temporary "
                 + "directory, so a test that derives paths from #filePath can fail here while "
-                + "passing in place."
+                + "passing in place. Pass --keep-logs <dir> to keep the suite's output as baseline.log."
 
         case .didNotFinish(let seconds):
             return

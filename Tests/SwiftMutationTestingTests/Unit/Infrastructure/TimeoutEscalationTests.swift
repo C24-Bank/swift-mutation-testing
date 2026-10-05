@@ -32,7 +32,10 @@ struct TimeoutEscalationTests {
         let escalation = TimeoutEscalation(gracePeriod: 0.2)
         escalation.arm(pid: target, descendants: [child])
 
-        try await Task.sleep(for: .milliseconds(600))
+        let deadline = ContinuousClock.now + .seconds(5)
+        while kill(child, 0) == 0 || kill(target, 0) == 0, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
 
         #expect(kill(child, 0) != 0, "the descendant should have been killed once the grace period ran out")
         #expect(kill(target, 0) != 0, "the process group should have been killed too")

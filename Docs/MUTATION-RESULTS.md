@@ -175,6 +175,10 @@ This is the formula the [Stryker report schema](STRYKER-COMPATIBILITY.md) applie
 
 A score of 100% means every mutant that could be executed was detected by at least one test or by the suite failing to finish.
 
+### The number on the README badge
+
+The badge is this repository's own score on the `default` tier, taken from the self-run of the operator campaign — the entry `"."` of `Scripts/operator-campaign/corpus.json`, with its arguments: `Fixtures/` (test data), `Scripts/` (the campaign tooling, which no test runs) and the two sandbox files whose mutants would delete the run's own sandboxes are left out, and the timeout is 300 s so that a surviving mutant's full suite fits. The campaign runs every operator, so the badge's number is the score recomputed over the mutants of the `default` tier's operators in that report; `Docs/OPERATORS.md` has the full result and the date. It is a record run, not a push-time number: it moves when the campaign is rerun.
+
 ---
 
 ## Schematizable vs incompatible mutants
@@ -195,7 +199,7 @@ func isAdult(age: Int) -> Bool {
 
 // Schematized source (embedded in the sandbox)
 func isAdult(age: Int) -> Bool {
-    switch __swiftMutationTestingID {
+    switch __swiftMutationTestingID_<hash> {
     case "swift-mutation-testing_0":
         return age > 18   // mutant 0: >= → >
     case "swift-mutation-testing_1":
@@ -206,7 +210,7 @@ func isAdult(age: Int) -> Bool {
 }
 ```
 
-Each schematized file declares its own private `__swiftMutationTestingID`, which reads `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]` once. Each test run injects a different mutant ID into that environment variable — via the `.xctestrun` plist for Xcode projects, or via the process environment for SPM packages.
+Each schematized file declares its own `__swiftMutationTestingID_<hash>` — the hash names the file — which reads `ProcessInfo.processInfo.environment["__SWIFT_MUTATION_TESTING_ACTIVE"]` once. Each test run injects a different mutant ID into that environment variable — via the `.xctestrun` plist for Xcode projects, or via the process environment for SPM packages.
 
 ### What makes a mutant incompatible
 

@@ -8,5 +8,6 @@ struct MutationReportMutant: Sendable, Encodable {
     let statusReason: String?
     let description: String
     let killedBy: [String]?
+    let duration: Int?
     let fingerprint: String
 }

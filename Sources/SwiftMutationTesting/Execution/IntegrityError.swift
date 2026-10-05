@@ -1,7 +1,7 @@
 import Foundation
 
 enum IntegrityError: Error, Equatable, LocalizedError {
-    case mutantsNotApplied(ids: [String])
+    case mutantsNotApplied(mutants: [String])
     case schemaNotApplied(path: String)
     case supportMissing(path: String)
     case activationNeverObserved(killed: Int)
@@ -14,10 +14,10 @@ enum IntegrityError: Error, Equatable, LocalizedError {
                 + "Either the activation marker cannot be written in this environment or the suite fails on its own, "
                 + "so every verdict is suspect. The run is stopped"
 
-        case .mutantsNotApplied(let ids):
-            let listed = ids.prefix(10).joined(separator: ", ")
-            let more = ids.count > 10 ? " and \(ids.count - 10) more" : ""
-            let count = "\(ids.count) mutant\(ids.count == 1 ? " was" : "s were")"
+        case .mutantsNotApplied(let mutants):
+            let listed = mutants.prefix(10).joined(separator: ", ")
+            let more = mutants.count > 10 ? " and \(mutants.count - 10) more" : ""
+            let count = "\(mutants.count) mutant\(mutants.count == 1 ? " was" : "s were")"
             return "\(count) not applied to the sandbox: \(listed)\(more). "
                 + "The run is stopped, since a verdict on a mutation that is not in the build says nothing"
 
@@ -26,7 +26,7 @@ enum IntegrityError: Error, Equatable, LocalizedError {
                 + "so none of its mutants is in the build. The run is stopped"
 
         case .supportMissing(let path):
-            return "the sandbox copy of '\(path)' does not declare __swiftMutationTestingID, "
+            return "the sandbox copy of '\(path)' does not declare \(SupportDeclarations.identifier(for: path)), "
                 + "so its schema could not compile. The run is stopped"
         }
     }

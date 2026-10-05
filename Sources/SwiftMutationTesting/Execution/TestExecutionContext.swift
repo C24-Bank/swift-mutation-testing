@@ -4,6 +4,7 @@ struct TestExecutionContext: Sendable {
     let pool: SimulatorPool
     let configuration: RunnerConfiguration
     var bundles: [TestBundle] = []
+    var testFilter: String?
     var targetedSuites: [String: TargetedSuite] = [:]
 
     func bundles(declaring suite: TargetedSuite) -> [TestBundle] {

@@ -28,6 +28,11 @@ struct MutantLogWriter: Sendable {
         )
     }
 
+    func write(baselineOutput output: String) {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? output.write(to: directory.appendingPathComponent("baseline.log"), atomically: true, encoding: .utf8)
+    }
+
     // MARK: - Private
 
     private func header(

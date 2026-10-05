@@ -3,12 +3,14 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration))
+@Suite(.tags(.integration), .serialized, .notInsideAMutationRun)
 struct MutantExecutorIntegrationTests {
 
     @Test("Given fixture project with partial coverage, when executed, then killed and survived mutants match expected")
     func fixtureResultsMatchExpected() async throws {
-        let fixtureURL = fixtureProjectURL()
+        let fixture = try FixtureCopy.make("CalcApp")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let configuration = makeConfiguration(fixtureURL: fixtureURL)
         let input = makeInput(fixtureURL: fixtureURL)
 
@@ -31,7 +33,9 @@ struct MutantExecutorIntegrationTests {
 
     @Test("Given fixture project, when executed, then original source files are not modified")
     func fixtureSourceFilesNotModified() async throws {
-        let fixtureURL = fixtureProjectURL()
+        let fixture = try FixtureCopy.make("CalcApp")
+        defer { fixture.remove() }
+        let fixtureURL = fixture.url
         let calculatorURL = fixtureURL.appending(path: "Sources/Calculator.swift")
 
         let before = try String(contentsOf: calculatorURL, encoding: .utf8)
@@ -47,15 +51,6 @@ struct MutantExecutorIntegrationTests {
 
         #expect(before == after)
     }
-}
-
-private func fixtureProjectURL() -> URL {
-    URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appending(path: "Fixtures/CalcApp")
 }
 
 private func makeConfiguration(fixtureURL: URL) -> RunnerConfiguration {
@@ -87,19 +82,26 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
     let calculatorPath = fixtureURL.appending(path: "Sources/Calculator.swift").path
     let validatorPath = fixtureURL.appending(path: "Sources/Validator.swift").path
 
+    let (calculatorID, calculatorActivation) = (
+        SupportDeclarations.identifier(for: calculatorPath), SupportDeclarations.activationCall(for: calculatorPath)
+    )
+    let (validatorID, validatorActivation) = (
+        SupportDeclarations.identifier(for: validatorPath), SupportDeclarations.activationCall(for: validatorPath)
+    )
+
     return [
         SchematizedFile(
             originalPath: calculatorPath,
             schematizedContent: """
                 struct Calculator {
                     func add(_ a: Int, _ b: Int) -> Int {
-                        (__swiftMutationTestingID == "m1") ? (__SwiftMutationTesting.activated(), a - b).1 : a + b
+                        (\(calculatorID) == "m1") ? (\(calculatorActivation), a - b).1 : a + b
                     }
                     func subtract(_ a: Int, _ b: Int) -> Int {
-                        (__swiftMutationTestingID == "m2") ? (__SwiftMutationTesting.activated(), a + b).1 : a - b
+                        (\(calculatorID) == "m2") ? (\(calculatorActivation), a + b).1 : a - b
                     }
                     func isPositive(_ n: Int) -> Bool {
-                        (__swiftMutationTestingID == "m3") ? (__SwiftMutationTesting.activated(), n >= 0).1 : n > 0
+                        (\(calculatorID) == "m3") ? (\(calculatorActivation), n >= 0).1 : n > 0
                     }
                 }
                 """
@@ -109,10 +111,10 @@ private func makeSchematizedFiles(fixtureURL: URL) -> [SchematizedFile] {
             schematizedContent: """
                 struct Validator {
                     func isInRange(_ value: Int) -> Bool {
-                        ((__swiftMutationTestingID == "m4")
-                            ? (__SwiftMutationTesting.activated(), value > 0).1 : value >= 0)
-                            && ((__swiftMutationTestingID == "m5")
-                                ? (__SwiftMutationTesting.activated(), value < 100).1 : value <= 100)
+                        ((\(validatorID) == "m4")
+                            ? (\(validatorActivation), value > 0).1 : value >= 0)
+                            && ((\(validatorID) == "m5")
+                                ? (\(validatorActivation), value < 100).1 : value <= 100)
                     }
                 }
                 """

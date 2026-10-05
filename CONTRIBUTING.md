@@ -24,7 +24,7 @@ SwiftMutationTesting follows a strict set of technical principles:
 - No mutant results are **lost or duplicated**
 - Mutant **positions (file, line, column) are accurate** in all reported results
 - A cancelled task never leaves a **simulator slot permanently acquired** from the pool
-- Every schematized file **declares its own** `private` `__swiftMutationTestingID`, and nothing else in the sandbox declares it
+- Every schematized file **declares its own** support block, `@usableFromInline internal` and named after the file (`__swiftMutationTestingID_<hash>`), and nothing else in the sandbox declares it
 - **Zero external dependencies** — CryptoKit and Foundation are Apple frameworks, no packages permitted
 - Full compatibility with **Swift 6 Strict Concurrency**
 - Pipeline stages are **stateless pure transformations** — no shared mutable state between them
@@ -68,6 +68,13 @@ AI-generated changes are reviewed under the same criteria as human-written code.
 4. Open a Pull Request referencing the issue
 
 Unapproved structural changes may be closed without review.
+
+### Mutation operators
+
+A new operator enters the registry as `experimental` and is promoted to `default` or `conservative` only with
+campaign data, by the criteria in [Docs/OPERATORS.md](Docs/OPERATORS.md): run the campaign over the corpus,
+review the sampled survivors, and let the aggregation assign the tier. An operator whose numbers fall
+below its tier's bar is demoted the same way, and the change is recorded there with its reason.
 
 ---
 

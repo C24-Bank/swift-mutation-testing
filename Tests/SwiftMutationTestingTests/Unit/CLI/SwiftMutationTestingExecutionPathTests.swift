@@ -119,7 +119,7 @@ struct SwiftMutationTestingExecutionPathTests {
 
         let yml = "scheme: NonExistentScheme\ndestination: platform=macOS\nquiet: false\n"
         try yml.write(to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8)
-        try "func f() -> Bool { true }\n".write(
+        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\n".write(
             to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
         )
 

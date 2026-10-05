@@ -77,7 +77,7 @@ Embeds all schematizable mutations into the source files via `SchemataGenerator`
 | Input | `[IndexedMutationPoint]`, `[ParsedSource]` |
 | Output | `[SchematizedFile]`, `[MutantDescriptor]` — schematized files and schematizable mutant descriptors |
 
-For each file, the stage processes only the schematizable indexed points. Mutations are embedded into the source via `SchemataGenerator`, which rewrites function bodies to contain `switch __swiftMutationTestingID` blocks. See [Schematization](05-schematization.md) for a detailed breakdown.
+For each file, the stage processes only the schematizable indexed points. Mutations are embedded into the source via `SchemataGenerator`, which rewrites function bodies to contain `switch __swiftMutationTestingID_<hash>` blocks, the hash naming the file. See [Schematization](05-schematization.md) for a detailed breakdown.
 
 ### IncompatibleRewritingStage
 
@@ -104,7 +104,7 @@ All operators implement the `MutationOperator` protocol and are registered in `D
 | `SwapTernary` | Ternary branches | `a ? b : c` → `a ? c : b` |
 | `RemoveSideEffects` | Standalone function call statements | `doSomething()` → *(removed)* |
 
-Operators are activated by name via `--operator` or deactivated via `--disable-mutator`. If neither flag is provided, all seven operators are active.
+Operators are activated by name via `--operator` or deactivated via `--disable-mutator`. If neither flag is provided, the operators of the `--operator-tier` are active — the `default` tier unless configured otherwise. The tiers and the measurements behind them are in [`Docs/OPERATORS.md`](../OPERATORS.md).
 
 ## Suppression
 
@@ -115,6 +115,10 @@ Mutations can be suppressed per scope with the `@SwiftMutationTestingDisabled` a
 `ArithmeticOperatorReplacement` and `RemoveSideEffects` can turn a terminating loop into one that never ends — by flipping the step that moves an index towards its bound, or by deleting the statement that advances it. A mutant like that does not fail the tests, it hangs them, and the run pays the full `--timeout` for a `Timeout` verdict that says nothing about the suite.
 
 `InfiniteLoopBodyExtractor` collects the body range of every `while` and `repeat`, and `InfiniteLoopFilter` drops the points of those two operators that fall inside one. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite. The filter runs right after suppression, inside `MutantDiscoveryStage`.
+
+## Inactive `#if` branches
+
+A mutant in a branch the host build leaves out — `#if os(Windows)`, `#if canImport(Glibc)`, the `#else` of `#if canImport(Darwin)` — compiles to nothing, so no test can reach it and it can only survive. `InactiveRegionExtractor` asks SwiftIfConfig, with `HostBuildConfiguration` describing the macOS build the tool runs, which clauses of each file are not active, and `InactiveRegionFilter` drops every point inside one. An `#if` the configuration cannot decide — a `canImport` of a module outside its curated lists — keeps all of its clauses: the filter errs towards keeping a mutant, never towards dropping a real one. It runs last in `MutantDiscoveryStage`, after the infinite-loop filter.
 
 ## Data Structures
 

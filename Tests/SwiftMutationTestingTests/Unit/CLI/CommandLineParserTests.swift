@@ -208,6 +208,23 @@ struct CommandLineParserTests {
         #expect(result.filter.operators.isEmpty)
     }
 
+    @Test("Given --operator-tier conservative, when parsed, then operatorTier is conservative")
+    func parsesOperatorTier() throws {
+        let result = try parser.parse([
+            "run", "--scheme", "App", "--destination", "d",
+            "--operator-tier", "conservative",
+        ])
+
+        #expect(result.filter.operatorTier == "conservative")
+    }
+
+    @Test("Given no --operator-tier flag, when parsed, then operatorTier is nil")
+    func operatorTierDefaultsToNil() throws {
+        let result = try parser.parse(["run", "--scheme", "App", "--destination", "d"])
+
+        #expect(result.filter.operatorTier == nil)
+    }
+
     @Test("Given --testing-framework xctest, when parsed, then testingFramework is xctest")
     func parsesTestingFrameworkXCTest() throws {
         let result = try parser.parse([
