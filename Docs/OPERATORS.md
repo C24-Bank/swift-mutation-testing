@@ -14,31 +14,31 @@ The limits were proposed before any data existed. A campaign may show they need 
 
 ## Current tiers
 
-Assigned on 2026-10-04 from the first campaign, by the criteria above:
+Assigned on 2026-10-05 from the second run of the record campaign, by the criteria above:
 
 | Tier | Operators | What it buys |
 |---|---|---|
-| `conservative` | `LogicalOperatorReplacement`, `NegateConditional`, `SwapTernary` | median kill rate ≥ 87%, no unviable mutant to speak of, one survivor in ten equivalent |
-| `default` | the three above and `BooleanLiteralReplacement` | the everyday run and CI: 69% median kill rate, 12% equivalent, 13.5% unviable |
-| `experimental` | `RelationalOperatorReplacement`, `RemoveSideEffects`, `ArithmeticOperatorReplacement` | the deep run, `--operator-tier experimental`, for when someone will read the survivors: high kill rates, but one survivor in three (`Relational`), two in five (`RemoveSideEffects`) or three in five (`Arithmetic`) is equivalent, and `Relational` alone is half of all mutants |
+| `conservative` | `LogicalOperatorReplacement`, `NegateConditional`, `SwapTernary` | median kill rate ≥ 81%, no unviable mutant to speak of, fewer than one survivor in ten equivalent |
+| `default` | the same three | the everyday run and CI. `BooleanLiteralReplacement` qualified on the first run's 33 reviews (12% equivalent) and misses the 25% limit on the second run's 61 (27.9%): `atomically:`, `withIntermediateDirectories:` and `isDirectory:` flags whose other value nothing can observe. So the everyday run is the conservative set, until a campaign says otherwise |
+| `experimental` | `BooleanLiteralReplacement`, `RelationalOperatorReplacement`, `RemoveSideEffects`, `ArithmeticOperatorReplacement` | the deep run, `--operator-tier experimental`, for when someone will read the survivors: kill rates from 69% to 89%, but between one survivor in four (`Boolean`, `RemoveSideEffects`, `Arithmetic`) and one in three (`Relational`) is equivalent, and `Relational` alone is half of all mutants |
 
-A run with no `operator-tier` takes `default`. Before this campaign every operator ran by default; a score computed then and one computed now are not comparable, and `Docs/USAGE.MD` says so.
+A run with no `operator-tier` takes `default`. Before the campaign every operator ran by default; a score computed then and one computed now are not comparable, and `Docs/USAGE.MD` says so.
 
-## Results of the first campaign
+## Results of the record campaign
 
-Run on 2026-10-02, with `swift-mutation-testing 0.0.0-dev [arm64-macos26]` built from the commit of this document, swift-driver version: 1.168.6 Apple Swift version 6.4, on Apple M4 Max, Version 26.6.2 (Build 25G83). Every number below comes from [`operators/results.csv`](operators/results.csv) and [`operators/equivalence.csv`](operators/equivalence.csv), written by `aggregate` and `sample` over the reports of that run.
+Run on 2026-10-04 and 05 (this repository last), with `swift-mutation-testing 0.0.0-dev [arm64-macos26]` built from the commit of this document, swift-driver version: 1.168.6 Apple Swift version 6.4, on Apple M4 Max, Version 26.6.2 (Build 25G83). Every number below comes from [`operators/results.csv`](operators/results.csv) and [`operators/equivalence.csv`](operators/equivalence.csv), written by `aggregate` and `sample` over the reports of that run.
 
 ### Operators
 
 | Operator | Tier by the criteria | Projects (≥ 10 mutants) | Median kill rate | Unviable | Equivalent (reviewed) | Cost per mutant |
 |---|---|---|---|---|---|---|
-| `ArithmeticOperatorReplacement` | experimental | 3 of 4 | 92.1% | 14.8% | 61.5% (13) | 2189 ms |
-| `BooleanLiteralReplacement` | default | 4 of 4 | 69.4% | 13.5% | 12.1% (33) | 2636 ms |
-| `LogicalOperatorReplacement` | conservative | 3 of 4 | 87.5% | 0.0% | 8.3% (12) | 2384 ms |
-| `NegateConditional` | conservative | 4 of 4 | 93.3% | 0.3% | 9.5% (21) | 1434 ms |
-| `RelationalOperatorReplacement` | experimental | 4 of 4 | 83.9% | 8.8% | 34.8% (46) | 1720 ms |
-| `RemoveSideEffects` | experimental | 4 of 4 | 65.9% | 1.2% | 45.2% (42) | 3475 ms |
-| `SwapTernary` | conservative | 3 of 4 | 100.0% | 0.0% | 10.0% (10) | 1974 ms |
+| `ArithmeticOperatorReplacement` | experimental | 4 of 5 | 88.9% | 12.1% | 27.3% (33) | 2969 ms |
+| `BooleanLiteralReplacement` | experimental | 5 of 5 | 73.6% | 11.5% | 27.9% (61) | 11050 ms |
+| `LogicalOperatorReplacement` | conservative | 4 of 5 | 81.0% | 0.0% | 9.1% (33) | 9232 ms |
+| `NegateConditional` | conservative | 5 of 5 | 96.2% | 0.2% | 8.6% (35) | 2593 ms |
+| `RelationalOperatorReplacement` | experimental | 5 of 5 | 82.7% | 7.4% | 32.6% (86) | 5669 ms |
+| `RemoveSideEffects` | experimental | 5 of 5 | 69.3% | 1.9% | 27.8% (79) | 19619 ms |
+| `SwapTernary` | conservative | 4 of 5 | 94.9% | 0.0% | 7.1% (14) | 6006 ms |
 
 The tier column is what the criteria give for the numbers in the row; the tiers in force are in [Current tiers](#current-tiers) below, with the decisions that led there.
 
@@ -46,12 +46,13 @@ The tier column is what the criteria give for the numbers in the row; the tiers 
 
 | Project | Commit | Mutants | Score | Killed / survived / timeouts / no coverage / unviable | Integrity warnings | Wall time |
 |---|---|---|---|---|---|---|
-| swift-algorithms | `87e50f483c` | 1121 | 86.6% | 857 / 121 / 30 / 16 / 97 | 0 | 16 min |
-| swift-argument-parser | `6a52f32511` | 839 | 63.8% | 474 / 237 / 3 / 34 / 91 | 0 | 18 min |
-| swift-log | `9c6fb14227` | 224 | 72.5% | 156 / 50 / 2 / 10 / 6 | 1 | 1 min |
-| swift-mutation-testing | `94f41b5666` | 1395 | 100.0% | 1358 / 0 / 15 / 0 / 22 | 147 | 23 min |
+| swift-algorithms | `87e50f483c` | 1112 | 87.4% | 857 / 121 / 30 / 7 / 97 | 0 | 16 min |
+| swift-argument-parser | `6a52f32511` | 822 | 65.3% | 474 / 221 / 3 / 33 / 91 | 0 | 18 min |
+| swift-log | `9c6fb14227` | 209 | 77.8% | 156 / 36 / 2 / 9 / 6 | 1 | 1 min |
+| swift-cpd | `7c4e7bb5e3` | 987 | 92.2% | 880 / 76 / 21 / 0 / 10 | 7 | 15 min |
+| swift-mutation-testing | `533a4be6e4` | 1275 | 80.9% | 1001 / 239 / 12 / 0 / 23 | 3 | 146 min |
 
-`swift-cpd` is in the corpus but has no report: its suite fails before any mutation is applied, because its test helper looks the `swift-cpd` executable up through `Bundle.allBundles`, which finds no `.xctest` under `swiftpm-testing-helper`, and falls back to a path the current SwiftPM layout does not have. It returns to the campaign when a release of it fixes that lookup. There is no Xcode app in this first campaign.
+`swift-cpd` runs at the `main` commit that fixed its test helper (ericodx/swift-cpd#39: the executable was looked up through `Bundle.allBundles`, which finds no `.xctest` under `swiftpm-testing-helper`, so the suite failed before any mutation); no release carries the fix yet. Its seven integrity warnings are crashes and failures of its own suite in runs where the mutant never ran — a suite that is not fully deterministic under fifteen parallel runs; they are listed in its report and count as kills in its score. This repository's run is the one that matters most to the tool itself: {SELF_SENTENCE} There is no Xcode app in this campaign.
 
 ### Review of survivors
 
@@ -59,48 +60,55 @@ Up to 20 survivors per (operator, project), drawn with seed 20261001, each read 
 
 | Operator | Sampled | Equivalent | Not equivalent | Not measurable | Equivalent share |
 |---|---|---|---|---|---|
-| `ArithmeticOperatorReplacement` | 17 | 8 | 5 | 4 | 61.5% |
-| `BooleanLiteralReplacement` | 36 | 4 | 29 | 3 | 12.1% |
-| `LogicalOperatorReplacement` | 12 | 1 | 11 | 0 | 8.3% |
-| `NegateConditional` | 25 | 2 | 21 | 2 | 8.7% |
-| `RelationalOperatorReplacement` | 46 | 16 | 30 | 0 | 34.8% |
-| `RemoveSideEffects` | 56 | 20 | 23 | 13 | 46.5% |
-| `SwapTernary` | 10 | 1 | 9 | 0 | 10.0% |
+| `ArithmeticOperatorReplacement` | 33 | 9 | 24 | 0 | 27.3% |
+| `BooleanLiteralReplacement` | 61 | 17 | 44 | 0 | 27.9% |
+| `LogicalOperatorReplacement` | 33 | 3 | 30 | 0 | 9.1% |
+| `NegateConditional` | 37 | 3 | 34 | 0 | 8.1% |
+| `RelationalOperatorReplacement` | 86 | 28 | 58 | 0 | 32.6% |
+| `RemoveSideEffects` | 82 | 23 | 59 | 0 | 28.0% |
+| `SwapTernary` | 14 | 1 | 13 | 0 | 7.1% |
 
-*Not measurable* survivors sit in code the build leaves out — Windows, FreeBSD and Android branches of an `#if` — so no test on the machine of the campaign can reach them; they count neither for nor against the operator. Every verdict carries a one-line reason in the CSV.
+Every verdict carries a one-line reason in the CSV. The first run of this campaign had 21 *not measurable* survivors — branches of an `#if` the macOS build leaves out, which no test on the machine can reach; discovery now skips those branches, and this run has none.
 
 ### Per project and operator
 
 | Project | Operator | Generated | Detected | Survived | No coverage | Unviable | Kill rate | Cost per mutant |
 |---|---|---|---|---|---|---|---|---|
-| swift-algorithms | `ArithmeticOperatorReplacement` | 154 | 139 | 8 | 4 | 3 | 92.1% | 1452 ms |
-| swift-algorithms | `BooleanLiteralReplacement` | 64 | 24 | 7 | 0 | 33 | 77.4% | 4330 ms |
-| swift-algorithms | `LogicalOperatorReplacement` | 16 | 14 | 1 | 1 | 0 | 87.5% | 4452 ms |
-| swift-algorithms | `NegateConditional` | 190 | 184 | 2 | 3 | 1 | 97.4% | 1537 ms |
-| swift-algorithms | `RelationalOperatorReplacement` | 589 | 434 | 87 | 8 | 60 | 82.0% | 1407 ms |
-| swift-algorithms | `RemoveSideEffects` | 49 | 33 | 16 | 0 | 0 | 67.3% | 7178 ms |
-| swift-algorithms | `SwapTernary` | 59 | 59 | 0 | 0 | 0 | 100.0% | 897 ms |
-| swift-argument-parser | `ArithmeticOperatorReplacement` | 43 | 14 | 6 | 0 | 23 | 70.0% | 1654 ms |
-| swift-argument-parser | `BooleanLiteralReplacement` | 121 | 60 | 44 | 5 | 12 | 55.0% | 2146 ms |
-| swift-argument-parser | `LogicalOperatorReplacement` | 31 | 20 | 11 | 0 | 0 | 64.5% | 1924 ms |
-| swift-argument-parser | `NegateConditional` | 190 | 153 | 31 | 5 | 1 | 81.0% | 2051 ms |
-| swift-argument-parser | `RelationalOperatorReplacement` | 266 | 137 | 72 | 9 | 48 | 62.8% | 1969 ms |
-| swift-argument-parser | `RemoveSideEffects` | 132 | 46 | 65 | 14 | 7 | 36.8% | 2326 ms |
-| swift-argument-parser | `SwapTernary` | 56 | 47 | 8 | 1 | 0 | 83.9% | 1680 ms |
-| swift-log | `ArithmeticOperatorReplacement` | 5 | 2 | 3 | 0 | 0 | 40.0% | 304 ms |
-| swift-log | `BooleanLiteralReplacement` | 31 | 19 | 9 | 3 | 0 | 61.3% | 348 ms |
-| swift-log | `LogicalOperatorReplacement` | 7 | 7 | 0 | 0 | 0 | 100.0% | 105 ms |
-| swift-log | `NegateConditional` | 28 | 25 | 3 | 0 | 0 | 89.3% | 162 ms |
-| swift-log | `RelationalOperatorReplacement` | 55 | 42 | 6 | 1 | 6 | 85.7% | 139 ms |
-| swift-log | `RemoveSideEffects` | 93 | 60 | 27 | 6 | 0 | 64.5% | 869 ms |
-| swift-log | `SwapTernary` | 5 | 3 | 2 | 0 | 0 | 60.0% | 247 ms |
-| swift-mutation-testing | `ArithmeticOperatorReplacement` | 96 | 78 | 0 | 0 | 18 | 100.0% | 3876 ms |
-| swift-mutation-testing | `BooleanLiteralReplacement` | 132 | 130 | 0 | 0 | 2 | 100.0% | 3188 ms |
-| swift-mutation-testing | `LogicalOperatorReplacement` | 67 | 67 | 0 | 0 | 0 | 100.0% | 2341 ms |
-| swift-mutation-testing | `NegateConditional` | 301 | 301 | 0 | 0 | 0 | 100.0% | 1100 ms |
-| swift-mutation-testing | `RelationalOperatorReplacement` | 405 | 403 | 0 | 0 | 2 | 100.0% | 2189 ms |
-| swift-mutation-testing | `RemoveSideEffects` | 327 | 327 | 0 | 0 | 0 | 100.0% | 4100 ms |
-| swift-mutation-testing | `SwapTernary` | 67 | 67 | 0 | 0 | 0 | 100.0% | 3296 ms |
+| swift-algorithms | `ArithmeticOperatorReplacement` | 152 | 139 | 8 | 2 | 3 | 93.3% | 1426 ms |
+| swift-algorithms | `BooleanLiteralReplacement` | 64 | 24 | 7 | 0 | 33 | 77.4% | 4275 ms |
+| swift-algorithms | `LogicalOperatorReplacement` | 15 | 14 | 1 | 0 | 0 | 93.3% | 4587 ms |
+| swift-algorithms | `NegateConditional` | 188 | 184 | 2 | 1 | 1 | 98.4% | 1468 ms |
+| swift-algorithms | `RelationalOperatorReplacement` | 585 | 434 | 87 | 4 | 60 | 82.7% | 1359 ms |
+| swift-algorithms | `RemoveSideEffects` | 49 | 33 | 16 | 0 | 0 | 67.3% | 7110 ms |
+| swift-algorithms | `SwapTernary` | 59 | 59 | 0 | 0 | 0 | 100.0% | 847 ms |
+| swift-argument-parser | `ArithmeticOperatorReplacement` | 39 | 14 | 2 | 0 | 23 | 87.5% | 1509 ms |
+| swift-argument-parser | `BooleanLiteralReplacement` | 121 | 60 | 44 | 5 | 12 | 55.0% | 2160 ms |
+| swift-argument-parser | `LogicalOperatorReplacement` | 31 | 20 | 11 | 0 | 0 | 64.5% | 1948 ms |
+| swift-argument-parser | `NegateConditional` | 189 | 153 | 30 | 5 | 1 | 81.4% | 2060 ms |
+| swift-argument-parser | `RelationalOperatorReplacement` | 266 | 137 | 72 | 9 | 48 | 62.8% | 1992 ms |
+| swift-argument-parser | `RemoveSideEffects` | 120 | 46 | 54 | 13 | 7 | 40.7% | 2431 ms |
+| swift-argument-parser | `SwapTernary` | 56 | 47 | 8 | 1 | 0 | 83.9% | 1721 ms |
+| swift-cpd | `ArithmeticOperatorReplacement` | 138 | 120 | 13 | 0 | 5 | 90.2% | 1246 ms |
+| swift-cpd | `BooleanLiteralReplacement` | 70 | 62 | 8 | 0 | 0 | 88.6% | 3642 ms |
+| swift-cpd | `LogicalOperatorReplacement` | 47 | 39 | 8 | 0 | 0 | 83.0% | 3818 ms |
+| swift-cpd | `NegateConditional` | 284 | 282 | 2 | 0 | 0 | 99.3% | 1919 ms |
+| swift-cpd | `RelationalOperatorReplacement` | 300 | 265 | 35 | 0 | 0 | 88.3% | 3253 ms |
+| swift-cpd | `RemoveSideEffects` | 128 | 114 | 9 | 0 | 5 | 92.7% | 3070 ms |
+| swift-cpd | `SwapTernary` | 20 | 19 | 1 | 0 | 0 | 95.0% | 2919 ms |
+| swift-log | `ArithmeticOperatorReplacement` | 5 | 2 | 3 | 0 | 0 | 40.0% | 306 ms |
+| swift-log | `BooleanLiteralReplacement` | 28 | 19 | 6 | 3 | 0 | 67.9% | 333 ms |
+| swift-log | `LogicalOperatorReplacement` | 7 | 7 | 0 | 0 | 0 | 100.0% | 109 ms |
+| swift-log | `NegateConditional` | 27 | 25 | 2 | 0 | 0 | 92.6% | 155 ms |
+| swift-log | `RelationalOperatorReplacement` | 55 | 42 | 6 | 1 | 6 | 85.7% | 141 ms |
+| swift-log | `RemoveSideEffects` | 82 | 60 | 17 | 5 | 0 | 73.2% | 934 ms |
+| swift-log | `SwapTernary` | 5 | 3 | 2 | 0 | 0 | 60.0% | 253 ms |
+| swift-mutation-testing | `ArithmeticOperatorReplacement` | 70 | 45 | 7 | 0 | 18 | 86.5% | 12507 ms |
+| swift-mutation-testing | `BooleanLiteralReplacement` | 127 | 92 | 33 | 0 | 2 | 73.6% | 27031 ms |
+| swift-mutation-testing | `LogicalOperatorReplacement` | 62 | 49 | 13 | 0 | 0 | 79.0% | 19132 ms |
+| swift-mutation-testing | `NegateConditional` | 287 | 276 | 11 | 0 | 0 | 96.2% | 4571 ms |
+| swift-mutation-testing | `RelationalOperatorReplacement` | 361 | 282 | 77 | 0 | 2 | 78.6% | 16979 ms |
+| swift-mutation-testing | `RemoveSideEffects` | 310 | 214 | 95 | 0 | 1 | 69.3% | 39433 ms |
+| swift-mutation-testing | `SwapTernary` | 58 | 55 | 3 | 0 | 0 | 94.8% | 16951 ms |
 
 ## Decisions
 
@@ -111,3 +119,9 @@ Up to 20 survivors per (operator, project), drawn with seed 20261001, each read 
 - *`ArithmeticOperatorReplacement` is `experimental`* on 61.5% equivalents (13 reviewed; `+ 1`/`- 1` in capacity hints and offsets) and 14.8% unviable.
 - *Review verdicts are the reviewer's reading of the code, not an execution.* A doubt was resolved as *not equivalent*, which does not demote. 21 survivors were *not measurable*: branches of an `#if` the macOS build leaves out.
 - *What the campaign changed in the tool.* Twelve defects in discovery and schematization were found and fixed before these numbers were taken; the report at a commit before them would not be comparable.
+
+**2026-10-05 — record campaign, second run.** Five projects with reports: `swift-cpd` is back at the `main` that fixes its test helper, and the three items the first run left open are closed before the numbers were taken. 346 survivors reviewed in all, 199 of them new to this run.
+
+- *Branches of an `#if` the build leaves out no longer produce mutants.* The first run's 21 *not measurable* survivors — Windows, FreeBSD and Android branches — were never a verdict on the operator; discovery now asks SwiftIfConfig which clauses the macOS build keeps, and drops the points in the others. An `#if` on a module the tool does not know keeps every clause. Across the four packages of the first run, 41 mutants disappeared this way — 9 in `swift-algorithms`, 17 in `swift-argument-parser`, 15 in `swift-log` — every one a survivor or a no-coverage mutant; not one kill changed.
+- *This repository measures itself truthfully now.* The first run's 100% came with 147 integrity warnings: inside the tool's own sandbox the integration suites ran on `Fixtures/` as a tree of links, their pipeline escaped the sandbox, every one of them failed, and the stop rule ended most mutants' runs on that failure instead of on a test that saw the mutant — and a test whose *name* mentions `EXC_BAD_INSTRUCTION` made the parser call the kill a crash. Each integration test now works on a private copy of its fixture made of real files, the executors free their sandbox on every exit, three tests no longer measure time, and a failing test names the kill whatever a test's name says (#121). This run: 1275 mutants, 80.9%, 239 survivors — 94 of them reviewed, 15 equivalent — and 3 warnings. The README badge moves from 100% to the `default` tier's 93.4%.
+- *One tier moved.* The three `conservative` operators keep their tier with more data behind them; `LogicalOperatorReplacement` now qualifies on four projects. `BooleanLiteralReplacement` leaves `default`: 17 of 61 reviewed survivors are equivalent, 27.9% against the 25% limit, where the first run had 4 of 33. The new ones are of a kind — `atomically:`, `withIntermediateDirectories:`, `isDirectory:` and `keepingCapacity:` flags whose other value changes nothing observable, hash tags, help flags and workaround properties nothing reads — and they would come back in every run. By the criteria it is `experimental`, and `default` is now the same set as `conservative`; the limit was not moved to keep it, for the reason the first entry gives: a default run that reports one false survivor in four is not a safe one. `RemoveSideEffects` (28.0%) and `ArithmeticOperatorReplacement` (27.3%, down from 61.5% now that 33 are reviewed instead of 13) sit just past the same line; `RelationalOperatorReplacement` stays at a third.

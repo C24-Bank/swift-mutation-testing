@@ -35,14 +35,14 @@ flowchart TD
 | Index | Identifier | Tier |
 |---|---|---|
 | 0 | `RelationalOperatorReplacement` | `experimental` |
-| 1 | `BooleanLiteralReplacement` | `default` |
+| 1 | `BooleanLiteralReplacement` | `experimental` |
 | 2 | `LogicalOperatorReplacement` | `conservative` |
 | 3 | `ArithmeticOperatorReplacement` | `experimental` |
 | 4 | `NegateConditional` | `conservative` |
 | 5 | `SwapTernary` | `conservative` |
 | 6 | `RemoveSideEffects` | `experimental` |
 
-When `input.operators` is empty, all seven operators are active; a run resolved through `ConfigurationResolver` gets the `default` tier's four unless told otherwise. Otherwise only the listed identifiers are used. `ConfigurationResolver` always passes the full list, so the empty case is for callers that build a `DiscoveryInput` by hand.
+When `input.operators` is empty, all seven operators are active; a run resolved through `ConfigurationResolver` gets the `default` tier's three unless told otherwise. Otherwise only the listed identifiers are used. `ConfigurationResolver` always passes the full list, so the empty case is for callers that build a `DiscoveryInput` by hand.
 
 ## Discovery/OperatorTier.swift
 

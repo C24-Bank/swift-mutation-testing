@@ -217,7 +217,7 @@ mutators:
 
 ### Operator tiers
 
-Every operator has a tier — `conservative`, `default` or `experimental` — assigned from measured data in [OPERATORS.md](OPERATORS.md). A run takes the operators up to a tier: `conservative` is the smallest set (`LogicalOperatorReplacement`, `NegateConditional`, `SwapTernary`), `default` adds `BooleanLiteralReplacement`, and `experimental` adds `RelationalOperatorReplacement`, `RemoveSideEffects` and `ArithmeticOperatorReplacement` — high kill rates, but a third to three fifths of their survivors are equivalent mutants. The default is `default`. Before tiers existed every operator ran, so a score from an older version and one from this one are not comparable; `--operator-tier experimental` gives the old set.
+Every operator has a tier — `conservative`, `default` or `experimental` — assigned from measured data in [OPERATORS.md](OPERATORS.md). A run takes the operators up to a tier: `conservative` is the smallest set (`LogicalOperatorReplacement`, `NegateConditional`, `SwapTernary`); `default` is, since the second run of the campaign, that same set; and `experimental` adds `BooleanLiteralReplacement`, `RelationalOperatorReplacement`, `RemoveSideEffects` and `ArithmeticOperatorReplacement` — high kill rates, but between a quarter and a third of their survivors are equivalent mutants. The default is `default`. Before tiers existed every operator ran, so a score from an older version and one from this one are not comparable; `--operator-tier experimental` gives the old set.
 
 ```yaml
 operator-tier: experimental
