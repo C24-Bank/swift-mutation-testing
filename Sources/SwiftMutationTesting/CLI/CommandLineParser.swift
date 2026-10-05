@@ -73,11 +73,11 @@ struct CommandLineParser: Sendable {
         if flags.plan.shard != nil, command != .run {
             throw UsageError(message: "--shard only applies to run")
         }
-        if let project = flags.plan.project {
+        if let path = flags.plan.projectPath {
             guard command == .merge else {
-                throw UsageError(message: "--project only applies to merge; give the project path as an argument")
+                throw UsageError(message: "--project-path only applies to merge; give the project path as an argument")
             }
-            projectPath = project
+            projectPath = path
         }
 
         return parsedArguments(command: command, projectPath: projectPath, flags: flags)
@@ -197,8 +197,8 @@ struct CommandLineParser: Sendable {
         case "--plan":
             values.plan.path = try nextValue(for: flag, at: &index, in: arguments)
 
-        case "--project":
-            values.plan.project = try nextValue(for: flag, at: &index, in: arguments)
+        case "--project-path":
+            values.plan.projectPath = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--shard":
             let raw = try nextValue(for: flag, at: &index, in: arguments)

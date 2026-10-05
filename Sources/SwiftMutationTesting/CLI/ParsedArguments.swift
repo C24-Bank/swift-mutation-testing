@@ -55,8 +55,8 @@ struct ParsedArguments: Sendable {
         /// `reproduce`: the fingerprint or report id of the mutant.
         var mutant: String?
         /// `merge`: the project whose sources the reports embed and whose configuration applies; its
-        /// positionals are the results, so the project is a flag.
-        var project: String?
+        /// positionals are the results, so the project path is a flag.
+        var projectPath: String?
     }
 
     struct GateOptions: Sendable {
