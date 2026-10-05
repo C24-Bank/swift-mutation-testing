@@ -1,0 +1,296 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		BBBB001F000000000000BBBB /* Greeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBB0011000000000000BBBB /* Greeter.swift */; };
+		BBBB0020000000000000BBBB /* Formatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBB0012000000000000BBBB /* Formatter.swift */; };
+		BBBB0022000000000000BBBB /* GreetingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBB001C000000000000BBBB /* GreetingTests.swift */; };
+		BBBB0023000000000000BBBB /* Greeting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BBBB001D000000000000BBBB /* Greeting.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		BBBB0011000000000000BBBB /* Greeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Greeter.swift; sourceTree = "<group>"; };
+		BBBB0012000000000000BBBB /* Formatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatter.swift; sourceTree = "<group>"; };
+		BBBB001C000000000000BBBB /* GreetingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingTests.swift; sourceTree = "<group>"; };
+		BBBB001D000000000000BBBB /* Greeting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Greeting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBBB001E000000000000BBBB /* GreetingTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GreetingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BBBB0025000000000000BBBB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BBBB0027000000000000BBBB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BBBB0023000000000000BBBB /* Greeting.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BBBB0002000000000000BBBB = {
+			isa = PBXGroup;
+			children = (
+				BBBB0003000000000000BBBB /* Sources */,
+				BBBB0004000000000000BBBB /* Tests */,
+				BBBB0005000000000000BBBB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BBBB0003000000000000BBBB /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BBBB0011000000000000BBBB /* Greeter.swift */,
+				BBBB0012000000000000BBBB /* Formatter.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		BBBB0004000000000000BBBB /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				BBBB001C000000000000BBBB /* GreetingTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		BBBB0005000000000000BBBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BBBB001D000000000000BBBB /* Greeting.framework */,
+				BBBB001E000000000000BBBB /* GreetingTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BBBB0006000000000000BBBB /* Greeting */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBBB0009000000000000BBBB /* Build configuration list for PBXNativeTarget "Greeting" */;
+			buildPhases = (
+				BBBB0024000000000000BBBB /* Sources */,
+				BBBB0025000000000000BBBB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Greeting;
+			productName = Greeting;
+			productReference = BBBB001D000000000000BBBB /* Greeting.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		BBBB0007000000000000BBBB /* GreetingTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBBB000A000000000000BBBB /* Build configuration list for PBXNativeTarget "GreetingTests" */;
+			buildPhases = (
+				BBBB0026000000000000BBBB /* Sources */,
+				BBBB0027000000000000BBBB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GreetingTests;
+			productName = GreetingTests;
+			productReference = BBBB001E000000000000BBBB /* GreetingTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BBBB0001000000000000BBBB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = BBBB0008000000000000BBBB /* Build configuration list for PBXProject "Greeting" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = BBBB0002000000000000BBBB;
+			productRefGroup = BBBB0005000000000000BBBB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BBBB0006000000000000BBBB /* Greeting */,
+				BBBB0007000000000000BBBB /* GreetingTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BBBB0024000000000000BBBB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BBBB001F000000000000BBBB /* Greeter.swift in Sources */,
+				BBBB0020000000000000BBBB /* Formatter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BBBB0026000000000000BBBB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BBBB0022000000000000BBBB /* GreetingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BBBB000B000000000000BBBB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		BBBB000C000000000000BBBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		BBBB000D000000000000BBBB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xmr.ws.Greeting";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		BBBB000E000000000000BBBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xmr.ws.Greeting";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		BBBB000F000000000000BBBB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xmr.GreetingTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "";
+			};
+			name = Debug;
+		};
+		BBBB0010000000000000BBBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xmr.GreetingTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BBBB0008000000000000BBBB /* Build configuration list for PBXProject "Greeting" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBB000B000000000000BBBB /* Debug */,
+				BBBB000C000000000000BBBB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BBBB0009000000000000BBBB /* Build configuration list for PBXNativeTarget "Greeting" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBB000D000000000000BBBB /* Debug */,
+				BBBB000E000000000000BBBB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BBBB000A000000000000BBBB /* Build configuration list for PBXNativeTarget "GreetingTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBB000F000000000000BBBB /* Debug */,
+				BBBB0010000000000000BBBB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = BBBB0001000000000000BBBB /* Project object */;
+}
