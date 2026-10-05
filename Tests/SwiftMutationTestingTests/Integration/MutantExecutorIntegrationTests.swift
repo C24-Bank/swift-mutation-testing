@@ -3,7 +3,7 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration), .serialized)
+@Suite(.tags(.integration), .serialized, .notInsideAMutationRun)
 struct MutantExecutorIntegrationTests {
 
     @Test("Given fixture project with partial coverage, when executed, then killed and survived mutants match expected")

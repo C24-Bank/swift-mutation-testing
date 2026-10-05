@@ -3,7 +3,7 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration), .serialized)
+@Suite(.tags(.integration), .serialized, .notInsideAMutationRun)
 struct MultiModuleIntegrationTests {
 
     @Test("Given a package with two modules, when executed, then one build tests every mutant of both")

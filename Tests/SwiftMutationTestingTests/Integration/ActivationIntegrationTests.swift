@@ -3,7 +3,7 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite(.tags(.integration), .serialized)
+@Suite(.tags(.integration), .serialized, .notInsideAMutationRun)
 struct ActivationIntegrationTests {
 
     @Test("Given a file no test reaches, when executed, then its mutants have no coverage and the rest are unchanged")
