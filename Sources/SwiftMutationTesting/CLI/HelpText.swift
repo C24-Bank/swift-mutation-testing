@@ -4,7 +4,7 @@ enum HelpText {
                swift-mutation-testing init [<project-path>]
                swift-mutation-testing plan [<project-path>] --output <plan.json> [options]
                swift-mutation-testing run [<project-path>] --plan <plan.json> [--shard <i/n>] [options]
-               swift-mutation-testing merge <result.json>... --plan <plan.json> --output <merged.json> [options]
+               swift-mutation-testing merge <result.json>... --plan <plan.json> [--project <path>] [options]
                swift-mutation-testing reproduce <mutant> [<project-path>] [--plan <plan.json>] [options]
 
         COMMANDS:
@@ -18,6 +18,7 @@ enum HelpText {
           --plan <plan.json>            Run (or merge, or reproduce) from this plan instead of discovering;
                                         the run refuses a plan whose files changed since it was made
           --shard <i/n>                 Run the i-th of n slices of the plan, split by file (run only)
+          --project <path>              The project a merge reports on (merge only; default: .)
 
         ARGUMENTS:
           <project-path>                Path to the Xcode project root (default: .)
