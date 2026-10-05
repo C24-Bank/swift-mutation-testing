@@ -46,6 +46,104 @@ struct CacheStoreTests {
         #expect(await second.result(for: key) == .killed(by: "Suite.test"))
     }
 
+    @Test("Given a verdict stored but not persisted, when another store loads the path, then the verdict is there")
+    func aStoredVerdictSurvivesWithoutPersist() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let key = makeMutantCacheKey(utf8Offset: 7)
+
+        let interrupted = CacheStore(storePath: storePath)
+        await interrupted.store(
+            status: .killed(by: "Suite.test"), for: key, killerTestFile: "Tests/A.swift", activated: true
+        )
+
+        let resumed = CacheStore(storePath: storePath)
+        try await resumed.load()
+
+        #expect(await resumed.result(for: key) == .killed(by: "Suite.test"))
+        #expect(await resumed.killerTestFile(for: key) == "Tests/A.swift")
+        #expect(await resumed.activated(for: key) == true)
+        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent(CacheStore.journalName).path))
+    }
+
+    @Test("Given persisted results and a journal, when loaded, then the journal's verdicts win")
+    func theJournalIsReplayedOverTheResults() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let key = makeMutantCacheKey(utf8Offset: 7)
+
+        let earlier = CacheStore(storePath: storePath)
+        await earlier.store(status: .survived, for: key)
+        try await earlier.persist()
+
+        let interrupted = CacheStore(storePath: storePath)
+        try await interrupted.load()
+        await interrupted.store(status: .killed(by: "Suite.later"), for: key)
+
+        let resumed = CacheStore(storePath: storePath)
+        try await resumed.load()
+
+        #expect(await resumed.result(for: key) == .killed(by: "Suite.later"))
+    }
+
+    @Test("Given a journal, when the store persists, then the journal is folded into the results and removed")
+    func persistFoldsTheJournal() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let journalPath = dir.appendingPathComponent(CacheStore.journalName).path
+        let key = makeMutantCacheKey(utf8Offset: 7)
+
+        let store = CacheStore(storePath: storePath)
+        await store.store(status: .survived, for: key)
+        #expect(FileManager.default.fileExists(atPath: journalPath))
+
+        try await store.persist()
+
+        #expect(!FileManager.default.fileExists(atPath: journalPath))
+        let reloaded = CacheStore(storePath: storePath)
+        try await reloaded.load()
+        #expect(await reloaded.result(for: key) == .survived)
+    }
+
+    @Test("Given a journal whose last line was cut short, when loaded, then the whole lines are kept")
+    func aTruncatedJournalLineIsSkipped() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let storePath = dir.appendingPathComponent("results.json").path
+        let journalPath = dir.appendingPathComponent(CacheStore.journalName).path
+        let key = makeMutantCacheKey(utf8Offset: 7)
+
+        let store = CacheStore(storePath: storePath)
+        await store.store(status: .survived, for: key)
+        let handle = try FileHandle(forWritingTo: URL(fileURLWithPath: journalPath))
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("{\"key\":{\"filePath\":\"/tmp/B.sw".utf8))
+        try handle.close()
+
+        let resumed = CacheStore(storePath: storePath)
+        try await resumed.load()
+
+        #expect(await resumed.result(for: key) == .survived)
+    }
+
+    @Test("Given noCache, when a verdict is stored, then no journal is written")
+    func noCacheWritesNoJournal() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let store = CacheStore(storePath: dir.appendingPathComponent("results.json").path, noCache: true)
+        await store.store(status: .survived, for: makeMutantCacheKey(utf8Offset: 7))
+
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(CacheStore.journalName).path))
+    }
+
     @Test("Given no cache file exists, when load called, then store remains empty")
     func loadOnMissingFileSucceedsWithEmptyStore() async throws {
         let store = CacheStore(storePath: "/tmp/xmr-nonexistent-\(UUID().uuidString).json")
