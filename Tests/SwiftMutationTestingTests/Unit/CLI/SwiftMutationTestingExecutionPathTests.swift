@@ -5,8 +5,10 @@ import Testing
 
 @Suite("SwiftMutationTesting.run execution path")
 struct SwiftMutationTestingExecutionPathTests {
-    @Test("Given valid config with macOS destination and no Swift files, when run called, then returns success")
-    func mainExecutionPathWithEmptyProjectReturnsSuccess() async throws {
+    @Test(
+        "Given valid config with macOS destination and no Swift files, when run called, then it fails: nothing was measured"
+    )
+    func mainExecutionPathWithEmptyProjectFails() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -18,11 +20,11 @@ struct SwiftMutationTestingExecutionPathTests {
             launcher: MockProcessLauncher(exitCode: 1)
         )
 
-        #expect(result == .success)
+        #expect(result == .error)
     }
 
-    @Test("Given valid config with quiet false and no Swift files, when run called, then returns success")
-    func quietFalseExecutionPathReturnsSuccess() async throws {
+    @Test("Given valid config with quiet false and no Swift files, when run called, then it fails with no score")
+    func quietFalseExecutionPathWithEmptyProjectFails() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -34,7 +36,7 @@ struct SwiftMutationTestingExecutionPathTests {
             launcher: MockProcessLauncher(exitCode: 1)
         )
 
-        #expect(result == .success)
+        #expect(result == .error)
     }
 
     @Test("Given iOS Simulator destination with invalid simctl output, when run called, then returns error")
@@ -67,6 +69,9 @@ struct SwiftMutationTestingExecutionPathTests {
             """
         let yml = "scheme: NonExistentScheme\ndestination: \"platform=iOS Simulator,name=iPhone 15\"\n"
         try yml.write(to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8)
+        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\n".write(
+            to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
+        )
 
         let result = await SwiftMutationTesting.run(
             args: [dir.path],
@@ -103,6 +108,9 @@ struct SwiftMutationTestingExecutionPathTests {
             atomically: true,
             encoding: .utf8
         )
+        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\n".write(
+            to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
+        )
 
         let result = await SwiftMutationTesting.run(
             args: [dir.path],
@@ -133,8 +141,8 @@ struct SwiftMutationTestingExecutionPathTests {
         #expect(output.contains("1 mutant"))
     }
 
-    @Test("Given no launcher, when run called, then the run picks one for the project type")
-    func runWithoutALauncherPicksOne() async throws {
+    @Test("Given no launcher and no Swift files, when run called, then it stops before launching anything")
+    func runWithoutALauncherAndNoMutantsStops() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -143,6 +151,73 @@ struct SwiftMutationTestingExecutionPathTests {
 
         let result = await SwiftMutationTesting.run(args: [dir.path])
 
+        #expect(result == .error)
+    }
+
+    @Test("Given --sources-path naming one file, when run, then only that file's mutants run")
+    func aSingleFileRuns() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "scheme: App\ndestination: platform=macOS\n".write(
+            to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8
+        )
+        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\n".write(
+            to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
+        )
+        try "func g(_ a: Bool, _ b: Bool) -> Bool { a || b }\n".write(
+            to: dir.appendingPathComponent("Bar.swift"), atomically: true, encoding: .utf8
+        )
+        let reportPath = dir.appendingPathComponent("r.json").path
+
+        let result = await SwiftMutationTesting.run(
+            args: [
+                dir.path, "--sources-path", dir.appendingPathComponent("Foo.swift").path, "--output", reportPath,
+                "--quiet",
+            ],
+            launcher: MockProcessLauncher(exitCode: 1)
+        )
+
         #expect(result == .success)
+        let report = try JSONDecoder().decode(
+            MutationReportPayload.self, from: Data(contentsOf: URL(fileURLWithPath: reportPath))
+        )
+        #expect(Array(report.files.keys) == ["/Foo.swift"])
+    }
+
+    @Test("Given a sources path where nothing is mutable, when run, then it fails with the reason and no report")
+    func noMutantsIsAFailureNotAPerfectScore() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "scheme: App\ndestination: platform=macOS\n".write(
+            to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8
+        )
+        try "let constant = 1\n".write(to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8)
+        let reportPath = dir.appendingPathComponent("r.json").path
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+
+        let result = await SwiftMutationTesting.run(args: [dir.path, "--output", reportPath], launcher: launcher)
+
+        #expect(result == .error)
+        #expect(await launcher.requests.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: reportPath))
+        #expect(
+            FileDiscoveryError.noMutants(sourcesPath: dir.path).localizedDescription
+                .contains("nothing was measured and no score is given")
+        )
+    }
+
+    @Test("Given nothing mutable, when plan runs, then no plan is written")
+    func anEmptyPlanIsNotWritten() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "scheme: App\ndestination: platform=macOS\n".write(
+            to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8
+        )
+        let planPath = dir.appendingPathComponent("plan.json").path
+
+        let result = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+
+        #expect(result == .error)
+        #expect(!FileManager.default.fileExists(atPath: planPath))
     }
 }

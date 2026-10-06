@@ -23,8 +23,22 @@ struct FileDiscoveryStage: Sendable {
     func run(input: DiscoveryInput) throws -> [SourceFile] {
         let url = URL(fileURLWithPath: input.sourcesPath)
 
-        guard FileManager.default.fileExists(atPath: input.sourcesPath) else {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: input.sourcesPath, isDirectory: &isDirectory) else {
             throw FileDiscoveryError.sourcesPathNotFound(input.sourcesPath)
+        }
+
+        // A single file — the natural way to re-check one file after adding a test — is discovered alone,
+        // under the same exclusions as a file found in a directory.
+        if !isDirectory.boolValue {
+            guard url.pathExtension == "swift" else {
+                throw FileDiscoveryError.sourcesPathNotSwift(input.sourcesPath)
+            }
+            let path = CanonicalPath.make(for: url.path)
+            guard !isExcluded(path: path, excludePatterns: input.excludePatterns),
+                let content = try? String(contentsOf: url, encoding: .utf8)
+            else { return [] }
+            return [SourceFile(path: path, content: content)]
         }
 
         guard

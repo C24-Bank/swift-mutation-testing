@@ -97,7 +97,7 @@ struct FileDiscoveryStage: Sendable {
 }
 ```
 
-Recursively enumerates the directory tree under `input.sourcesPath` using `FileManager.enumerator`. Returns one `SourceFile` per discovered `.swift` file.
+Recursively enumerates the directory tree under `input.sourcesPath` using `FileManager.enumerator`. Returns one `SourceFile` per discovered `.swift` file. When `sourcesPath` is a `.swift` file, it is the only one discovered, under the same exclusions, with its canonical path (`CanonicalPath`, the form the enumerator yields); any other file is refused.
 
 **Fixed exclusions** (applied regardless of `excludePatterns`):
 
@@ -105,21 +105,25 @@ Recursively enumerates the directory tree under `input.sourcesPath` using `FileM
 
 Files matching any `excludePatterns` glob pattern are also excluded.
 
-Throws `FileDiscoveryError.sourcesPathNotFound` if `sourcesPath` does not exist.
+Throws `FileDiscoveryError.sourcesPathNotFound` if `sourcesPath` does not exist, and `.sourcesPathNotSwift` if it is a file that is not Swift.
 
 ---
 
 ## Discovery/Pipeline/FileDiscoveryError.swift
 
 ```swift
-enum FileDiscoveryError: Error, Sendable {
+enum FileDiscoveryError: Error, Equatable, Sendable, LocalizedError {
     case sourcesPathNotFound(String)
+    case sourcesPathNotSwift(String)
+    case noMutants(sourcesPath: String)
 }
 ```
 
 | Case | Payload | Condition |
 |---|---|---|
-| `sourcesPathNotFound` | `String` — the missing path | `sourcesPath` directory does not exist |
+| `sourcesPathNotFound` | `String` — the missing path | `sourcesPath` does not exist |
+| `sourcesPathNotSwift` | `String` — the path | `sourcesPath` is a file but not a `.swift` file |
+| `noMutants` | the sources path | discovery found no mutant; thrown by the entry point for `run` (but not for a shard of a plan, which may be empty) and for `plan`, so that a run over nothing ends with exit code 1 instead of a 100% score |
 
 ---
 

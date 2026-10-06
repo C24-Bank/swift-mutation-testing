@@ -89,6 +89,14 @@ public struct SwiftMutationTesting {
         let discovered = try await discover(configuration: configuration, planned: planned)
         let (input, identity, discoveryDuration) = (discovered.input, discovered.identity, discovered.duration)
 
+        // Zero mutants is not a perfect score: nothing was measured. A shard is the exception — splitting a
+        // plan by file can leave one empty, and the merge accounts for every mutant anyway.
+        if input.mutants.isEmpty, discovered.resumed.isEmpty, planned?.shard == nil {
+            throw FileDiscoveryError.noMutants(
+                sourcesPath: configuration.filter.sourcesPath ?? configuration.projectPath
+            )
+        }
+
         if !configuration.reporting.quiet {
             let schematizable = input.mutants.filter { $0.isSchematizable }.count
             let incompatible = input.mutants.count - schematizable
@@ -141,6 +149,11 @@ public struct SwiftMutationTesting {
             input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget,
             container: configuration.build.xcodeContainer
         )
+        guard !planned.plan.mutants.isEmpty else {
+            throw FileDiscoveryError.noMutants(
+                sourcesPath: configuration.filter.sourcesPath ?? configuration.projectPath
+            )
+        }
         try PlanStore().write(planned.plan, to: path)
 
         let plan = planned.plan

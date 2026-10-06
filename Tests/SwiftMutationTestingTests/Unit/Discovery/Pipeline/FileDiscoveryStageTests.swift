@@ -308,4 +308,52 @@ struct FileDiscoveryStageTests {
             try stage.run(input: input)
         }
     }
+
+    @Test("Given a .swift file as the sources path, when run, then that file alone is discovered")
+    func aSingleFileIsDiscovered() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try FileHelpers.write("let x = 1", named: "Foo.swift", in: dir)
+        try FileHelpers.write("let y = 2", named: "Bar.swift", in: dir)
+        let file = dir.appendingPathComponent("Foo.swift").path
+
+        let result = try stage.run(input: makeDiscoveryInput(projectPath: dir.path, sourcesPath: file))
+
+        #expect(result.map(\.path) == [CanonicalPath.make(for: file)])
+        #expect(result.first?.content == "let x = 1")
+    }
+
+    @Test("Given an excluded .swift file as the sources path, when run, then nothing is discovered")
+    func aSingleExcludedFileIsNot() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try FileHelpers.write("let x = 1", named: "FooTests.swift", in: dir)
+        try FileHelpers.write("let y = 2", named: "Generated.swift", in: dir)
+
+        let tests = try stage.run(
+            input: makeDiscoveryInput(
+                projectPath: dir.path, sourcesPath: dir.appendingPathComponent("FooTests.swift").path)
+        )
+        let excluded = try stage.run(
+            input: makeDiscoveryInput(
+                projectPath: dir.path, sourcesPath: dir.appendingPathComponent("Generated.swift").path,
+                excludePatterns: ["Generated"]
+            )
+        )
+
+        #expect(tests.isEmpty)
+        #expect(excluded.isEmpty)
+    }
+
+    @Test("Given a file that is not Swift as the sources path, when run, then it is refused")
+    func aNonSwiftFileIsRefused() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try FileHelpers.write("{}", named: "Package.resolved", in: dir)
+        let file = dir.appendingPathComponent("Package.resolved").path
+
+        #expect(throws: FileDiscoveryError.sourcesPathNotSwift(file)) {
+            try stage.run(input: makeDiscoveryInput(projectPath: dir.path, sourcesPath: file))
+        }
+    }
 }
