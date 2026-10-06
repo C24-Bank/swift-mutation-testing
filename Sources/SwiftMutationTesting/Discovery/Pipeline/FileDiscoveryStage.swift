@@ -35,7 +35,7 @@ struct FileDiscoveryStage: Sendable {
                 throw FileDiscoveryError.sourcesPathNotSwift(input.sourcesPath)
             }
             let path = CanonicalPath.make(for: url.path)
-            guard !isExcluded(path: path, excludePatterns: input.excludePatterns),
+            guard !isExcluded(path: path, excludePatterns: input.excludePatterns, projectPath: input.projectPath),
                 let content = try? String(contentsOf: url, encoding: .utf8)
             else { return [] }
             return [SourceFile(path: path, content: content)]
@@ -58,7 +58,7 @@ struct FileDiscoveryStage: Sendable {
 
             let path = fileURL.path
 
-            guard !isExcluded(path: path, excludePatterns: input.excludePatterns) else {
+            guard !isExcluded(path: path, excludePatterns: input.excludePatterns, projectPath: input.projectPath) else {
                 continue
             }
 
@@ -72,7 +72,7 @@ struct FileDiscoveryStage: Sendable {
         return sourceFiles
     }
 
-    private func isExcluded(path: String, excludePatterns: [String]) -> Bool {
+    private func isExcluded(path: String, excludePatterns: [String], projectPath: String) -> Bool {
         for pattern in Self.fixedExclusions {
             if pattern.hasSuffix(".swift") {
                 if path.hasSuffix(pattern) {
@@ -83,6 +83,6 @@ struct FileDiscoveryStage: Sendable {
             }
         }
 
-        return excludePatterns.contains { path.contains($0) }
+        return excludePatterns.contains { ExcludePattern.matches($0, path: path, projectPath: projectPath) }
     }
 }
