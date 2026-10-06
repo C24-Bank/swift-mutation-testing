@@ -79,12 +79,19 @@ internal enum __SwiftMutationTesting_<hash> {
     nonisolated(unsafe) static var activationRecorded = false
 
     @usableFromInline nonisolated static func activated() { … }
+
+    @discardableResult @usableFromInline nonisolated static func activating<T>(_ value: T) -> T {
+        activated()
+        return value
+    }
 }
 
 @usableFromInline nonisolated internal var __swiftMutationTestingID_<hash>: String {
     __SwiftMutationTesting_<hash>.id
 }
 ```
+
+`activating(_:)` serves incompatible mutants, whose rewritten file gets the same block; see [Activation Marker](#activation-marker).
 
 Each piece of it is there for a reason:
 
