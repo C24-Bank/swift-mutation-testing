@@ -14,6 +14,10 @@ enum SupportDeclarations {
         "__SwiftMutationTesting_\(suffix(for: path)).activated()"
     }
 
+    static func activatingCall(for path: String) -> String {
+        "__SwiftMutationTesting_\(suffix(for: path)).activating"
+    }
+
     static func importLine(_ style: ImportStyle) -> String {
         switch style {
         case .implicit: "import Foundation"
@@ -37,6 +41,11 @@ enum SupportDeclarations {
                     else { return }
                     activationRecorded = true
                     FileManager.default.createFile(atPath: path, contents: nil)
+                }
+
+                @discardableResult @usableFromInline nonisolated static func activating<T>(_ value: T) -> T {
+                    activated()
+                    return value
                 }
             }
 
