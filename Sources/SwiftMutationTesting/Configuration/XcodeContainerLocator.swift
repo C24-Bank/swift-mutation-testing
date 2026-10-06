@@ -37,6 +37,14 @@ enum XcodeContainerLocator {
             return .project(found.projects[0])
 
         case (0, 0):
+            let nested = nestedCandidates(in: root)
+            guard nested.workspaces.isEmpty, nested.projects.isEmpty else {
+                throw UsageError(
+                    message: "no .xcworkspace or .xcodeproj at the project root, but found "
+                        + "\(list(nested.workspaces + nested.projects)) below it; pass --workspace or --project "
+                        + "(or the `workspace` / `project` key) with the one to build"
+                )
+            }
             return nil
 
         default:
@@ -56,6 +64,38 @@ enum XcodeContainerLocator {
             workspaces: names.filter { $0.hasSuffix(".xcworkspace") },
             projects: names.filter { $0.hasSuffix(".xcodeproj") }
         )
+    }
+
+    /// The workspaces and projects below the root, a few levels down, as paths relative to it: what to suggest
+    /// when the root itself has none. Never chosen on their own — which one a subdirectory holds is the user's
+    /// call. Bundles, hidden directories, build products, derived data and dependency checkouts are not searched.
+    static func nestedCandidates(in root: URL, depth: Int = 3) -> Candidates {
+        let skipped: Set<String> = ["DerivedData", "Pods", "Carthage", "node_modules", "Build"]
+        var workspaces: [String] = []
+        var projects: [String] = []
+        var level = [root]
+        for _ in 0 ..< depth {
+            var next: [URL] = []
+            for directory in level {
+                let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+                for name in names where !name.hasPrefix(".") && !skipped.contains(name) {
+                    let url = directory.appendingPathComponent(name)
+                    var isDirectory: ObjCBool = false
+                    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                        isDirectory.boolValue
+                    else { continue }
+                    if name.hasSuffix(".xcworkspace"), directory != root {
+                        workspaces.append(relative(url.path, to: root) ?? name)
+                    } else if name.hasSuffix(".xcodeproj"), directory != root {
+                        projects.append(relative(url.path, to: root) ?? name)
+                    } else if !name.hasSuffix(".xcworkspace"), !name.hasSuffix(".xcodeproj") {
+                        next.append(url)
+                    }
+                }
+            }
+            level = next
+        }
+        return Candidates(workspaces: workspaces.sorted(), projects: projects.sorted())
     }
 
     /// The projects a workspace references, as paths relative to the root; `self:` references (a project's

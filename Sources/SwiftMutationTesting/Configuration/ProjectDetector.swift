@@ -11,6 +11,14 @@ struct ProjectDetector: Sendable {
             return await detectXcode(at: projectURL, candidates: found)
         }
 
+        let hasPackage = FileManager.default.fileExists(
+            atPath: projectURL.appendingPathComponent("Package.swift").path
+        )
+        let nested = XcodeContainerLocator.nestedCandidates(in: projectURL)
+        if !hasPackage, !nested.workspaces.isEmpty || !nested.projects.isEmpty {
+            return await detectXcode(at: projectURL, candidates: nested)
+        }
+
         if FileManager.default.fileExists(atPath: projectURL.appendingPathComponent("Package.swift").path) {
             let testTargets = await listSPMTestTargets(in: projectURL)
             return DetectedProject(
