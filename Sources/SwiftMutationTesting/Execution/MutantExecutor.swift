@@ -489,7 +489,7 @@ struct MutantExecutor: Sendable {
         }
     }
 
-    private func excludeProblematicMutants(
+    func excludeProblematicMutants(
         sandboxPath: String,
         originalPath: String,
         errorOutput: String,
