@@ -222,15 +222,24 @@ Removes any `MutationPoint` whose `utf8Offset` (as `AbsolutePosition`) falls wit
 
 ```swift
 final class SuppressionVisitor: SyntaxVisitor {
-    var suppressedRanges: [Range<AbsolutePosition>]
+    static let disableDirective: String            // "swift-mutation-testing:disable"
+    static let disableNextLineDirective: String    // "swift-mutation-testing:disable-next-line"
+    init(converter: SourceLocationConverter)
+    private(set) var suppressedRanges: [Range<AbsolutePosition>]
+    static func directive(in piece: TriviaPiece) -> String?
 }
 ```
 
-Walks the AST looking for the `@SwiftMutationTestingDisabled` attribute. When found on a supported declaration, the declaration's full source range is recorded in `suppressedRanges`.
+Records two kinds of range:
+
+- **A declaration** whose leading trivia holds a `//` comment starting with `swift-mutation-testing:disable`, or which carries the `@SwiftMutationTestingDisabled` attribute (honoured for projects that declare it; Swift rejects it otherwise): the declaration from its first token to its last.
+- **A line**: for every `//` comment starting with `swift-mutation-testing:disable-next-line`, in any token's leading or trailing trivia, the whole line after the comment's, located with the `SourceLocationConverter`.
+
+`directive(in:)` takes the comment's first word after `//`, so text after it is a free reason and a lookalike (`disabled`, a block comment, the word mid-sentence) does nothing.
 
 **Supported declaration kinds:**
 
-`FunctionDeclSyntax`, `InitializerDeclSyntax`, `ClassDeclSyntax`, `StructDeclSyntax`, `EnumDeclSyntax`, `ExtensionDeclSyntax`, `VariableDeclSyntax`
+`FunctionDeclSyntax`, `InitializerDeclSyntax`, `DeinitializerDeclSyntax`, `SubscriptDeclSyntax`, `ClassDeclSyntax`, `StructDeclSyntax`, `EnumDeclSyntax`, `ActorDeclSyntax`, `ExtensionDeclSyntax`, `VariableDeclSyntax`. Before the comments, initializers, `deinit`, subscripts and actors were not visited at all, though the documentation listed initializers.
 
 ---
 

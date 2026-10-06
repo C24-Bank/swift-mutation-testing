@@ -108,7 +108,7 @@ Operators are activated by name via `--operator` or deactivated via `--disable-m
 
 ## Suppression
 
-Mutations can be suppressed per scope with the `@SwiftMutationTestingDisabled` attribute on a function, initializer, type or property. `SuppressionAnnotationExtractor` walks the file and records the full source range of every declaration carrying it, and `SuppressionFilter` removes any `MutationPoint` falling inside one before the points reach `MutantIndexingStage`.
+Mutations are suppressed with comments, which need nothing declared in the user's project: `// swift-mutation-testing:disable` above a declaration suppresses the declaration, and `// swift-mutation-testing:disable-next-line` suppresses the line after it. `SuppressionAnnotationExtractor` walks the file and records the range of every suppressed declaration and line, and `SuppressionFilter` removes any `MutationPoint` falling inside one before the points reach `MutantIndexingStage`. The `@SwiftMutationTestingDisabled` attribute the documentation used to recommend is still honoured, but Swift only accepts it where the project declares it, so it is no longer the documented way.
 
 ## Infinite-loop prevention
 

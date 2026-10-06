@@ -124,7 +124,7 @@ To look at one verdict closely, `swift-mutation-testing reproduce <id-or-fingerp
 
 Some survivors are **equivalent**: the mutation does not change observable behavior (for example `a > b ? a : b` → `a >= b ? a : b`: when `a == b` both return the same value). No test can kill them. Tell the user which ones you believe are equivalent and why, rather than writing a meaningless test.
 
-To keep code out of the run, prefer `--exclude` (or `exclude:` in the config file) for generated and vendored code. The documentation also describes an `@SwiftMutationTestingDisabled` attribute, but Swift rejects it as an unknown attribute unless the project declares it, so do not add it to a declaration without first confirming the project builds with it.
+To keep code out of the run, use `--exclude` (or `exclude:` in the config file) for generated and vendored files. For one declaration or one line, write the comment `// swift-mutation-testing:disable` above the declaration, or `// swift-mutation-testing:disable-next-line` above the line, with the reason after it (`// swift-mutation-testing:disable — equivalent: reserveCapacity is a hint`). Suppress only with the user's agreement and never to make a survivor disappear. Do not use the old `@SwiftMutationTestingDisabled` attribute: Swift rejects it unless the project declares it.
 
 ## 7. Continuous integration
 
