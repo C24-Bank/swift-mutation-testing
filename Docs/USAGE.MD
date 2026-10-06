@@ -675,6 +675,12 @@ Results are cached at `<project>/.swift-mutation-testing-cache/results.json`, ke
 
 The cache format is versioned. A cache written by an older version is discarded once, with a warning, and the run tests every mutant again; the next run writes a cache in the current format.
 
+A cache belongs to the tests it was made with: the scheme, destination and project or workspace for Xcode, `--target` and `--testing-framework`. A run with any of them changed discards the cache, with a note, and tests every mutant again. To keep verdicts for two targets, give each its own CI job and cache. When some verdicts come from the cache, the summary says how many:
+
+```
+Verdicts from cache: 212 of 278
+```
+
 ```
   ✓ Loaded 147 mutants from cache
 ```

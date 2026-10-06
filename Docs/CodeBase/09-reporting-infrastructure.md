@@ -161,7 +161,8 @@ Output sections:
 5. Detection line (`RunnerSummary.detectionLine`)
 6. Total killed / survived / timeouts / unviable / noCoverage counts
 7. `Activation not measured: N mutants`, when N > 0
-8. Total duration
+8. `Verdicts from cache: N of M` (`RunnerSummary.cacheLine`), when any result has `fromCache`
+9. Total duration
 
 `format(_:)` is exposed separately for testing.
 
