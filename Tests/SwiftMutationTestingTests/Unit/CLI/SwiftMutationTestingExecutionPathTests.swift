@@ -145,4 +145,34 @@ struct SwiftMutationTestingExecutionPathTests {
 
         #expect(result == .success)
     }
+
+    @Test("Given --sources-path naming one file, when run, then only that file's mutants run")
+    func aSingleFileRuns() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try "scheme: App\ndestination: platform=macOS\n".write(
+            to: dir.appendingPathComponent(".swift-mutation-testing.yml"), atomically: true, encoding: .utf8
+        )
+        try "func f(_ a: Bool, _ b: Bool) -> Bool { a && b }\n".write(
+            to: dir.appendingPathComponent("Foo.swift"), atomically: true, encoding: .utf8
+        )
+        try "func g(_ a: Bool, _ b: Bool) -> Bool { a || b }\n".write(
+            to: dir.appendingPathComponent("Bar.swift"), atomically: true, encoding: .utf8
+        )
+        let reportPath = dir.appendingPathComponent("r.json").path
+
+        let result = await SwiftMutationTesting.run(
+            args: [
+                dir.path, "--sources-path", dir.appendingPathComponent("Foo.swift").path, "--output", reportPath,
+                "--quiet",
+            ],
+            launcher: MockProcessLauncher(exitCode: 1)
+        )
+
+        #expect(result == .success)
+        let report = try JSONDecoder().decode(
+            MutationReportPayload.self, from: Data(contentsOf: URL(fileURLWithPath: reportPath))
+        )
+        #expect(Array(report.files.keys) == ["/Foo.swift"])
+    }
 }
