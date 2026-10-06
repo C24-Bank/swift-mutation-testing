@@ -151,7 +151,7 @@ struct ConfigurationFileWriter: Sendable {
         lines.append("# sarif-output: mutation-report.sarif")
         lines.append("# markdown-output: mutation-summary.md")
         lines.append("")
-        lines.append("# Source file glob patterns to exclude from mutation")
+        lines.append("# Files to leave out: a glob (**/Generated/**) or a fragment of the path (/Generated/)")
         if let testTarget {
             lines.append("exclude:")
             lines.append("  - \"/\(testTarget)/\"")
