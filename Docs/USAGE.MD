@@ -174,6 +174,8 @@ timeout: 60
 # baseline: .swift-mutation-testing-baseline.json
 # max-score-drop: 2
 # max-new-survivors: 0
+# Mutants killed or timed out without the mutated code running
+# max-integrity-warnings: 0
 
 # Mutation operators — set active: false to disable
 mutators:
@@ -224,6 +226,7 @@ mutators:
 | `baseline` | String | — | Baseline file to compare with, relative to the project |
 | `max-score-drop` | Number | — | Fail when the score is more than this many points below the baseline's. Needs `baseline` |
 | `max-new-survivors` | Number | — | Fail when more than this many undetected mutants are not in the baseline. Needs `baseline` |
+| `max-integrity-warnings` | Number | — | Fail when more than this many mutants were killed or timed out without the mutated code running |
 
 ### Operator identifiers
 
@@ -327,6 +330,7 @@ swift-mutation-testing [project-path] [options]
 | `--baseline <path>` | Baseline to compare with, relative to the project |
 | `--max-score-drop <points>` | Fail when the score is more than this many points below the baseline's |
 | `--max-new-survivors <n>` | Fail when more than `n` undetected mutants are not in the baseline |
+| `--max-integrity-warnings <n>` | Fail when more than `n` mutants were killed or timed out without the mutated code running |
 | `--write-baseline <path>` | Write this run's baseline, relative to the project. Command line only |
 | `--plan <plan.json>` | `run`: execute this plan instead of discovering, refusing it if the code changed. `merge`, `reproduce`: the plan to work from |
 | `--shard <i/n>` | `run --plan` only: run the i-th of n slices of the plan, split by file |
@@ -747,8 +751,11 @@ By default a completed run exits with `0` whatever the score. The quality gate t
 | Minimum score | `--min-score` / `min-score` | the score is below the minimum |
 | Maximum drop | `--max-score-drop` / `max-score-drop` | the score is more than N points below the baseline's |
 | No new survivors | `--max-new-survivors` / `max-new-survivors` | more than N undetected mutants (survived or no coverage) are not in the baseline |
+| Integrity warnings | `--max-integrity-warnings` / `max-integrity-warnings` | more than N mutants were killed or timed out without the mutated code running |
 
 Any combination can be set, on the command line or in `.swift-mutation-testing.yml`; the command line wins. Timeouts count as detected, as they do in the score.
+
+An integrity warning is a verdict the test suite gave for a reason other than the mutation: a flaky or broken test, or a fault in the environment. See [Integrity warnings](MUTATION-RESULTS.md#integrity-warnings). Unset, they are listed and never fail the run; `--max-integrity-warnings 0` makes CI fail on the first one, so a flaky suite cannot keep inflating the score. This policy needs no baseline.
 
 ```
 Quality gate: FAILED

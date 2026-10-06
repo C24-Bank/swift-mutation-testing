@@ -126,7 +126,9 @@ No-coverage mutants count in the score denominator and not in the numerator, lik
 
 ### Integrity warnings
 
-A verdict is only worth something if the mutated code ran. The same marker that tells a survivor from no coverage also exposes the opposite case: a mutant that was **killed** — or timed out — although its code never ran. The test that failed did not fail because of the mutation; it is flaky, broken for another reason, or the environment is at fault. Those verdicts keep their status, since a rerun would say the same thing, but the run lists them:
+A verdict is only worth something if the mutated code ran. The same marker that tells a survivor from no coverage also exposes the opposite case: a mutant that was **killed** — or timed out — although its code never ran. The test that failed did not fail because of the mutation; it is flaky, broken for another reason, or the environment is at fault.
+
+A mutant killed without activation is run once more, alone, after every other mutant. A flaky test usually passes the second time, and the mutant is then judged by that run. A kill that repeats without activation is systematic: it keeps its status, and the run lists it, together with timeouts whose code never ran:
 
 ```
 Integrity warnings (2): killed or timed out without the mutated code running
@@ -134,7 +136,7 @@ Integrity warnings (2): killed or timed out without the mutated code running
   Sources/Cache.swift:12:5     RemoveSideEffects               timed out without activation
 ```
 
-The JSON report carries the same fact as `statusReason`: `killed without activation`, `crash without activation` or `timed out without activation`. Treat a warning as a test suite problem, not a mutant to fix.
+The JSON report carries the same fact as `statusReason`: `killed without activation`, `crash without activation` or `timed out without activation`. Treat a warning as a test suite problem, not a mutant to fix. To make CI fail on warnings, set `--max-integrity-warnings 0`; see [Quality Gate](USAGE.MD#quality-gate).
 
 Two situations stop the run altogether, with exit code `1`, because no verdict could be trusted:
 

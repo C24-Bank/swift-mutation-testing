@@ -98,7 +98,7 @@ flowchart LR
     subgraph Execution
         SF[SandboxFactory] --> BS[BuildStage]
         BS --> PROBE["probe each test bundle and library once\nbaseline + which have tests"]
-        PROBE --> TES["TestExecutionStage\ntwo passes"]
+        PROBE --> TES["TestExecutionStage\nthree passes"]
         BS -- build failed --> RETRY[retryExcludingErrors]
         RETRY -- gave up --> FBP[FallbackExecutor\nper-file rebuild]
         TES --> TR[TestResultResolver]

@@ -169,6 +169,8 @@ Runs each mutant's tests in parallel via `withThrowingTaskGroup` — `xcodebuild
 
 A mutant whose run times out during that parallel pass is not recorded yet. Once the group has drained, every such mutant is run once more with at most a quarter of the workers (`retryWorkerShare`, never fewer than one), under the configured `--timeout`, and that second outcome is the one reported and cached. The parallel pass itself allows twice the configured timeout (`loadedTimeoutFactor`): a verdict that settles under load is the same verdict the mutant would get alone, so the wider limit only spares the second run, while a mutant that is still running at twice the limit is handed to the quieter pass, whose limit is the one the user asked for.
 
+A mutant killed during the parallel pass without its activation marker is not recorded yet either. After the timeout pass, each such mutant runs once more, alone, one after another, under the configured `--timeout`, and that run's outcome is the one reported and cached. A flaky test usually passes the second time, and the mutant is then judged like any other run: survived, or `noCoverage` when its code still did not run. A kill that repeats without activation stays a kill, reported as an integrity warning. Kills that come from the timeout pass are not run a third time. Warnings are rare: over the campaign projects, 1 to 7 per run against 209 to 1275 mutants, under 1% of mutants, so the extra run costs little.
+
 Measured on `swift-cpd` (944 tests), the suite takes 14s alone, 15s with 8 workers and 24s with 15 on a 12P+4E machine, so a 30s limit under 15 workers turned a third of all mutants into stragglers: each one cost its 30s in the parallel pass and was then run again in series, and the 26 mutants that time out for real cost the full limit twice. Doubling the loaded limit settles almost every straggler in the parallel pass, and a quarter of the workers is a load the machine does not notice (8 workers cost 8% over running alone) while it cuts the second pass by the same factor.
 
 Before that pass, when the package was built to test bundles — one per test target — each bundle is run once with each testing library against the unmutated sandbox. That single run answers two questions at once. A library that reports no tests — exit 69 from SwiftPM's helper, or `Executed 0 tests` from `xctest` — is left out of every mutant's run: on a Swift Testing-only package that links swift-syntax, the `xctest` pass costs 13.8s just to load the bundle and find nothing, against 1.7s for the Swift Testing pass, and it used to run for every surviving mutant. And a library that does have tests must pass them: a failure, a crash or a timeout on the unmutated code ends the run with a `BaselineError` naming the tests, since nothing a mutant does afterwards could be attributed to the mutant. Before this the baseline was a separate `swift test --skip-build` of the whole suite followed by the probe — three runs of the suite to answer two questions. A bundle that reports no tests in either library is dropped from every mutant's run as well; the list that survives the probe, `[TestBundle]`, is fixed before the pass. When the package produced no bundle at all, `swift test --skip-build` is still the baseline, and both libraries are assumed present.
@@ -199,7 +201,7 @@ A fresh `.xctestrun` file is written for each mutant (UUID-named, deleted after 
 
 ---
 
-**The two passes:**
+**The three passes:**
 
 ```mermaid
 flowchart TD
@@ -208,6 +210,9 @@ flowchart TD
     GROUP -- timed out under load --> STRAGGLERS[stragglers]
     STRAGGLERS --> AGAIN["run again\nconcurrency ÷ retryWorkerShare workers\nlimit = --timeout"]
     AGAIN --> RESULTS
+    GROUP -- killed without activation --> UNACTIVATED[unactivated kills]
+    UNACTIVATED --> ALONE["run again, alone\none worker\nlimit = --timeout"]
+    ALONE --> RESULTS
 ```
 
 **One mutant on the SPM path:**

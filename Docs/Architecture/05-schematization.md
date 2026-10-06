@@ -135,11 +135,11 @@ What the marker decides:
 | tests passed | written | `survived` |
 | tests passed | not written | `noCoverage` |
 | a test failed, or the process crashed | written | `killed` / `killedByCrash` |
-| a test failed, or the process crashed | not written | unchanged, plus an integrity warning |
+| a test failed, or the process crashed | not written | run once more, alone; the second run decides, and a repeated kill stays, plus an integrity warning |
 | timed out | not written | unchanged, plus an integrity warning |
 | incompatible mutant | no `case` to instrument | unchanged; counted as "activation not measured" |
 
-The warning keeps the verdict because a rerun would say the same thing; the report just makes the anomaly visible. When mutants were killed and no mutant's code was ever seen running, the run stops instead (`IntegrityError.activationNeverObserved`): either the marker cannot be written here or the suite fails on its own, and every verdict is suspect.
+A kill without activation is run a second time because a flaky test usually passes then; a kill that repeats is systematic, and the warning keeps its verdict and makes the anomaly visible. `--max-integrity-warnings` lets the quality gate fail on them. When mutants were killed and no mutant's code was ever seen running, the run stops instead (`IntegrityError.activationNeverObserved`): either the marker cannot be written here or the suite fails on its own, and every verdict is suspect.
 
 ## Application Check
 

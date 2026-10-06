@@ -155,6 +155,8 @@ QUALITY GATE (a failed gate exits with code 2):
   --baseline <path>             Baseline to compare with, relative to the project
   --max-score-drop <points>     Fail when the score drops more than this below the baseline's
   --max-new-survivors <n>       Fail when more than n undetected mutants are not in the baseline
+  --max-integrity-warnings <n>  Fail when more than n mutants were killed or timed out without
+                                the mutated code running
   --write-baseline <path>       Write this run's baseline, relative to the project
 ```
 

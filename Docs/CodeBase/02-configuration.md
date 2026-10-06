@@ -68,6 +68,7 @@ struct ParsedArguments: Sendable {
         var baseline: String?
         var maxScoreDrop: Double?
         var maxNewSurvivors: Int?
+        var maxIntegrityWarnings: Int?
         var writeBaseline: String?
     }
 }
@@ -103,6 +104,7 @@ struct ParsedArguments: Sendable {
 | `gate.baseline` | `nil` | `--baseline <path>` |
 | `gate.maxScoreDrop` | `nil` | `--max-score-drop <points>`, `0` allowed |
 | `gate.maxNewSurvivors` | `nil` | `--max-new-survivors <n>` |
+| `gate.maxIntegrityWarnings` | `nil` | `--max-integrity-warnings <n>` |
 | `gate.writeBaseline` | `nil` | `--write-baseline <path>` |
 
 `CommandLineParser` applies each flag through one function per option group — build, reporting, filter and gate — and reports an unknown option when none of them takes it.
@@ -235,7 +237,7 @@ For Xcode projects, throws `UsageError` if `scheme` or `destination` is absent i
 1. An explicit list — `--operator` (CLI) or `operators` (file), CLI first — is used as is, whatever the operators' tiers
 2. Otherwise the tier is resolved — `--operator-tier`, else `operator-tier`, else `.default`; a name that is no tier is a `UsageError` — and `DiscoveryPipeline.operatorNames(upTo:)` gives its set, minus the identifiers disabled by `--disable-mutator` (CLI), `disabled-mutators` or the `mutators` block with `active: false` (file), both removed together
 
-**Gate resolution** (`resolveGate`): each policy comes from its flag or, failing that, from `min-score`, `max-score-drop` and `max-new-survivors` in the file. `baseline` and `--write-baseline` are resolved against the project path unless absolute. Throws `UsageError` when `min-score` is outside 0–100, a maximum is negative, a file value is not a number, `max-score-drop` or `max-new-survivors` is set without a baseline, or the baseline file does not exist.
+**Gate resolution** (`resolveGate`): each policy comes from its flag or, failing that, from `min-score`, `max-score-drop`, `max-new-survivors` and `max-integrity-warnings` in the file. `baseline` and `--write-baseline` are resolved against the project path unless absolute. Throws `UsageError` when `min-score` is outside 0–100, a maximum is negative, a file value is not a number, `max-score-drop` or `max-new-survivors` is set without a baseline, or the baseline file does not exist.
 
 ---
 
@@ -267,7 +269,7 @@ Generates YAML content using `DetectedProject` values where available, falling b
 
 - `timeout: 60` — matches `RunnerConfiguration.defaultTimeout`
 - `concurrency` — written as a comment (`# concurrency: 4`); the code default (`max(1, CPU count - 1)`) applies when absent
-- quality gate keys — `min-score`, `baseline`, `max-score-drop` and `max-new-survivors`, all commented
+- quality gate keys — `min-score`, `baseline`, `max-score-drop`, `max-new-survivors` and `max-integrity-warnings`, all commented
 - `mutators:` block — one `- name: / active: true` entry per operator from `DiscoveryPipeline.allOperatorNames`; user sets `active: false` to disable individual operators
 
 ---

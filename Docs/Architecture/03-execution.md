@@ -23,7 +23,7 @@ flowchart TD
     BS -- success --> PROBE[probe each test bundle and library once\nbaseline + which have tests]
     RETRY -- rebuilt --> PROBE
     PROBE -- fails --> ABORT[throw BaselineError]
-    PROBE -- passes --> TES[TestExecutionStage\ntwo passes, see below]
+    PROBE -- passes --> TES[TestExecutionStage\nthree passes, see below]
     TES --> TR[TestResultResolver]
     TR --> CLASSIFY[marker not written?\nsurvived → noCoverage]
     CLASSIFY --> CACHE[CacheStore]
@@ -123,7 +123,7 @@ The Xcode path does not validate a baseline yet and has the same exposure.
 
 ## TestExecutionStage
 
-Runs each mutant's tests in parallel via `withThrowingTaskGroup` — `xcodebuild test-without-building` on the Xcode path, the test bundle directly on the SPM one — in two passes.
+Runs each mutant's tests in parallel via `withThrowingTaskGroup` — `xcodebuild test-without-building` on the Xcode path, the test bundle directly on the SPM one — in three passes.
 
 ```mermaid
 flowchart TD
@@ -137,6 +137,11 @@ flowchart TD
         S1["Task: straggler 1"] & S2["Task: straggler M"]
     end
     SG --> RESULTS
+    TG -- killed without activation --> RG
+    subgraph RG["pass 3 — kills without activation (one at a time, limit = timeout)"]
+        R1["Task: unactivated kill 1"] --> R2["Task: unactivated kill K"]
+    end
+    RG --> RESULTS
 ```
 
 **Per-mutant execution, Xcode path:**
@@ -156,9 +161,11 @@ flowchart TD
 
 Either run stops at its first failing test: a mutant is killed by one test, and `TestOutputParser` reports that one. See `ProcessRunner` in [09 — Reporting & Infrastructure](../CodeBase/09-reporting-infrastructure.md) for the mechanism.
 
-Both paths hand each test process an activation marker path. A passing suite whose marker was never written is reported as `noCoverage` rather than `survived`; a kill or a timeout without the marker keeps its verdict and becomes an integrity warning. See [Activation Marker](05-schematization.md#activation-marker).
+Both paths hand each test process an activation marker path. A passing suite whose marker was never written is reported as `noCoverage` rather than `survived`; a kill without the marker is run once more, and a kill or a timeout without the marker in the final run keeps its verdict and becomes an integrity warning. See [Activation Marker](05-schematization.md#activation-marker).
 
-**Two passes.** The first runs every mutant with `concurrency` workers and a limit of twice `--timeout`; a mutant still running at that point is not recorded, it is set aside. Once the group drains, the stragglers run again with a quarter of the workers and the configured `--timeout`, and that second outcome is the one reported. A verdict that settles under load is the verdict the mutant gets alone, so the wider limit only spares the second run — and the second pass has no contention to blame for a timeout.
+**Three passes.** The first runs every mutant with `concurrency` workers and a limit of twice `--timeout`; a mutant still running at that point is not recorded, it is set aside. Once the group drains, the stragglers run again with a quarter of the workers and the configured `--timeout`, and that second outcome is the one reported. A verdict that settles under load is the verdict the mutant gets alone, so the wider limit only spares the second run — and the second pass has no contention to blame for a timeout.
+
+**Rerun of kills without activation.** A mutant killed in the first pass without its marker is set aside too. After the timeout pass, each one runs once more, alone, under the configured `--timeout`, and that run decides. A flaky test usually passes the second time; a kill that repeats without activation is systematic and stays an integrity warning.
 
 **Dynamic concurrency:** each pass seeds its workers, then adds one new task for each completed task, keeping exactly that many active at all times.
 

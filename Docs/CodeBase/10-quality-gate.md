@@ -34,11 +34,12 @@ struct GatePolicy: Sendable, Equatable {
     var minScore: Double?
     var maxScoreDrop: Double?
     var maxNewSurvivors: Int?
+    var maxIntegrityWarnings: Int?
     var isEmpty: Bool { get }
 }
 ```
 
-The three policies, each optional. `maxScoreDrop` and `maxNewSurvivors` need a baseline; `ConfigurationResolver` rejects them without one.
+The four policies, each optional. `maxScoreDrop` and `maxNewSurvivors` need a baseline; `ConfigurationResolver` rejects them without one. `maxIntegrityWarnings` does not.
 
 ---
 
@@ -55,6 +56,7 @@ struct QualityGate: Sendable {
 | `minScore` | `.minScore(score:minimum:)` | `summary.score < minScore` |
 | `maxScoreDrop` | `.scoreDrop(drop:maximum:)` | `baseline.score − summary.score > maxScoreDrop` |
 | `maxNewSurvivors` | `.newUndetected(count:maximum:)` | undetected mutants whose fingerprint is not in the baseline number more than `maxNewSurvivors` |
+| `maxIntegrityWarnings` | `.integrityWarnings(count:maximum:)` | `summary.integrityWarnings` — kills and timeouts whose mutated code never ran — number more than `maxIntegrityWarnings` |
 
 "Undetected" is `RunnerSummary.undetected` — survived and no coverage — so a new mutant without coverage counts as a new survivor. Timeouts are detected, as in the score. A check that needs a baseline is skipped when there is none.
 
@@ -75,6 +77,7 @@ struct GateResult: Sendable {
         case minScore(score: Double, minimum: Double)
         case scoreDrop(drop: Double, maximum: Double)
         case newUndetected(count: Int, maximum: Int)
+        case integrityWarnings(count: Int, maximum: Int)
         var passed: Bool { get }
     }
 }
