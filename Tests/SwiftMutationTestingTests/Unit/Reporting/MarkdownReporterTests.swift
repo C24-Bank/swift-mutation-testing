@@ -98,6 +98,16 @@ struct MarkdownReporterTests {
         #expect(!output.contains("detected now that were undetected"))
     }
 
+    @Test("Given a failed integrity warning check, when formatted, then the gate lists it")
+    func formatsTheIntegrityWarningCheck() {
+        let warning = makeExecutionResult(status: .killed(by: "flaky"), activated: false)
+        let gate = GateResult(checks: [.integrityWarnings(count: 1, maximum: 0)], newUndetected: [], fixedCount: nil)
+
+        let output = reporter.format(RunnerSummary(results: [warning], totalDuration: 0), gate: gate)
+
+        #expect(output.contains("### Quality gate: failed ❌\n\n- ✗ 1 integrity warning (max 0)"))
+    }
+
     @Test("Given more undetected mutants than the limit, when formatted, then the table stops at the limit")
     func truncatesTheUndetectedTable() {
         let results = (1 ... MarkdownReporter.listedLimit + 3).map {

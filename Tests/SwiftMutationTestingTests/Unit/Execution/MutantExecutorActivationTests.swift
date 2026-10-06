@@ -28,16 +28,45 @@ struct MutantExecutorActivationTests {
         #expect(results.map(\.activated) == [false])
     }
 
-    @Test("Given a test fails without the mutated code running, when executed, then the kill stands, unactivated")
-    func aKillWithoutActivationIsKeptAndFlagged() async throws {
+    @Test("Given a kill without activation that repeats, when executed, then it stands, unactivated")
+    func aRepeatedKillWithoutActivationIsKeptAndFlagged() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
         let launcher = MarkerWritingLauncher(full: .killed(by: "flaky()", writesMarker: true), activates: ["m1"])
 
         let results = try await execute(in: dir, mutantIDs: ["m0", "m1"], launcher: launcher)
+            .sorted { $0.descriptor.id < $1.descriptor.id }
 
         #expect(results.map(\.status) == [.killed(by: "flaky()"), .killed(by: "flaky()")])
         #expect(results.map(\.activated) == [false, true])
+        #expect(await launcher.fullRuns(of: "m0") == 2)
+    }
+
+    @Test("Given a kill without activation that passes when run again, when executed, then the second run decides")
+    func aFlakyKillIsJudgedByTheRerun() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let launcher = MarkerWritingLauncher(
+            full: .killed(by: "flaky()", writesMarker: false), rerun: .survived(writesMarker: false)
+        )
+
+        let results = try await execute(in: dir, launcher: launcher)
+
+        #expect(results.map(\.status) == [.noCoverage])
+        #expect(results.map(\.activated) == [false])
+        #expect(await launcher.fullRuns(of: "m0") == 2)
+    }
+
+    @Test("Given a kill whose mutated code ran, when executed, then it is not run again")
+    func anActivatedKillRunsOnce() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let launcher = MarkerWritingLauncher(full: .killed(by: "check()", writesMarker: true))
+
+        let results = try await execute(in: dir, launcher: launcher)
+
+        #expect(results.map(\.status) == [.killed(by: "check()")])
+        #expect(await launcher.fullRuns(of: "m0") == 1)
     }
 
     @Test("Given only the targeted run reached the mutated code, when executed, then the mutant counts as activated")

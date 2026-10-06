@@ -171,6 +171,8 @@ struct ConfigurationFileWriter: Sendable {
             "# baseline: .swift-mutation-testing-baseline.json",
             "# max-score-drop: 2",
             "# max-new-survivors: 0",
+            "# Mutants killed or timed out without the mutated code running",
+            "# max-integrity-warnings: 0",
         ]
     }
 

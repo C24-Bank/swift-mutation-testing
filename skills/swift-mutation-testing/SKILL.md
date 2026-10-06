@@ -81,7 +81,7 @@ Each mutant in the JSON report (`files["/Sources/Foo.swift"].mutants[]`) carries
 
 A 100% score means every mutant that compiled was detected. It does not mean the code is right.
 
-Two lines can follow the summary. `Integrity warnings (N)` lists mutants that were **killed or timed out without their code running**: the test that failed did not fail because of the mutation, so treat those as flaky or broken tests, not as mutants to fix; in the JSON they carry `statusReason: "killed without activation"` (or `crash …`, `timed out …`). `Activation not measured: N incompatible mutants` means those mutants have no instrumentation, so for them a passing suite reads `survived` even if the code never ran.
+Two lines can follow the summary. `Integrity warnings (N)` lists mutants that were **killed or timed out without their code running**: the test that failed did not fail because of the mutation, so treat those as flaky or broken tests, not as mutants to fix. A kill without activation was already run a second time, alone, and failed again, so it is not a one-off flake; in the JSON they carry `statusReason: "killed without activation"` (or `crash …`, `timed out …`). `Activation not measured: N incompatible mutants` means those mutants have no instrumentation, so for them a passing suite reads `survived` even if the code never ran.
 
 The run stops with exit code `1`, before reporting anything, when a mutant did not reach the build (`… not applied to the sandbox`) or when mutants were killed but no mutant's code was ever seen running. Both mean the verdicts could not be trusted; the message says which. Report the error to the user rather than working around it.
 
@@ -141,6 +141,7 @@ To keep code out of the run, use `--exclude` (or `exclude:` in the config file) 
     swift-mutation-testing --baseline .swift-mutation-testing-baseline.json --max-new-survivors 0
     ```
   - `--max-score-drop 2` with `--baseline`: fail when the score falls more than 2 points below the baseline's.
+  - `--max-integrity-warnings 0`: fail when any mutant was killed or timed out without its code running, so a flaky suite cannot inflate the score. Needs no baseline.
   - Mutants are matched by fingerprint (file, enclosing declaration, operator, change), so edits elsewhere do not make old survivors look new. Renaming the function or editing the mutated expression does.
   - After killing survivors, write the baseline again so the fixed ones leave it. Never write a new baseline just to make a failing gate pass without telling the user which survivors it accepts.
 - `--sonar-output` writes survivors as SonarQube external issues; `--html-output` writes a report for people.

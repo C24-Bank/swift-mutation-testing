@@ -22,6 +22,10 @@ struct QualityGate: Sendable {
             checks.append(.newUndetected(count: newUndetected.count, maximum: maximum))
         }
 
+        if let maximum = policy.maxIntegrityWarnings {
+            checks.append(.integrityWarnings(count: summary.integrityWarnings.count, maximum: maximum))
+        }
+
         return GateResult(
             checks: checks,
             newUndetected: newUndetected.sorted {

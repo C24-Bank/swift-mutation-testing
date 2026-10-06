@@ -128,6 +128,33 @@ struct QualityGateTests {
         #expect(result.fixedCount == nil)
     }
 
+    @Test("Given integrity warnings within the maximum and no baseline, when evaluated, then the gate passes")
+    func integrityWarningsWithinTheMaximumPass() {
+        let result = gate.evaluate(
+            withIntegrityWarnings(2), policy: GatePolicy(maxIntegrityWarnings: 2), baseline: nil
+        )
+
+        #expect(result.checks == [.integrityWarnings(count: 2, maximum: 2)])
+        #expect(result.passed)
+    }
+
+    @Test("Given an integrity warning and a maximum of zero, when evaluated, then the gate fails")
+    func anIntegrityWarningAboveTheMaximumFails() {
+        let result = gate.evaluate(
+            withIntegrityWarnings(1), policy: GatePolicy(maxIntegrityWarnings: 0), baseline: nil
+        )
+
+        #expect(result.checks == [.integrityWarnings(count: 1, maximum: 0)])
+        #expect(!result.passed)
+    }
+
+    @Test("Given integrity warnings and no maximum, when evaluated, then they are not checked")
+    func integrityWarningsWithoutAMaximumAreNotChecked() {
+        let result = gate.evaluate(withIntegrityWarnings(3), policy: GatePolicy(minScore: 0), baseline: nil)
+
+        #expect(result.checks == [.minScore(score: 100, minimum: 0)])
+    }
+
     @Test("Given new undetected mutants in several files, when evaluated, then they are listed by file and line")
     func newUndetectedAreSortedByLocation() {
         let summary = RunnerSummary(
@@ -153,6 +180,8 @@ struct QualityGateTests {
             (.scoreDrop(drop: -3, maximum: 0), true),
             (.newUndetected(count: 1, maximum: 0), false),
             (.newUndetected(count: 0, maximum: 0), true),
+            (.integrityWarnings(count: 1, maximum: 0), false),
+            (.integrityWarnings(count: 0, maximum: 0), true),
         ]
     )
     func checkPassesWithinItsBound(check: GateResult.Check, passed: Bool) {
@@ -164,6 +193,15 @@ struct QualityGateTests {
             results: (0 ..< killed).map { makeExecutionResult(status: .killed(by: "t"), fingerprint: "killed-\($0)") }
                 + survived.map { makeExecutionResult(status: .survived, fingerprint: $0) }
                 + noCoverage.map { makeExecutionResult(status: .noCoverage, fingerprint: $0) },
+            totalDuration: 0
+        )
+    }
+
+    private func withIntegrityWarnings(_ count: Int) -> RunnerSummary {
+        RunnerSummary(
+            results: (0 ..< count).map {
+                makeExecutionResult(status: .killed(by: "flaky"), fingerprint: "unactivated-\($0)", activated: false)
+            } + [makeExecutionResult(status: .killed(by: "t"), fingerprint: "activated", activated: true)],
             totalDuration: 0
         )
     }

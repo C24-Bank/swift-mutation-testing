@@ -66,6 +66,7 @@ struct ParsedArguments: Sendable {
         var baseline: String?
         var maxScoreDrop: Double?
         var maxNewSurvivors: Int?
+        var maxIntegrityWarnings: Int?
         var writeBaseline: String?
     }
 }

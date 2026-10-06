@@ -14,6 +14,7 @@ struct TestExecutionStage: Sendable {
         let concurrency = context.configuration.build.concurrency
         var results: [ExecutionResult] = []
         var timedOut: [MutantDescriptor] = []
+        var killedUnactivated: [MutantDescriptor] = []
 
         try await forEach(mutants, concurrency: concurrency, run: { mutant in
             try await self.attempt(mutant, in: context, timeout: timeout * Self.loadedTimeoutFactor)
@@ -23,6 +24,8 @@ struct TestExecutionStage: Sendable {
                 results.append(result)
             case .timedOut(let mutant):
                 timedOut.append(mutant)
+            case .killedUnactivated(let mutant):
+                killedUnactivated.append(mutant)
             }
         }
 
@@ -31,6 +34,12 @@ struct TestExecutionStage: Sendable {
         }) { result in
             results.append(result)
         }
+
+        try await forEach(
+            killedUnactivated, concurrency: 1,
+            run: { mutant in try await self.runAgain(mutant, in: context, timeout: timeout) },
+            collect: { result in results.append(result) }
+        )
 
         return results
     }
@@ -63,6 +72,7 @@ struct TestExecutionStage: Sendable {
     private enum Attempt: Sendable {
         case settled(ExecutionResult)
         case timedOut(MutantDescriptor)
+        case killedUnactivated(MutantDescriptor)
     }
 
     private func attempt(
@@ -88,6 +98,10 @@ struct TestExecutionStage: Sendable {
 
         if case .timedOut = outcome {
             return .timedOut(mutant)
+        }
+
+        if outcome.asExecutionStatus.isKill, !launched.activated {
+            return .killedUnactivated(mutant)
         }
 
         return .settled(

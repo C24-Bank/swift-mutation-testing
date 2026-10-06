@@ -201,7 +201,9 @@ struct ConfigurationResolver: Sendable {
             maxScoreDrop: try cli.maxScoreDrop
                 ?? number(fileValues["max-score-drop"], key: "max-score-drop", as: Double.self),
             maxNewSurvivors: try cli.maxNewSurvivors
-                ?? number(fileValues["max-new-survivors"], key: "max-new-survivors", as: Int.self)
+                ?? number(fileValues["max-new-survivors"], key: "max-new-survivors", as: Int.self),
+            maxIntegrityWarnings: try cli.maxIntegrityWarnings
+                ?? number(fileValues["max-integrity-warnings"], key: "max-integrity-warnings", as: Int.self)
         )
         let baseline = (cli.baseline ?? fileValues["baseline"]).map { projectRelative($0, in: projectPath) }
 
@@ -213,6 +215,9 @@ struct ConfigurationResolver: Sendable {
         }
         if let maxNewSurvivors = policy.maxNewSurvivors, maxNewSurvivors < 0 {
             throw UsageError(message: "--max-new-survivors must be >= 0")
+        }
+        if let maxIntegrityWarnings = policy.maxIntegrityWarnings, maxIntegrityWarnings < 0 {
+            throw UsageError(message: "--max-integrity-warnings must be >= 0")
         }
         if baseline == nil, policy.maxScoreDrop != nil || policy.maxNewSurvivors != nil {
             throw UsageError(message: "--max-score-drop and --max-new-survivors need --baseline")

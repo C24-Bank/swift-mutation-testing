@@ -30,6 +30,18 @@ struct ConfigurationResolverGateTests {
         #expect(result.gate.isActive)
     }
 
+    @Test("Given a maximum of integrity warnings and no baseline, when resolved, then the gate is active")
+    func integrityWarningsNeedNoBaseline() throws {
+        let fromFile = try resolver.resolve(cliArguments: arguments(), fileValues: ["max-integrity-warnings": "0"])
+        var cli = arguments()
+        cli.gate.maxIntegrityWarnings = 3
+        let fromCLI = try resolver.resolve(cliArguments: cli, fileValues: ["max-integrity-warnings": "0"])
+
+        #expect(fromFile.gate.policy == GatePolicy(maxIntegrityWarnings: 0))
+        #expect(fromFile.gate.isActive)
+        #expect(fromCLI.gate.policy.maxIntegrityWarnings == 3)
+    }
+
     @Test("Given gate settings in both places, when resolved, then the command line wins")
     func commandLineOverridesTheFile() throws {
         var cli = arguments()
@@ -72,6 +84,7 @@ struct ConfigurationResolverGateTests {
             (["min-score": "many"], "min-score in .swift-mutation-testing.yml must be a number"),
             (["max-score-drop": "-1"], "--max-score-drop must be a number >= 0"),
             (["max-new-survivors": "-1"], "--max-new-survivors must be >= 0"),
+            (["max-integrity-warnings": "-1"], "--max-integrity-warnings must be >= 0"),
             (["max-score-drop": "1"], "need --baseline"),
             (["max-new-survivors": "0"], "need --baseline"),
             (["baseline": "missing.json"], "does not exist"),
