@@ -341,6 +341,9 @@ struct CommandLineParser: Sendable {
         case "--max-new-survivors":
             values.gate.maxNewSurvivors = try nextInt(for: flag, at: &index, in: arguments)
 
+        case "--max-integrity-warnings":
+            values.gate.maxIntegrityWarnings = try nextInt(for: flag, at: &index, in: arguments)
+
         case "--write-baseline":
             values.gate.writeBaseline = try nextValue(for: flag, at: &index, in: arguments)
 

@@ -29,6 +29,9 @@ extension GateResult.Check {
 
         case .newUndetected(let found, let maximum):
             return "\(GateResult.count(found, "new undetected mutant")) (max \(maximum))"
+
+        case .integrityWarnings(let found, let maximum):
+            return "\(GateResult.count(found, "integrity warning")) (max \(maximum))"
         }
     }
 
