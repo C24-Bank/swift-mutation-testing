@@ -572,4 +572,36 @@ struct ProjectDetectorTests {
         #expect(result.containerCandidates == [.workspace("A.xcworkspace"), .workspace("B.xcworkspace")])
         #expect(await launcher.requests.allSatisfy { !$0.arguments.contains("-list") })
     }
+
+    @Test("Given a project only in a subdirectory, when detected, then it is offered, not listed")
+    func aProjectBelowTheRootIsOffered() async throws {
+        let dir = try XcodeContainerLocatorTests.root(["App/App.xcodeproj"])
+        defer { FileHelpers.cleanup(dir) }
+        let launcher = RecordingProcessLauncher(responses: [(0, projectJSON)])
+
+        let result = await ProjectDetector(launcher: launcher).detect(at: dir.path)
+
+        #expect(result.xcodeContainer == nil)
+        #expect(result.containerNote?.contains("found App/App.xcodeproj below it") == true)
+        #expect(result.containerCandidates == [.project("App/App.xcodeproj")])
+        #expect(await launcher.requests.allSatisfy { !$0.arguments.contains("-list") })
+    }
+
+    @Test("Given a package with an example project in a subdirectory, when detected, then it is the package")
+    func aPackageWithAnExampleProjectStaysAPackage() async throws {
+        let dir = try XcodeContainerLocatorTests.root(["Example/Example.xcodeproj"])
+        defer { FileHelpers.cleanup(dir) }
+        try "// swift-tools-version: 5.9".write(
+            to: dir.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8
+        )
+
+        let result = await ProjectDetector(launcher: MockProcessLauncher(exitCode: 1)).detect(at: dir.path)
+
+        guard case .spm = result.kind else {
+            Issue.record("expected a package, got \(result.kind)")
+            return
+        }
+        #expect(result.containerNote == nil)
+    }
+
 }

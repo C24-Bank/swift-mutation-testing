@@ -146,6 +146,33 @@ struct XcodeContainerLocatorTests {
         }
     }
 
+    @Test("Given containers only below the root, when located, then the run is refused with them as suggestions")
+    func containersBelowTheRootAreSuggested() throws {
+        let root = try Self.root([
+            "Apps/App.xcworkspace", "Apps/App.xcodeproj", "Apps/App.xcodeproj/project.xcworkspace",
+            "Pods/Pods.xcodeproj", ".build/Hidden.xcodeproj", "a/b/c/d/Deep.xcodeproj",
+        ])
+        defer { FileHelpers.cleanup(root) }
+
+        #expect(
+            XcodeContainerLocator.nestedCandidates(in: root)
+                == .init(workspaces: ["Apps/App.xcworkspace"], projects: ["Apps/App.xcodeproj"])
+        )
+        #expect(
+            throws: UsageError(
+                message: "no .xcworkspace or .xcodeproj at the project root, but found Apps/App.xcworkspace and "
+                    + "Apps/App.xcodeproj below it; pass --workspace or --project (or the `workspace` / `project` key) "
+                    + "with the one to build"
+            )
+        ) {
+            try XcodeContainerLocator.locate(in: root, workspace: nil, project: nil)
+        }
+        #expect(
+            try XcodeContainerLocator.locate(in: root, workspace: "Apps/App.xcworkspace", project: nil)
+                == .workspace("Apps/App.xcworkspace")
+        )
+    }
+
     // MARK: - Fixture
 
     static func root(_ directories: [String]) throws -> URL {
