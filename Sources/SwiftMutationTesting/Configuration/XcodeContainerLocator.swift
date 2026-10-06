@@ -166,7 +166,7 @@ enum XcodeContainerLocator {
         }
 
         func parser(
-            _ parser: XMLParser, didStartElement element: String, namespaceURI: String?, qualifiedName: String?,
+            _: XMLParser, didStartElement element: String, namespaceURI _: String?, qualifiedName _: String?,
             attributes: [String: String] = [:]
         ) {
             guard element == "Group" || element == "FileRef" else { return }
@@ -181,7 +181,7 @@ enum XcodeContainerLocator {
         }
 
         func parser(
-            _ parser: XMLParser, didEndElement element: String, namespaceURI: String?, qualifiedName: String?
+            _: XMLParser, didEndElement element: String, namespaceURI _: String?, qualifiedName _: String?
         ) {
             if element == "Group", !groups.isEmpty {
                 groups.removeLast()

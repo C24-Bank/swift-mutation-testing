@@ -236,7 +236,7 @@ struct ConfigurationResolver: Sendable {
     private func number<Value: LosslessStringConvertible>(
         _ raw: String?,
         key: String,
-        as type: Value.Type
+        as _: Value.Type
     ) throws -> Value? {
         guard let raw else { return nil }
         guard let value = Value(raw) else {

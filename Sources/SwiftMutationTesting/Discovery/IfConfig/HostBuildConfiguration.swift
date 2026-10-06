@@ -70,7 +70,7 @@ struct HostBuildConfiguration: BuildConfiguration {
     var languageVersion: VersionTuple { base.languageVersion }
     var compilerVersion: VersionTuple { base.compilerVersion }
 
-    func canImport(importPath: [(TokenSyntax, String)], version: CanImportVersion) throws -> Bool {
+    func canImport(importPath: [(TokenSyntax, String)], version _: CanImportVersion) throws -> Bool {
         let module = importPath.first?.1 ?? ""
         if Self.modulesPresent.contains(module) { return true }
         if Self.modulesAbsent.contains(module) { return false }
