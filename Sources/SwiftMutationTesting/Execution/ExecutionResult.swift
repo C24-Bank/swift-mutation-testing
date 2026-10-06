@@ -5,13 +5,15 @@ struct ExecutionResult: Sendable, Codable {
         status: ExecutionStatus,
         testDuration: Double,
         killerTestFile: String? = nil,
-        activated: Bool? = nil
+        activated: Bool? = nil,
+        fromCache: Bool = false
     ) {
         self.descriptor = descriptor
         self.status = status
         self.testDuration = testDuration
         self.killerTestFile = killerTestFile
         self.activated = activated
+        self.fromCache = fromCache
     }
 
     let descriptor: MutantDescriptor
@@ -19,4 +21,5 @@ struct ExecutionResult: Sendable, Codable {
     let testDuration: Double
     let killerTestFile: String?
     let activated: Bool?
+    let fromCache: Bool
 }

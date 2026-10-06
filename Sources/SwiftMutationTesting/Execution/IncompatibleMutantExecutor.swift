@@ -25,7 +25,7 @@ struct IncompatibleMutantExecutor: Sendable {
                 results.append(
                     ExecutionResult(
                         descriptor: mutant, status: cachedStatus, testDuration: 0, killerTestFile: killerTestFile,
-                        activated: await deps.cacheStore.activated(for: key)
+                        activated: await deps.cacheStore.activated(for: key), fromCache: true
                     ))
                 continue
             }

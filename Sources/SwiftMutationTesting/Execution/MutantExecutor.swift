@@ -227,7 +227,7 @@ struct MutantExecutor: Sendable {
             results.append(
                 ExecutionResult(
                     descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
-                    activated: await cacheStore.activated(for: key)
+                    activated: await cacheStore.activated(for: key), fromCache: true
                 ))
         }
 
