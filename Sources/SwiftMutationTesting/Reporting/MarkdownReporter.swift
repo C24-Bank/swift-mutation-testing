@@ -32,7 +32,7 @@ struct MarkdownReporter: Sendable {
         }
         if !summary.activationNotMeasured.isEmpty {
             lines.append("")
-            lines.append("Activation not measured: \(summary.activationNotMeasured.count) incompatible mutants")
+            lines.append("Activation not measured: \(GateResult.count(summary.activationNotMeasured.count, "mutant"))")
         }
 
         if let gate {

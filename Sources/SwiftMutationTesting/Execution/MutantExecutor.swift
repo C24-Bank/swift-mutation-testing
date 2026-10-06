@@ -189,7 +189,7 @@ struct MutantExecutor: Sendable {
         }
 
         results += try await runIncompatible(
-            deps: deps, mutants: incompatible + reroutedToIncompatible, pool: pool
+            deps: deps, mutants: incompatible + reroutedToIncompatible, pool: pool, importStyle: input.importStyle
         )
 
         return results
@@ -376,9 +376,10 @@ struct MutantExecutor: Sendable {
     private func runIncompatible(
         deps: ExecutionDeps,
         mutants: [MutantDescriptor],
-        pool: SimulatorPool
+        pool: SimulatorPool,
+        importStyle: ImportStyle
     ) async throws -> [ExecutionResult] {
-        try await IncompatibleMutantExecutor(deps: deps, sandboxFactory: SandboxFactory())
+        try await IncompatibleMutantExecutor(deps: deps, sandboxFactory: SandboxFactory(), importStyle: importStyle)
             .execute(mutants, configuration: configuration, pool: pool)
     }
 
