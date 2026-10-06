@@ -98,7 +98,7 @@ enum XcodeContainer: Sendable, Equatable {
 The container `xcodebuild` is given, resolved once in `ConfigurationResolver` and kept in `RunnerConfiguration.build.xcodeContainer`: `nil` for a package. `XcodeContainerLocator` decides it, the same way for every run and for `init`:
 
 1. `--workspace` / `--project` on the command line, else the `workspace` / `project` keys — the command line replaces the file's container as a whole; both kinds at once is a usage error. The path must exist under the root, with the right extension; it may be in a subdirectory.
-2. Otherwise the root: exactly one `.xcworkspace` is the container; else exactly one `.xcodeproj`; none is no container; more than one of the kind that decides is a usage error naming them all. A directory with two containers never runs with one chosen silently.
+2. Otherwise the root: exactly one `.xcworkspace` is the container; else exactly one `.xcodeproj`; more than one of the kind that decides is a usage error naming them all. With none at the root, the subdirectories are searched a few levels down (not bundles, hidden directories, `DerivedData`, `Pods`, `Carthage`, `node_modules`): anything found is a usage error suggesting it, since which subdirectory holds the app is the user's call; nothing found is no container. A directory with two containers never runs with one chosen silently, and a root with its project one level down never runs with none.
 3. A workspace whose `contents.xcworkspacedata` reaches a project outside the root (`group:../…`, resolved through nested groups) is a usage error: the sandbox only holds the root.
 
 Naming a container makes the run an Xcode run even beside a `Package.swift`, so `--scheme` is then required.
@@ -192,7 +192,7 @@ flowchart TD
 ```
 
 **Detection steps:**
-1. `XcodeContainerLocator` — the container a run would build, by the rules above. When it would choose none — several at the root, or a workspace reaching outside it — `DetectedProject` keeps the reason and the candidates, and no `xcodebuild -list` runs on a container picked at random
+1. `XcodeContainerLocator` — the container a run would build, by the rules above. When it would choose none — several at the root, a workspace reaching outside it, or containers only below the root (unless a `Package.swift` makes it a package) — `DetectedProject` keeps the reason and the candidates, and no `xcodebuild -list` runs on a container picked at random
 2. If chosen: `listProject` queries `xcodebuild -list` on it for schemes and test targets → `DetectedProject.xcode`, with `xcodeContainer` set; `ConfigurationFileWriter` writes it as `workspace:` or `project:`, or, with no choice, the reason and every candidate commented out
 3. If not found: `listSPMTestTargets` queries `swift package dump-package` for test targets → `DetectedProject.spm`
 4. `detectDestination` — scans the SDK settings of the project the container builds (the project itself, or the first one the workspace references) for iOS, tvOS, watchOS, visionOS or macOS

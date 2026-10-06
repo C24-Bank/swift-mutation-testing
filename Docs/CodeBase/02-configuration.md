@@ -196,11 +196,12 @@ enum XcodeContainerLocator {
     struct Candidates: Sendable, Equatable { let workspaces: [String]; let projects: [String] }
     static func locate(in root: URL, workspace: String?, project: String?) throws -> XcodeContainer?
     static func candidates(in root: URL) -> Candidates
+    static func nestedCandidates(in root: URL, depth: Int = 3) -> Candidates
     static func projects(referencedBy workspace: String, in root: URL) -> [String]
 }
 ```
 
-`locate` takes an explicit container after checking it exists under the root with the right extension, else decides from the root — one workspace, else one project, else none — and throws `UsageError` on two of a kind, on both flags at once, and on a workspace that references a project outside the root. `projects(referencedBy:)` reads `contents.xcworkspacedata` with `XMLParser`, resolving `group:`, `container:` and `absolute:` locations through nested groups. The rules are in [Architecture — Configuration](../Architecture/04-configuration.md#xcodecontainer).
+`locate` takes an explicit container after checking it exists under the root with the right extension, else decides from the root — one workspace, else one project — and throws `UsageError` on two of a kind, on both flags at once, on a workspace that references a project outside the root, and on a root with no container whose subdirectories have some (`nestedCandidates`, three levels, bundles, hidden and dependency directories skipped), which it lists as suggestions. `projects(referencedBy:)` reads `contents.xcworkspacedata` with `XMLParser`, resolving `group:`, `container:` and `absolute:` locations through nested groups. The rules are in [Architecture — Configuration](../Architecture/04-configuration.md#xcodecontainer).
 
 ---
 

@@ -59,7 +59,7 @@ A workspace — several projects, CocoaPods, or local packages next to the app �
 found App.xcworkspace and Tools.xcworkspace at the project root; pass --workspace (or the `workspace` key) to choose one
 ```
 
-Name the container with `--workspace` or `--project` (or the `workspace` / `project` keys), relative to the project root; it may sit in a subdirectory. `init` writes the one it finds, so the generated file runs as is.
+Name the container with `--workspace` or `--project` (or the `workspace` / `project` keys), relative to the project root; it may sit in a subdirectory. A root with no container of its own is never built blind either: when workspaces or projects sit below it, the run stops and lists them (`found Apps/App.xcworkspace … below it; pass --workspace or --project`). `init` writes the one it finds, so the generated file runs as is; when it cannot choose, it writes the reason and every candidate, commented out, for you to pick.
 
 ```bash
 swift-mutation-testing --workspace Apps/App.xcworkspace --scheme App --destination "platform=macOS"

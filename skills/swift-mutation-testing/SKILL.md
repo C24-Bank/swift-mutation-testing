@@ -27,7 +27,9 @@ If the project has no `.swift-mutation-testing.yml`, generate one:
 swift-mutation-testing init <project-path>
 ```
 
-`init` detects the project type, the scheme and destination (Xcode), the test target and the testing library. Read the generated file and check the scheme, the destination and `test-target` before running. Skip `init` when the file already exists: it holds the user's settings.
+`init` detects the project type, the scheme and destination (Xcode), the workspace or project to build, the test target and the testing library. Read the generated file and check the scheme, the destination and `test-target` before running. Skip `init` when the file already exists: it holds the user's settings.
+
+**Xcode workspaces.** An app with CocoaPods, several projects or local packages is a workspace, and it is built as one. The tool takes the single `.xcworkspace` (else the single `.xcodeproj`) at the project root. When there are two, or when the only ones sit in a subdirectory, it refuses to guess: the run stops naming the candidates, and `init` writes them commented out. Then ask the user which one the app is built from, and pass it with `--workspace App.xcworkspace` or `--project App.xcodeproj` (relative to the project root), or set the `workspace` / `project` key. Keep `Pods/` out of scope with `--exclude /Pods/` when it sits under the sources path. A workspace that references projects outside the project root cannot be run from that root; run from a directory that contains them all.
 
 Always write the JSON report, because the text summary is for people and the JSON is what you read:
 
