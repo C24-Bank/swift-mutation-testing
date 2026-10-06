@@ -54,7 +54,7 @@ struct PlannerTests {
         )
         #expect(plan.mutants.map(\.file) == ["Sources/A.swift", "Sources/B.swift", "Sources/B.swift"])
         #expect(
-            plan.mutants.map(\.operator) == [
+            plan.mutants.map(\.operatorIdentifier) == [
                 "BooleanLiteralReplacement", "LogicalOperatorReplacement", "BooleanLiteralReplacement",
             ]
         )

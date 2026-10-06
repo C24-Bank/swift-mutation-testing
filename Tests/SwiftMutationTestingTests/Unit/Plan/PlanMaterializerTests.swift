@@ -69,7 +69,8 @@ struct PlanMaterializerTests {
         let shifted = planned.mutants.map { mutant in
             Plan.Mutant(
                 fingerprint: mutant.fingerprint, file: mutant.file, utf8Start: mutant.utf8Start + 1,
-                utf8End: mutant.utf8End + 1, line: mutant.line, column: mutant.column, operator: mutant.operator,
+                utf8End: mutant.utf8End + 1, line: mutant.line, column: mutant.column,
+                operatorIdentifier: mutant.operatorIdentifier,
                 replacementKind: mutant.replacementKind, original: mutant.original, replacement: mutant.replacement,
                 description: mutant.description, schematizable: mutant.schematizable
             )
@@ -90,7 +91,7 @@ struct PlanMaterializerTests {
         defer { FileHelpers.cleanup(dir) }
         try Self.writeProject(in: dir)
         let plan = try await Planner().plan(input: Self.discoveryInput(for: dir)).plan
-        let logical = try #require(plan.mutants.first { $0.operator == "LogicalOperatorReplacement" })
+        let logical = try #require(plan.mutants.first { $0.operatorIdentifier == "LogicalOperatorReplacement" })
 
         let input = try await PlanMaterializer().materialize(
             plan: plan, projectPath: dir.path, execution: Self.execution, mutants: [logical]

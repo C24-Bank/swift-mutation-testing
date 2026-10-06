@@ -64,8 +64,8 @@ struct ShardSelectorTests {
                 mutants.append(
                     Plan.Mutant(
                         fingerprint: "\(file)-\(offset)", file: file, utf8Start: offset, utf8End: offset + 1, line: 1,
-                        column: offset + 1, operator: "SwapTernary", replacementKind: .swapTernary, original: "a",
-                        replacement: "b", description: "", schematizable: true
+                        column: offset + 1, operatorIdentifier: "SwapTernary", replacementKind: .swapTernary,
+                        original: "a", replacement: "b", description: "", schematizable: true
                     )
                 )
             }
