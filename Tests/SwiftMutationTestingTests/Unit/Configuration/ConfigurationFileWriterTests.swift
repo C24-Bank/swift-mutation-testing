@@ -60,6 +60,7 @@ struct ConfigurationFileWriterTests {
         #expect(content.contains("# baseline: .swift-mutation-testing-baseline.json"))
         #expect(content.contains("# max-score-drop: 2"))
         #expect(content.contains("# max-new-survivors: 0"))
+        #expect(content.contains("# max-integrity-warnings: 0"))
     }
 
     @Test("Given any project, when write called, then the SARIF and Markdown outputs are offered as comments")

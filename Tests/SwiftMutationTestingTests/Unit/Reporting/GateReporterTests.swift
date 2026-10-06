@@ -89,4 +89,18 @@ struct GateReporterTests {
         #expect(output.contains("  ℹ 2 new undetected mutants since the baseline"))
         #expect(output.contains("  ℹ 1 mutant detected now that were undetected in the baseline"))
     }
+
+    @Test("Given an integrity warning check, when formatted, then it counts the warnings against the maximum")
+    func formatsTheIntegrityWarningCheck() {
+        let result = GateResult(
+            checks: [.integrityWarnings(count: 2, maximum: 0), .integrityWarnings(count: 1, maximum: 1)],
+            newUndetected: [],
+            fixedCount: nil
+        )
+
+        let output = reporter.format(result)
+
+        #expect(output.contains("  ✗ 2 integrity warnings (max 0)"))
+        #expect(output.contains("  ✓ 1 integrity warning (max 1)"))
+    }
 }
