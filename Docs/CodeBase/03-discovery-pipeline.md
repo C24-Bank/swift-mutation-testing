@@ -103,7 +103,7 @@ Recursively enumerates the directory tree under `input.sourcesPath` using `FileM
 
 `/Tests/`, `/Mocks/`, `/Stubs/`, `/Fakes/`, `/TestHelpers/`, `/TestSupport/`, `Tests.swift`, `Mock.swift`, `Spec.swift`, `/.build/`, `/.swift-mutation-testing-derived-data/`, the cache directory, `/DerivedData/`, the package manifests `/Package.swift` and `/Package@swift-` — a manifest is build configuration, not product code, and a mutation in it changes the build of every mutant — and `/Snippets/`, SwiftPM's directory for documentation snippets, which no test runs
 
-Files matching any `excludePatterns` glob pattern are also excluded.
+Files matching any of `excludePatterns` are also excluded, through `ExcludePattern.matches`: a pattern with `*`, `?` or `[` is a glob, matched with `fnmatch(3)` without `FNM_PATHNAME` (so `*` and `**` cross directories) against the path relative to the project root, that path with a leading `/`, and the absolute path; any other pattern is a fragment the path must contain. Before, every pattern was a fragment, so the documented globs (`**/Generated/**`) matched nothing.
 
 Throws `FileDiscoveryError.sourcesPathNotFound` if `sourcesPath` does not exist, and `.sourcesPathNotSwift` if it is a file that is not Swift.
 
