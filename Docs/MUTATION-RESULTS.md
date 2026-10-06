@@ -162,7 +162,7 @@ score      = detected / (detected + undetected) × 100
 | No coverage | undetected | yes | no |
 | Unviable | — | **no** | no |
 
-Unviable mutants are excluded entirely — they are a property of the operators, not of the tests. When no mutant is detected or undetected the score is 100%.
+Unviable mutants are excluded entirely — they are a property of the operators, not of the tests. When no mutant is detected or undetected — every one unviable — the score is 100%. A run that discovers no mutant at all reports no score: it ends with exit code 1, since nothing was measured.
 
 The console and the HTML report print both sides under the score:
 
