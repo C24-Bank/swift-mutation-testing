@@ -687,23 +687,35 @@ Besides `results.json`, written when a run ends, the cache keeps a journal, `jou
 
 ## Suppressing Mutations
 
-Apply the `@SwiftMutationTestingDisabled` attribute to any function, type, or property to exclude all mutations within that scope.
+Two comment directives keep code out of the run. They are comments, so they need nothing declared and never affect your build.
 
 ```swift
-@SwiftMutationTestingDisabled
+// swift-mutation-testing:disable
 func legacyParser(_ input: String) -> Result {
-    // All mutations inside this function are suppressed
+    // No mutant anywhere in this function
 }
 
-@SwiftMutationTestingDisabled
+// swift-mutation-testing:disable — generated from the schema
 struct GeneratedModel {
-    // All mutations inside this type are suppressed
+    // No mutant anywhere in this type
+}
+
+func checksum(_ data: Data) -> UInt32 {
+    // swift-mutation-testing:disable-next-line
+    var hash: UInt32 = 0x811c9dc5   // no mutant on this line
+    ...
 }
 ```
 
-**Supported scopes:** functions, initializers, classes, structs, enums, extensions, stored properties.
+- `// swift-mutation-testing:disable`, in the comments right above a declaration, suppresses the whole declaration: functions, initializers, `deinit`, subscripts, classes, structs, enums, actors, extensions and properties. Attributes and doc comments may sit between it and the declaration.
+- `// swift-mutation-testing:disable-next-line`, on a line of its own or at the end of one, suppresses every mutant on the line that follows.
+- Anything after the directive, separated by a space, is a free-form reason. A comment that does not start with the exact directive — `disabled`, a `/* … */` block, the directive in the middle of a sentence — does nothing.
 
 Suppressed mutations never appear in the report — they are filtered out before execution.
+
+Earlier versions documented a `@SwiftMutationTestingDisabled` attribute. Swift rejects an attribute nothing declares, so it broke the build of any project that used it; the tool still honours it for projects that declared it themselves, but the comments are the way to suppress.
+
+For whole files or directories — generated or vendored code — use `--exclude` instead.
 
 Some code is never mutated without any annotation: test files, package manifests, `Snippets/`, and the branches of an `#if` the macOS build leaves out — `#if os(Windows)`, `#if os(Linux)`, `#if canImport(Glibc)`, the `#else` of `#if canImport(Darwin)`. A mutant there compiles to nothing and no test could reach it, so it would only inflate the survivor count. An `#if` on a module the tool does not know is kept whole.
 
