@@ -25,12 +25,19 @@ actor MarkerWritingLauncher: ProcessLaunching {
 
     private let full: Phase
     private let targeted: Phase?
+    private let rerun: Phase?
     private let activates: Set<String>?
+    private var fullRuns: [String: Int] = [:]
 
-    init(full: Phase, targeted: Phase? = nil, activates: Set<String>? = nil) {
+    init(full: Phase, targeted: Phase? = nil, rerun: Phase? = nil, activates: Set<String>? = nil) {
         self.full = full
         self.targeted = targeted
+        self.rerun = rerun
         self.activates = activates
+    }
+
+    func fullRuns(of mutantID: String) -> Int {
+        fullRuns[mutantID, default: 0]
     }
 
     func launch(
@@ -65,7 +72,13 @@ actor MarkerWritingLauncher: ProcessLaunching {
         }
 
         let isTargeted = request.arguments.contains("--filter")
-        let phase = isTargeted ? (targeted ?? full) : full
+        let phase: Phase
+        if isTargeted {
+            phase = targeted ?? full
+        } else {
+            phase = fullRuns[mutantID, default: 0] > 0 ? (rerun ?? full) : full
+            fullRuns[mutantID, default: 0] += 1
+        }
 
         let writesMarker = activates.map { $0.contains(mutantID) } ?? phase.writesMarker
         if writesMarker, let path = request.additionalEnvironment[ActivationMarker.environmentVariable] {
