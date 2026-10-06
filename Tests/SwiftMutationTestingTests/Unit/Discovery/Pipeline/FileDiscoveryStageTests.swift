@@ -356,4 +356,21 @@ struct FileDiscoveryStageTests {
             try stage.run(input: makeDiscoveryInput(projectPath: dir.path, sourcesPath: file))
         }
     }
+
+    @Test("Given the glob the docs and init suggest, when discovered, then the generated files are left out")
+    func theDocumentedGlobExcludes() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let generated = dir.appendingPathComponent("Sources/App/Generated")
+        try FileManager.default.createDirectory(at: generated, withIntermediateDirectories: true)
+        try FileHelpers.write("let a = 1", named: "Model.swift", in: generated)
+        try FileHelpers.write("let b = 2", named: "Main.swift", in: dir.appendingPathComponent("Sources/App"))
+
+        let result = try stage.run(
+            input: makeDiscoveryInput(
+                projectPath: dir.path, sourcesPath: dir.path, excludePatterns: ["**/Generated/**"])
+        )
+
+        #expect(result.map { URL(fileURLWithPath: $0.path).lastPathComponent } == ["Main.swift"])
+    }
 }
