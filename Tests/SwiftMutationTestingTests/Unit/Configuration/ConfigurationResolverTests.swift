@@ -343,7 +343,7 @@ struct ConfigurationResolverTests {
             fileValues: [:]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .default))
+        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .standard))
     }
 
     @Test("Given --operator-tier via CLI, when resolved, then the operators up to that tier run")

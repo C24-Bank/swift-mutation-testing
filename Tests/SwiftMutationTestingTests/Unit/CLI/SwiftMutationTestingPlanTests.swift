@@ -21,7 +21,7 @@ struct SwiftMutationTestingPlanTests {
         #expect(output.contains("Plan: \(planPath) (2 mutants in 1 files)"))
         let plan = try PlanStore().read(from: planPath)
         #expect(plan.mutants.count == 2)
-        #expect(plan.scope.operators == DiscoveryPipeline.operatorNames(upTo: .default))
+        #expect(plan.scope.operators == DiscoveryPipeline.operatorNames(upTo: .standard))
         #expect(plan.project.type == "spm")
     }
 

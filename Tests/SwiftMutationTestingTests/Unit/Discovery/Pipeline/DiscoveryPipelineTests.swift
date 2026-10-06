@@ -31,14 +31,16 @@ struct DiscoveryPipelineTests {
                 "LogicalOperatorReplacement", "NegateConditional", "SwapTernary",
             ]
         )
-        #expect(DiscoveryPipeline.operatorNames(upTo: .default) == DiscoveryPipeline.operatorNames(upTo: .conservative))
+        #expect(
+            DiscoveryPipeline.operatorNames(upTo: .standard) == DiscoveryPipeline.operatorNames(upTo: .conservative)
+        )
         #expect(DiscoveryPipeline.operatorNames(upTo: .experimental).count == 7)
     }
 
     @Test("Given each tier, when the operators up to it are listed, then the lower tier's set is inside the higher one's")
     func lowerTiersAreInsideHigherOnes() {
         let conservative = DiscoveryPipeline.operatorNames(upTo: .conservative)
-        let standard = DiscoveryPipeline.operatorNames(upTo: .default)
+        let standard = DiscoveryPipeline.operatorNames(upTo: .standard)
         let experimental = DiscoveryPipeline.operatorNames(upTo: .experimental)
 
         #expect(conservative.allSatisfy { standard.contains($0) })
