@@ -904,7 +904,9 @@ The shorter recipes below cover one piece each.
       --quiet
 
 - name: SonarQube scan
-  uses: SonarSource/sonarqube-scan-action@v2
+  uses: SonarSource/sonarqube-scan-action@v7
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   with:
     args: >
       -Dsonar.externalIssuesReportPaths=sonar.json
