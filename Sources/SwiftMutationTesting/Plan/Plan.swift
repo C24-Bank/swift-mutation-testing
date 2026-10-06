@@ -76,7 +76,7 @@ struct Plan: Sendable, Codable, Equatable {
         let utf8End: Int
         let line: Int
         let column: Int
-        let `operator`: String
+        let operatorIdentifier: String
         let replacementKind: ReplacementKind
         let original: String
         let replacement: String
@@ -87,5 +87,14 @@ struct Plan: Sendable, Codable, Equatable {
     /// The report id of the mutant at `index` of `mutants`, the same id the direct flow gives it.
     static func mutantID(at index: Int) -> String {
         "swift-mutation-testing_\(index)"
+    }
+}
+
+extension Plan.Mutant {
+    /// The plan's bytes keep the key `operator`, so a plan's hash does not change with the Swift name.
+    enum CodingKeys: String, CodingKey {
+        case fingerprint, file, utf8Start, utf8End, line, column
+        case operatorIdentifier = "operator"
+        case replacementKind, original, replacement, description, schematizable
     }
 }

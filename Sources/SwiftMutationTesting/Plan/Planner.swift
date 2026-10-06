@@ -37,7 +37,7 @@ struct Planner: Sendable {
                 utf8End: entry.mutation.utf8Offset + entry.mutation.originalText.utf8.count,
                 line: entry.mutation.line,
                 column: entry.mutation.column,
-                operator: entry.mutation.operatorIdentifier,
+                operatorIdentifier: entry.mutation.operatorIdentifier,
                 replacementKind: entry.mutation.replacement,
                 original: entry.mutation.originalText,
                 replacement: entry.mutation.mutatedText,

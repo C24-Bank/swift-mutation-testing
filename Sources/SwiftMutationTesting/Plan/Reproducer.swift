@@ -30,7 +30,7 @@ struct Reproducer: Sendable {
 
         let id = Plan.mutantID(at: index)
         StandardOutput.write(
-            "Reproducing \(id) (\(mutant.fingerprint)): \(mutant.operator) at \(mutant.file):\(mutant.line)"
+            "Reproducing \(id) (\(mutant.fingerprint)): \(mutant.operatorIdentifier) at \(mutant.file):\(mutant.line)"
         )
         StandardOutput.write("")
 
@@ -89,7 +89,7 @@ struct Reproducer: Sendable {
         let mutated = MutationRewriter().rewrite(
             source: original,
             applying: MutationPoint(
-                operatorIdentifier: mutant.operator, filePath: path, line: mutant.line, column: mutant.column,
+                operatorIdentifier: mutant.operatorIdentifier, filePath: path, line: mutant.line, column: mutant.column,
                 utf8Offset: mutant.utf8Start, originalText: mutant.original, mutatedText: mutant.replacement,
                 replacement: mutant.replacementKind, description: mutant.description
             )
