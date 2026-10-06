@@ -15,7 +15,17 @@ enum ExcludePattern {
         }
 
         let relative = ProjectRelativePath.make(for: path, in: projectPath)
-        return [relative, "/" + relative, path].contains { fnmatch(pattern, $0, 0) == 0 }
+        return [relative, "/" + relative, path].contains { candidate in glob(pattern, matches: candidate) }
+    }
+
+    /// `fnmatch(3)` with the C strings made explicitly: Swift 6.3 cannot infer the implicit `String` to
+    /// pointer conversion inside a closure passed to `contains`.
+    private static func glob(_ pattern: String, matches candidate: String) -> Bool {
+        pattern.withCString { cPattern in
+            candidate.withCString { cCandidate in
+                fnmatch(cPattern, cCandidate, 0) == 0
+            }
+        }
     }
 
     static func isGlob(_ pattern: String) -> Bool {
