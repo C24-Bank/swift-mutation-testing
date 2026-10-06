@@ -6,7 +6,7 @@ import Testing
 @Suite(.tags(.integration), .serialized, .notInsideAMutationRun)
 struct MutantExecutorSPMIntegrationTests {
 
-    @Test("Given SPM fixture with partial coverage, when executed, then killed and survived mutants match expected")
+    @Test("Given SPM fixture with partial coverage, when executed, then each verdict and its activation match")
     func spmFixtureResultsMatchExpected() async throws {
         let fixture = try FixtureCopy.make("CalcLibrary")
         defer { fixture.remove() }
@@ -26,9 +26,14 @@ struct MutantExecutorSPMIntegrationTests {
         let survived = results.filter { $0.status == .survived }
         let killedIDs = Set(killed.map { $0.descriptor.id })
 
-        #expect(killed.count == 3)
-        #expect(survived.count == 3)
-        #expect(killedIDs == Set(["m1", "m2", "m4"]))
+        let activation = Dictionary(uniqueKeysWithValues: results.map { ($0.descriptor.id, $0.activated) })
+
+        #expect(killed.count == 4)
+        #expect(survived.count == 2)
+        #expect(killedIDs == Set(["m1", "m2", "m4", "mi2"]))
+        #expect(results.first { $0.descriptor.id == "mi1" }?.status == .noCoverage)
+        #expect(activation["mi1"] == .some(false))
+        #expect(activation["mi2"] == .some(true))
     }
 
     @Test("Given SPM fixture, when executed, then original source files are not modified")
@@ -128,6 +133,7 @@ private func makeMutants(fixtureURL: URL) -> [MutantDescriptor] {
     return calculatorMutants(path: calculatorPath)
         + validatorMutants(path: validatorPath)
         + incompatibleMutants(path: logicPath)
+        + [incompatibleCalculatorMutant(path: calculatorPath)]
 }
 
 private func calculatorMutants(path: String) -> [MutantDescriptor] {
@@ -203,4 +209,19 @@ private func incompatibleMutants(path: String) -> [MutantDescriptor] {
             fingerprint: "fingerprint"
         )
     ]
+}
+
+private func incompatibleCalculatorMutant(path: String) -> MutantDescriptor {
+    let original = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+    return MutantDescriptor(
+        id: "mi2", filePath: path,
+        line: 2, column: 44, utf8Offset: 64,
+        originalText: "+", mutatedText: "-",
+        operatorIdentifier: "binaryOperator", replacementKind: .binaryOperator,
+        description: "Replace + with -",
+        isSchematizable: false,
+        mutatedSourceContent: original.replacingOccurrences(of: "a + b", with: "a - b"),
+        sourceContentHash: "test-hash",
+        fingerprint: "fingerprint"
+    )
 }
