@@ -758,8 +758,8 @@ struct CacheStoreTests {
         #expect(await store.activated(for: key) == nil)
     }
 
-    @Test("Given the activation was added to the format, when checked, then the format version is 2")
-    func formatVersionIsTwo() {
-        #expect(CacheStore.formatVersion == 2)
+    @Test("Given incompatible mutants now carry their activation, when checked, then the format version is 3")
+    func formatVersionIsThree() {
+        #expect(CacheStore.formatVersion == 3)
     }
 }

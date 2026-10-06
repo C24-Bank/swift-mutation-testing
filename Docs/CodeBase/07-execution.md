@@ -422,6 +422,7 @@ For each schematized file, creates a sandbox containing only that file's schemat
 struct IncompatibleMutantExecutor: Sendable {
     let deps: ExecutionDeps
     let sandboxFactory: SandboxFactory
+    var importStyle: ImportStyle = .implicit
 
     func execute(
         _ mutants: [MutantDescriptor],
@@ -432,6 +433,8 @@ struct IncompatibleMutantExecutor: Sendable {
 ```
 
 Handles mutants that cannot be schematized. Behaviour differs by project type.
+
+**Activation.** Both paths first build the copy `ActivationInstrumenter(importStyle:)` returns, and test it with an activation marker: the environment variable on the SPM path, the same name behind `TEST_RUNNER_` (`testRunnerPrefix`) on the Xcode path, since `xcodebuild` hands those to the test runner without the prefix. The result is classified like a schematized mutant's (`TestExecutionStage.classify`), and a kill without activation is tested once more, without a rebuild, and judged by that run. When the instrumented copy fails to build — not a timeout — the plain `mutatedSourceContent` is built and tested instead, unmeasured (`activated == nil`); the same holds when the instrumenter returns `nil`. `MutantExecutor` passes the input's `importStyle`, so the import the instrumenter adds matches the project's. The activation is cached with the verdict.
 
 **Xcode path:** Each mutant creates its own sandbox via `SandboxFactory.create(projectPath:mutatedFilePath:mutatedContent:)`. Runs sequentially with a full build + test cycle per mutant.
 
@@ -606,7 +609,7 @@ struct ExecutionResult: Sendable, Codable {
 | `status` | Outcome of the test run |
 | `testDuration` | Wall-clock seconds for the test-without-building invocation; `0` for cache hits |
 | `killerTestFile` | Source file path of the test that killed this mutant; `nil` for non-killed statuses and cache hits without metadata |
-| `activated` | Whether the mutated code ran: `true`, `false`, or `nil` when it was not measured — incompatible mutants, and unviable ones, which never ran |
+| `activated` | Whether the mutated code ran: `true`, `false`, or `nil` when it was not measured — a mutant the instrumenter could not reach or whose instrumented copy did not build, and unviable ones, which never ran |
 
 ---
 

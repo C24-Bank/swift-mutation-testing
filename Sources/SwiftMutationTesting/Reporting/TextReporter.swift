@@ -60,7 +60,7 @@ struct TextReporter: Sendable {
                 + " / NoCoverage: \(summary.noCoverage.count)"
         )
         if !summary.activationNotMeasured.isEmpty {
-            lines.append("Activation not measured: \(summary.activationNotMeasured.count) incompatible mutants")
+            lines.append("Activation not measured: \(GateResult.count(summary.activationNotMeasured.count, "mutant"))")
         }
         lines.append("Total duration: \(formattedDuration(summary.totalDuration))")
 

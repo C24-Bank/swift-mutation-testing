@@ -79,12 +79,19 @@ internal enum __SwiftMutationTesting_<hash> {
     nonisolated(unsafe) static var activationRecorded = false
 
     @usableFromInline nonisolated static func activated() { … }
+
+    @discardableResult @usableFromInline nonisolated static func activating<T>(_ value: T) -> T {
+        activated()
+        return value
+    }
 }
 
 @usableFromInline nonisolated internal var __swiftMutationTestingID_<hash>: String {
     __SwiftMutationTesting_<hash>.id
 }
 ```
+
+`activating(_:)` serves incompatible mutants, whose rewritten file gets the same block; see [Activation Marker](#activation-marker).
 
 Each piece of it is there for a reason:
 
@@ -137,9 +144,11 @@ What the marker decides:
 | a test failed, or the process crashed | written | `killed` / `killedByCrash` |
 | a test failed, or the process crashed | not written | run once more, alone; the second run decides, and a repeated kill stays, plus an integrity warning |
 | timed out | not written | unchanged, plus an integrity warning |
-| incompatible mutant | no `case` to instrument | unchanged; counted as "activation not measured" |
+| a mutant that could not be instrumented | no call in its code | unchanged; counted as "activation not measured" |
 
-A kill without activation is run a second time because a flaky test usually passes then; a kill that repeats is systematic, and the warning keeps its verdict and makes the anomaly visible. `--max-integrity-warnings` lets the quality gate fail on them. When mutants were killed and no mutant's code was ever seen running, the run stops instead (`IntegrityError.activationNeverObserved`): either the marker cannot be written here or the suite fails on its own, and every verdict is suspect.
+A kill without activation is run a second time because a flaky test usually passes then; a kill that repeats is systematic, and the warning keeps its verdict and makes the anomaly visible. `--max-integrity-warnings` lets the quality gate fail on them. **Incompatible mutants.** A mutant outside a function body has no `case` to start with the call, so `ActivationInstrumenter` puts the call in its code instead. The smallest whole expression around the mutation is wrapped in `__SwiftMutationTesting_<hash>.activating(…)`, a generic identity function that records the activation and returns its argument: `var timeout: Double = 60 - 1` becomes `var timeout: Double = __SwiftMutationTesting_<hash>.activating(60 - 1)`. A generic `T` keeps the literal's contextual type, and the operators are folded first, so in `flag && count - 1 > 2` only `count - 1` is wrapped and the marker means that operator ran. A removed statement is replaced by the call itself. Enum raw values, attribute and macro arguments and `#if` conditions cannot take a call, so those mutants stay unmeasured, and so does one whose instrumented copy fails to build: it is built again without the call, at the cost of a second build. The support block and, if needed, the Foundation import in the project's style are appended to the rewritten file, as for a schematized one. On the Xcode path the marker path reaches the tests as `TEST_RUNNER___SWIFT_MUTATION_TESTING_ACTIVATION_FILE`, which `xcodebuild` passes to the test runner without its prefix.
+
+When mutants were killed and no mutant's code was ever seen running, the run stops instead (`IntegrityError.activationNeverObserved`): either the marker cannot be written here or the suite fails on its own, and every verdict is suspect.
 
 ## Application Check
 

@@ -74,7 +74,7 @@ struct IntegrityReportingTests {
                 """
             )
         )
-        #expect(output.contains("Activation not measured: 1 incompatible mutants\nTotal duration:"))
+        #expect(output.contains("Activation not measured: 1 mutant\nTotal duration:"))
     }
 
     @Test("Given more warnings than are listed, when the text summary is formatted, then the rest are counted")
@@ -142,6 +142,6 @@ struct IntegrityReportingTests {
 
         let warning = "⚠️ Integrity warnings: 1 mutant killed or timed out without the mutated code running"
         #expect(output.contains(warning + "\n"))
-        #expect(output.contains("Activation not measured: 2 incompatible mutants"))
+        #expect(output.contains("Activation not measured: 2 mutants"))
     }
 }

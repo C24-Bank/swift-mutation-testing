@@ -203,6 +203,8 @@ flowchart TD
     WRITE --> SPM[SPMResultParser]
 ```
 
+**Activation:** each mutant is first built with a call that records when its mutated code runs, and tested with the activation marker, so an unreached survivor is `noCoverage` and a kill without activation is run once more, as on the schematized path. If that copy does not build, the plain mutant is built and tested unmeasured. See [Activation Marker](05-schematization.md#activation-marker).
+
 **Xcode path:** Each incompatible mutant creates its own sandbox via `SandboxFactory.create(projectPath:mutatedFilePath:mutatedContent:)`, which applies the single mutation directly without schematization. Runs sequentially, each with a full build + test cycle.
 
 **SPM path:** Uses warm sandboxes created via `SandboxFactory.createClean(projectPath:)` — a quarter of `--concurrency` of them, never fewer than one and never more than there are mutants — each built once up front so that every mutant after the first costs an incremental rebuild rather than a cold one. Mutants are dealt round-robin over the sandboxes that built; for each, the mutated source is written into its sandbox, the package is rebuilt and tested, and the original file restored. A sandbox whose warm build failed is left out, and only when none built are the mutants reported unviable with that build's output.
