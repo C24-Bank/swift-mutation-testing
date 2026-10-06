@@ -117,7 +117,7 @@ extension RunnerSummary {
 }
 ```
 
-`integrityWarnings` are the kills and timeouts whose mutated code never ran (`activated == false`); `activationNotMeasured` are the results with no measurement at all, which are the incompatible mutants that ran. `TextReporter` and `MarkdownReporter` print both.
+`integrityWarnings` are the kills and timeouts whose mutated code never ran (`activated == false`); `activationNotMeasured` are the results with no measurement at all, which are the incompatible mutants that could not be instrumented. `TextReporter` and `MarkdownReporter` print both.
 
 ### Reporting/ExecutionResult+ReportStatusReason.swift
 
@@ -160,7 +160,7 @@ Output sections:
 4. Overall score line
 5. Detection line (`RunnerSummary.detectionLine`)
 6. Total killed / survived / timeouts / unviable / noCoverage counts
-7. `Activation not measured: N incompatible mutants`, when N > 0
+7. `Activation not measured: N mutants`, when N > 0
 8. Total duration
 
 `format(_:)` is exposed separately for testing.

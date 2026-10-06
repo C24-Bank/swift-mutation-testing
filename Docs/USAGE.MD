@@ -542,7 +542,7 @@ duration:  2.25s
 <everything the test run printed>
 ```
 
-`activated` says whether the mutant's own code ran during that test run: `yes`, `no` (a passing suite is then reported as no coverage; a failing one is an [integrity warning](MUTATION-RESULTS.md#integrity-warnings)), or `not measured` for an incompatible mutant.
+`activated` says whether the mutant's own code ran during that test run: `yes`, `no` (a passing suite is then reported as no coverage; a failing one is an [integrity warning](MUTATION-RESULTS.md#integrity-warnings)), or `not measured` when the mutant could not be instrumented (see [No coverage](MUTATION-RESULTS.md#no-coverage--)).
 
 `Crash` is the verdict worth reaching for this first: it is reachable three separate ways — a fatal error, a bad instruction, or test output naming no failing test — and the verdict alone does not say which.
 
@@ -600,11 +600,11 @@ Survived mutants:
 Overall mutation score: 85.3%
 Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 18, no coverage 3)
 Killed: 122 / Survived: 18 / Timeouts: 0 / Unviable: 4 / NoCoverage: 3
-Activation not measured: 4 incompatible mutants
+Activation not measured: 1 mutant
 Total duration: 312.7s
 ```
 
-Between the survived mutants and the score, a run that killed or timed out mutants whose code never ran lists them under `Integrity warnings` — see [Mutation Results](MUTATION-RESULTS.md#integrity-warnings). `Activation not measured` appears when incompatible mutants ran: their code has no instrumentation, so a passing suite is reported as survived rather than no coverage.
+Between the survived mutants and the score, a run that killed or timed out mutants whose code never ran lists them under `Integrity warnings` — see [Mutation Results](MUTATION-RESULTS.md#integrity-warnings). `Activation not measured` counts the mutants that could not be instrumented, such as a mutation in an enum raw value or an attribute argument: for them a passing suite is reported as survived rather than no coverage.
 
 **Mutation score formula:**
 

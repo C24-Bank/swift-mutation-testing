@@ -158,12 +158,28 @@ enum SupportDeclarations {
     static func suffix(for path: String) -> String          // eight hex digits of SHA-256(path)
     static func identifier(for path: String) -> String      // "__swiftMutationTestingID_<suffix>"
     static func activationCall(for path: String) -> String  // "__SwiftMutationTesting_<suffix>.activated()"
+    static func activatingCall(for path: String) -> String  // "__SwiftMutationTesting_<suffix>.activating"
     static func importLine(_ style: ImportStyle) -> String     // "import Foundation" or "internal import Foundation"
     static func perFile(for path: String) -> String
 }
 ```
 
-The block `SchemataGenerator` appends to every file it changes, named after the file by `suffix(for:)`: a `@usableFromInline internal enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `@usableFromInline nonisolated internal var __swiftMutationTestingID_<suffix>` that returns the id. `identifier(for:)` is the name the generator writes after `switch`, `activationCall(for:)` the text of the call it writes into each `case`. The block carries no import: the generator writes `importLine(_:)` above it only when the file does not already import Foundation, in the project's style.
+The block `SchemataGenerator` appends to every file it changes, named after the file by `suffix(for:)`: a `@usableFromInline internal enum` whose `nonisolated static let id` reads `__SWIFT_MUTATION_TESTING_ACTIVE` from the environment once and whose `activated()` creates the file named by `__SWIFT_MUTATION_TESTING_ACTIVATION_FILE` the first time it is called (`activationRecorded` makes every later call a bool read), and a `@usableFromInline nonisolated internal var __swiftMutationTestingID_<suffix>` that returns the id. The enum also has `activating<T>(_:)`, `@discardableResult`, which calls `activated()` and returns its argument; `ActivationInstrumenter` wraps the expressions of incompatible mutants in it. `identifier(for:)` is the name the generator writes after `switch`, `activationCall(for:)` the text of the call it writes into each `case`, and `activatingCall(for:)` the name of the wrapper. The block carries no import: the generator writes `importLine(_:)` above it only when the file does not already import Foundation, in the project's style.
+
+## Discovery/Schematization/ActivationInstrumenter.swift
+
+```swift
+struct ActivationInstrumenter: Sendable {
+    let importStyle: ImportStyle
+    func instrument(_ mutant: MutantDescriptor) -> String?
+}
+```
+
+Returns the mutant's `mutatedSourceContent` with a call that records activation, followed by `SupportDeclarations.perFile(for:)` and, when the file does not import Foundation, `importLine(importStyle)` above it. `IncompatibleMutantExecutor` builds this copy first.
+
+- **An expression mutation** is wrapped whole: the file is parsed, its operators folded with `OperatorTable.standardOperators`, and from the token at `utf8Offset` the first enclosing expression that covers the whole mutated text and can stand as an argument is wrapped in `activatingCall(for:)`. An operator, an assignment, an arrow, `&x`, a type or a pattern cannot, so the search goes on to its parent; folding makes that parent the operator's own `InfixOperatorExprSyntax`, not the whole sequence. The search stops at the statement or member that holds the mutation.
+- **A removed statement** (`.removeStatement`) gets `activationCall(for:)` in its place.
+- **`nil`**, leaving the mutant unmeasured, when there is no content, no expression qualifies, or the mutation is inside an attribute, a macro expansion, an enum case (a raw value must stay a literal), or an `#if` condition.
 
 ## Discovery/Schematization/ImportStyle.swift
 
