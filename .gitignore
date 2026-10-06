@@ -2,6 +2,8 @@
 .swift-marshal-cache/
 .swift-cpd-cache/
 .build/
+.scannerwork/
+coverage
 Notes/
 Makefile
 

@@ -194,9 +194,15 @@ struct ProcessRunner: Sendable {
     }
 
     private func track(_ process: Process) {
-        processGroups.register(process.processIdentifier)
-        if !process.isRunning {
-            processGroups.deregister(process.processIdentifier)
+        Self.track(process.processIdentifier, isRunning: { process.isRunning }, in: processGroups)
+    }
+
+    /// Registers the group so an interrupt can kill it, and takes it back at once if the process already ended:
+    /// its termination handler may have run before the registration.
+    static func track(_ pid: pid_t, isRunning: () -> Bool, in processGroups: ProcessGroupRegistry) {
+        processGroups.register(pid)
+        if !isRunning() {
+            processGroups.deregister(pid)
         }
     }
 }

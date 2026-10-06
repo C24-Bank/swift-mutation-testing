@@ -22,7 +22,7 @@ struct Plan: Sendable, Codable, Equatable {
 }
 ```
 
-`Project.projectType` turns the strings back into a `ProjectType`, `nil` for a type this version does not know. The mutant at index `i` of `mutants` has the report id `mutantID(at: i)`, the same id a plain run gives it, since both order mutants by file and offset.
+In Swift the mutant's operator is `Mutant.operatorIdentifier`, encoded under the key `operator` so the plan's bytes, and its hash, stay the same. `Project.projectType` turns the strings back into a `ProjectType`, `nil` for a type this version does not know. The mutant at index `i` of `mutants` has the report id `mutantID(at: i)`, the same id a plain run gives it, since both order mutants by file and offset.
 
 ## Plan/PlanStore.swift
 

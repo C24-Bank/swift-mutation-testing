@@ -62,7 +62,7 @@ struct ReproducerTests {
     static func input(for dir: URL) -> DiscoveryInput {
         makeDiscoveryInput(
             projectPath: dir.path, projectType: .spm, sourcesPath: dir.path,
-            operators: DiscoveryPipeline.operatorNames(upTo: .default)
+            operators: DiscoveryPipeline.operatorNames(upTo: .standard)
         )
     }
 }

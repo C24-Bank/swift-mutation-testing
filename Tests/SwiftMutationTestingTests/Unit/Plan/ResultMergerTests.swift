@@ -93,18 +93,18 @@ struct ResultMergerTests {
     static let mutants = [
         Plan.Mutant(
             fingerprint: "f0", file: "Sources/A.swift", utf8Start: 0, utf8End: 1, line: 1, column: 1,
-            operator: "SwapTernary", replacementKind: .swapTernary, original: "a", replacement: "b", description: "",
-            schematizable: true
+            operatorIdentifier: "SwapTernary", replacementKind: .swapTernary, original: "a", replacement: "b",
+            description: "", schematizable: true
         ),
         Plan.Mutant(
             fingerprint: "f1", file: "Sources/A.swift", utf8Start: 5, utf8End: 6, line: 2, column: 1,
-            operator: "SwapTernary", replacementKind: .swapTernary, original: "a", replacement: "b", description: "",
-            schematizable: true
+            operatorIdentifier: "SwapTernary", replacementKind: .swapTernary, original: "a", replacement: "b",
+            description: "", schematizable: true
         ),
         Plan.Mutant(
             fingerprint: "f2", file: "Sources/B.swift", utf8Start: 0, utf8End: 1, line: 1, column: 1,
-            operator: "NegateConditional", replacementKind: .wrapWithNegation, original: "a", replacement: "!a",
-            description: "", schematizable: false
+            operatorIdentifier: "NegateConditional", replacementKind: .wrapWithNegation, original: "a",
+            replacement: "!a", description: "", schematizable: false
         ),
     ]
 
@@ -125,7 +125,7 @@ struct ResultMergerTests {
                     id: Plan.mutantID(at: plan.mutants.firstIndex(of: mutant) ?? 0),
                     filePath: dir.appendingPathComponent(mutant.file).path, line: mutant.line, column: mutant.column,
                     utf8Offset: mutant.utf8Start, originalText: mutant.original, mutatedText: mutant.replacement,
-                    operatorIdentifier: mutant.operator, fingerprint: mutant.fingerprint
+                    operatorIdentifier: mutant.operatorIdentifier, fingerprint: mutant.fingerprint
                 ),
                 status: status, testDuration: 0.1, activated: activated
             )

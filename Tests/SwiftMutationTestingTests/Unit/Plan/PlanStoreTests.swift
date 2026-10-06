@@ -20,6 +20,14 @@ struct PlanStoreTests {
         #expect(text.contains("Sources/A.swift") && !text.contains("\\/"))
     }
 
+    @Test("Given a mutant in a plan, when encoded, then its operator is still under the key 'operator'")
+    func theOperatorKeepsItsKeyInThePlan() throws {
+        let text = String(decoding: try PlanStore.encode(Self.plan), as: UTF8.self)
+
+        #expect(text.contains("\"operator\" : \"RelationalOperatorReplacement\""))
+        #expect(!text.contains("operatorIdentifier"))
+    }
+
     @Test("Given no file, when read, then the error says so")
     func aMissingPlanIsReported() throws {
         let path = "/tmp/xmr-no-plan-\(UUID().uuidString).json"
@@ -64,7 +72,7 @@ struct PlanStoreTests {
         mutants: [
             Plan.Mutant(
                 fingerprint: "3f2a", file: "Sources/A.swift", utf8Start: 10, utf8End: 11, line: 2, column: 5,
-                operator: "RelationalOperatorReplacement", replacementKind: .binaryOperator, original: "<",
+                operatorIdentifier: "RelationalOperatorReplacement", replacementKind: .binaryOperator, original: "<",
                 replacement: "<=", description: "< → <=", schematizable: true
             )
         ]

@@ -201,11 +201,8 @@ public struct SwiftMutationTesting {
     private static func reproduce(
         _ options: ParsedArguments.PlanOptions, configuration: RunnerConfiguration, launcher: (any ProcessLaunching)?
     ) async throws -> ExitCode {
-        guard let reference = options.mutant else {
-            throw UsageError(
-                message: "reproduce needs a mutant: a fingerprint or an id such as swift-mutation-testing_12")
-        }
-
+        // The parser refuses `reproduce` without a mutant, so the reference is always there.
+        let reference = options.mutant ?? ""
         var configuration = configuration
         let plan: Plan
         if let path = options.path {

@@ -44,7 +44,7 @@ struct PlanMaterializer: Sendable {
             return IndexedMutationPoint(
                 index: index,
                 mutation: MutationPoint(
-                    operatorIdentifier: mutant.operator,
+                    operatorIdentifier: mutant.operatorIdentifier,
                     filePath: source.file.path,
                     line: mutant.line,
                     column: mutant.column,
@@ -122,7 +122,7 @@ struct PlanMaterializer: Sendable {
             utf8Offset: mutant.utf8Start,
             originalText: mutant.original,
             mutatedText: mutant.replacement,
-            operatorIdentifier: mutant.operator,
+            operatorIdentifier: mutant.operatorIdentifier,
             replacementKind: mutant.replacementKind,
             description: mutant.description,
             isSchematizable: mutant.schematizable,

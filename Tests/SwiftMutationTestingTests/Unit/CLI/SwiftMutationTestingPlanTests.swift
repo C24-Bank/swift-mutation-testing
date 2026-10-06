@@ -21,7 +21,7 @@ struct SwiftMutationTestingPlanTests {
         #expect(output.contains("Plan: \(planPath) (2 mutants in 1 files)"))
         let plan = try PlanStore().read(from: planPath)
         #expect(plan.mutants.count == 2)
-        #expect(plan.scope.operators == DiscoveryPipeline.operatorNames(upTo: .default))
+        #expect(plan.scope.operators == DiscoveryPipeline.operatorNames(upTo: .standard))
         #expect(plan.project.type == "spm")
     }
 
@@ -178,6 +178,43 @@ struct SwiftMutationTestingPlanTests {
         #expect(result == .success)
         #expect(output.contains("Reproducing swift-mutation-testing_0"))
         #expect(output.contains("Verdict: "))
+    }
+
+    @Test("Given the reproduce command with a plan, when run, then the mutant is taken from that plan")
+    func reproduceWithAPlan() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+        let planPath = dir.appendingPathComponent("plan.json").path
+        _ = await SwiftMutationTesting.run(args: ["plan", dir.path, "--output", planPath, "--quiet"])
+
+        var result: ExitCode = .error
+        let output = await captureOutput {
+            result = await SwiftMutationTesting.run(
+                args: ["reproduce", "swift-mutation-testing_0", dir.path, "--plan", planPath],
+                launcher: MockProcessLauncher(exitCode: 1)
+            )
+        }
+        let sandboxes = output.split(separator: "\n").filter { $0.hasPrefix("Sandbox: ") }.map {
+            String($0.dropFirst(9))
+        }
+        defer { for sandbox in sandboxes { try? FileManager.default.removeItem(atPath: sandbox) } }
+
+        #expect(result == .success)
+        #expect(output.contains("Reproducing swift-mutation-testing_0"))
+    }
+
+    @Test("Given the merge command without a plan, when run, then it fails before reading any result")
+    func mergeNeedsThePlan() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try Self.writeProject(in: dir)
+
+        let result = await SwiftMutationTesting.run(
+            args: ["merge", dir.appendingPathComponent("one.json").path, "--project-path", dir.path]
+        )
+
+        #expect(result == .error)
     }
 
     @Test("Given the reproduce command with an unknown mutant, when run, then it fails")

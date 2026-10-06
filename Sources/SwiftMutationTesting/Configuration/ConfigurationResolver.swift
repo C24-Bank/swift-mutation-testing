@@ -181,7 +181,7 @@ struct ConfigurationResolver: Sendable {
 
     private func resolvedOperatorTier(cli: ParsedArguments, fileValues: [String: String]) throws -> OperatorTier {
         guard let raw = cli.filter.operatorTier ?? fileValues["operator-tier"] else {
-            return .default
+            return .standard
         }
 
         guard let tier = OperatorTier(rawValue: raw) else {
@@ -236,7 +236,7 @@ struct ConfigurationResolver: Sendable {
     private func number<Value: LosslessStringConvertible>(
         _ raw: String?,
         key: String,
-        as type: Value.Type
+        as _: Value.Type
     ) throws -> Value? {
         guard let raw else { return nil }
         guard let value = Value(raw) else {

@@ -30,7 +30,7 @@ struct Reproducer: Sendable {
 
         let id = Plan.mutantID(at: index)
         StandardOutput.write(
-            "Reproducing \(id) (\(mutant.fingerprint)): \(mutant.operator) at \(mutant.file):\(mutant.line)"
+            "Reproducing \(id) (\(mutant.fingerprint)): \(mutant.operatorIdentifier) at \(mutant.file):\(mutant.line)"
         )
         StandardOutput.write("")
 
@@ -46,13 +46,17 @@ struct Reproducer: Sendable {
         StandardOutput.write(Self.testOutput(of: id, in: logs))
         StandardOutput.write("")
 
+        let (line, exit) = Self.verdict(of: results)
+        StandardOutput.write(line)
+        return exit
+    }
+
+    static func verdict(of results: [ExecutionResult]) -> (line: String, exit: ExitCode) {
         guard let result = results.first else {
-            StandardOutput.write("Verdict: none — the mutant was not run")
-            return .error
+            return ("Verdict: none — the mutant was not run", .error)
         }
         let reason = result.reportStatusReason ?? result.status.mutationReportStatusReason
-        StandardOutput.write("Verdict: \(Self.describe(result.status))" + (reason.map { " (\($0))" } ?? ""))
-        return .success
+        return ("Verdict: \(describe(result.status))" + (reason.map { " (\($0))" } ?? ""), .success)
     }
 
     /// A report id (`swift-mutation-testing_12`), a full fingerprint, or a prefix of one that fits one mutant.
@@ -81,7 +85,7 @@ struct Reproducer: Sendable {
             .appendingPathComponent(mutant.fingerprint)
     }
 
-    private static func diff(of mutant: Plan.Mutant, in projectPath: String) -> String {
+    static func diff(of mutant: Plan.Mutant, in projectPath: String) -> String {
         let path = PlanMaterializer.absolute(mutant.file, in: projectPath)
         guard let original = try? String(contentsOfFile: path, encoding: .utf8) else {
             return "--- \(mutant.file):\(mutant.line): \(mutant.original) → \(mutant.replacement)"
@@ -89,7 +93,7 @@ struct Reproducer: Sendable {
         let mutated = MutationRewriter().rewrite(
             source: original,
             applying: MutationPoint(
-                operatorIdentifier: mutant.operator, filePath: path, line: mutant.line, column: mutant.column,
+                operatorIdentifier: mutant.operatorIdentifier, filePath: path, line: mutant.line, column: mutant.column,
                 utf8Offset: mutant.utf8Start, originalText: mutant.original, mutatedText: mutant.replacement,
                 replacement: mutant.replacementKind, description: mutant.description
             )

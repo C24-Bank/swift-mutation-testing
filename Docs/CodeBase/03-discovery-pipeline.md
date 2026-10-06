@@ -50,14 +50,14 @@ When `input.operators` is empty, all seven operators are active; a run resolved 
 ```swift
 enum OperatorTier: String, Sendable, CaseIterable, Comparable {
     case conservative
-    case `default`
+    case standard = "default"
     case experimental
 
     static let usage: String
 }
 ```
 
-The three tiers, ordered: `conservative < default < experimental`. A tier selects the operators up to it, so `conservative` is the smallest set and `experimental` holds every operator. `usage` is the `UsageError` message for a name that is no tier.
+The three tiers, ordered: `conservative < standard < experimental`. The middle one is `default` to users (`--operator-tier default`); the case is `standard` in Swift, where `default` is a keyword. A tier selects the operators up to it, so `conservative` is the smallest set and `experimental` holds every operator. `usage` is the `UsageError` message for a name that is no tier.
 
 ---
 
