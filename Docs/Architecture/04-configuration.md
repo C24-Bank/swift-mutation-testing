@@ -71,7 +71,7 @@ RunnerConfiguration
 │   └── quiet             — suppress progress output (default: false)
 └── filter: FilterOptions
     ├── sourcesPath       — root directory for source file discovery (default: projectPath)
-    ├── excludePatterns   — glob patterns for files to exclude
+    ├── excludePatterns   — globs or path fragments for files to exclude
     └── operators         — active mutation operator identifiers
 ```
 

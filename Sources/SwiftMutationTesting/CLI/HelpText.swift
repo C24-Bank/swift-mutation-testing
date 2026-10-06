@@ -44,7 +44,8 @@ enum HelpText {
           --keep-logs <directory>       Write each mutant's captured test output to <directory>
           --quiet                       Suppress progress output
           --sources-path <path>         Root directory to discover Swift source files (default: project path)
-          --exclude <pattern>           Exclude files matching pattern (repeatable)
+          --exclude <pattern>           Leave out files matching a glob (**/Generated/**) or containing a
+                                        path fragment (/Generated/) (repeatable)
           --operator-tier <tier>        Run the operators up to this tier: conservative, default or
                                         experimental (default: default)
           --operator <id>               Run only this operator, whatever its tier (repeatable)

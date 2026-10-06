@@ -31,7 +31,7 @@ Collects Swift source files under the configured sources path.
 | Input | `DiscoveryInput` — project path, sources path, exclude patterns |
 | Output | `[SourceFile]` — path + raw text content |
 
-Traverses the directory tree recursively. Excludes files matching any `--exclude` glob pattern and files located under paths that contain `Tests`, `Specs`, `.build`, or similar test-only indicators. Each discovered file is read into a `SourceFile` value.
+Traverses the directory tree recursively. Excludes files matching any `--exclude` pattern — a glob against the path relative to the project root, or a fragment of the path — and files located under paths that contain `Tests`, `Specs`, `.build`, or similar test-only indicators. Each discovered file is read into a `SourceFile` value.
 
 ### ParsingStage
 
@@ -127,7 +127,7 @@ DiscoveryInput
 ├── projectPath       — project root (Xcode or SPM)
 ├── projectType       — ProjectType (.xcode or .spm)
 ├── sourcesPath       — root for Swift file discovery
-├── excludePatterns   — glob patterns to skip
+├── excludePatterns   — globs or path fragments to skip
 ├── operators         — list of active operator identifiers
 └── timeout, concurrency, noCache
 
