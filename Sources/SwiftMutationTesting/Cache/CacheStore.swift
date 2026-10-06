@@ -44,13 +44,19 @@ actor CacheStore {
 
     struct CacheMetadata: Codable, Sendable {
 
-        init(testFileHashes: [String: String], formatVersion: Int = CacheStore.formatVersion) {
+        init(
+            testFileHashes: [String: String],
+            testSelection: CacheTestSelection? = nil,
+            formatVersion: Int = CacheStore.formatVersion
+        ) {
             self.formatVersion = formatVersion
             self.testFileHashes = testFileHashes
+            self.testSelection = testSelection
         }
 
         let formatVersion: Int
         let testFileHashes: [String: String]
+        let testSelection: CacheTestSelection?
     }
 
     func result(for key: MutantCacheKey) -> ExecutionStatus? {
@@ -223,6 +229,21 @@ actor CacheStore {
         entries.removeValue(forKey: key)
         killerTestFiles.removeValue(forKey: key)
         activations.removeValue(forKey: key)
+    }
+
+    /// Forgets every verdict when the cache was made against another test selection — another target, testing
+    /// library, scheme, destination or container — and returns whether it did.
+    @discardableResult
+    func discard(unlessMadeWith selection: CacheTestSelection) throws -> Bool {
+        guard let stored = try loadMetadata(), stored.testSelection != selection, !entries.isEmpty else {
+            return false
+        }
+
+        entries = [:]
+        killerTestFiles = [:]
+        activations = [:]
+        try? FileManager.default.removeItem(atPath: journalPath)
+        return true
     }
 
     func changedTestFiles(current: [String: String]) throws -> TestFileDiff {

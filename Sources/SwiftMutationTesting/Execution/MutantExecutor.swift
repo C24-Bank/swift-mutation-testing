@@ -107,12 +107,21 @@ struct MutantExecutor: Sendable {
         )
         try await cacheStore.load()
 
+        let selection = CacheTestSelection(configuration.build)
+        if try await cacheStore.discard(unlessMadeWith: selection) {
+            fputs(
+                "Note: the cache was made against other tests (another target, testing library, scheme or "
+                    + "destination); every mutant will be tested again.\n",
+                stderr
+            )
+        }
+
         let hasher = TestFilesHasher()
         let currentTestHashes = hasher.hashPerFile(projectPath: input.projectPath)
         let diff = try await cacheStore.changedTestFiles(current: currentTestHashes)
         await cacheStore.invalidate(diff: diff)
 
-        let metadata = CacheStore.CacheMetadata(testFileHashes: currentTestHashes)
+        let metadata = CacheStore.CacheMetadata(testFileHashes: currentTestHashes, testSelection: selection)
         return (cacheStore, metadata, hasher)
     }
 
@@ -218,7 +227,7 @@ struct MutantExecutor: Sendable {
             results.append(
                 ExecutionResult(
                     descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
-                    activated: await cacheStore.activated(for: key)
+                    activated: await cacheStore.activated(for: key), fromCache: true
                 ))
         }
 

@@ -791,7 +791,9 @@ struct MutantExecutorTests {
         await cacheStore.store(status: .killed(by: "SomeTest"), for: cacheKey, killerTestFile: "Tests/SomeTest.swift")
         try await cacheStore.persist()
 
-        let metadata = CacheStore.CacheMetadata(testFileHashes: [:])
+        let metadata = CacheStore.CacheMetadata(
+            testFileHashes: [:], testSelection: CacheTestSelection(makeRunnerConfiguration(projectPath: dir.path).build)
+        )
         try await cacheStore.persistMetadata(metadata)
 
         let executor = MutantExecutor(
@@ -838,7 +840,10 @@ struct MutantExecutorTests {
         await cacheStore.store(status: .survived, for: cacheKey)
         try await cacheStore.persist()
 
-        let metadata = CacheStore.CacheMetadata(testFileHashes: ["Tests/FooTests.swift": "old-hash"])
+        let metadata = CacheStore.CacheMetadata(
+            testFileHashes: ["Tests/FooTests.swift": "old-hash"],
+            testSelection: CacheTestSelection(makeRunnerConfiguration(projectPath: dir.path).build)
+        )
         try await cacheStore.persistMetadata(metadata)
 
         let executor = MutantExecutor(
@@ -894,7 +899,9 @@ struct MutantExecutorTests {
         await cacheStore.store(status: .killed(by: "T"), for: MutantCacheKey.make(for: mutantB))
         try await cacheStore.persist()
 
-        let metadata = CacheStore.CacheMetadata(testFileHashes: [:])
+        let metadata = CacheStore.CacheMetadata(
+            testFileHashes: [:], testSelection: CacheTestSelection(makeRunnerConfiguration(projectPath: dir.path).build)
+        )
         try await cacheStore.persistMetadata(metadata)
 
         let executor = MutantExecutor(

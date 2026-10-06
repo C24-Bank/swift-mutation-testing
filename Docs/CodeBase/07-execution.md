@@ -600,6 +600,7 @@ struct ExecutionResult: Sendable, Codable {
     let testDuration: Double
     let killerTestFile: String?
     let activated: Bool?
+    let fromCache: Bool
 }
 ```
 
@@ -610,6 +611,7 @@ struct ExecutionResult: Sendable, Codable {
 | `testDuration` | Wall-clock seconds for the test-without-building invocation; `0` for cache hits |
 | `killerTestFile` | Source file path of the test that killed this mutant; `nil` for non-killed statuses and cache hits without metadata |
 | `activated` | Whether the mutated code ran: `true`, `false`, or `nil` when it was not measured — a mutant the instrumenter could not reach or whose instrumented copy did not build, and unviable ones, which never ran |
+| `fromCache` | `true` when the verdict was replayed from the cache rather than tested in this run; counted by the summaries' `Verdicts from cache` line |
 
 ---
 

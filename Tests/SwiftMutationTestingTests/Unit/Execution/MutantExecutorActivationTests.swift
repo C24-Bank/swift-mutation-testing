@@ -98,6 +98,7 @@ struct MutantExecutorActivationTests {
         #expect(results.map(\.status) == [.noCoverage])
         #expect(results.map(\.activated) == [false])
         #expect(results.map(\.testDuration) == [0])
+        #expect(results.map(\.fromCache) == [true])
     }
 
     // MARK: - Helpers

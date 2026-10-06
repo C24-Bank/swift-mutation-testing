@@ -34,6 +34,10 @@ struct MarkdownReporter: Sendable {
             lines.append("")
             lines.append("Activation not measured: \(GateResult.count(summary.activationNotMeasured.count, "mutant"))")
         }
+        if let cacheLine = summary.cacheLine {
+            lines.append("")
+            lines.append(cacheLine)
+        }
 
         if let gate {
             lines.append(contentsOf: gateSection(gate))

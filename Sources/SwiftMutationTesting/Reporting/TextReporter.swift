@@ -62,6 +62,9 @@ struct TextReporter: Sendable {
         if !summary.activationNotMeasured.isEmpty {
             lines.append("Activation not measured: \(GateResult.count(summary.activationNotMeasured.count, "mutant"))")
         }
+        if let cacheLine = summary.cacheLine {
+            lines.append(cacheLine)
+        }
         lines.append("Total duration: \(formattedDuration(summary.totalDuration))")
 
         return lines.joined(separator: "\n")

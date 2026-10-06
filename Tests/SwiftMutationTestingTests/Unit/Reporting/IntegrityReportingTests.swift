@@ -144,4 +144,30 @@ struct IntegrityReportingTests {
         #expect(output.contains(warning + "\n"))
         #expect(output.contains("Activation not measured: 2 mutants"))
     }
+
+    @Test("Given verdicts from the cache, when the summaries are formatted, then they say how many")
+    func summariesCountCachedVerdicts() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(id: "1", status: .killed(by: "t"), activated: true, fromCache: true),
+                makeExecutionResult(id: "2", status: .killed(by: "t"), activated: true),
+            ],
+            totalDuration: 0
+        )
+
+        let text = TextReporter().format(summary)
+        let markdown = MarkdownReporter(outputPath: "/unused", projectRoot: "/p").format(summary)
+
+        #expect(text.contains("Verdicts from cache: 1 of 2\nTotal duration:"))
+        #expect(markdown.contains("Verdicts from cache: 1 of 2"))
+    }
+
+    @Test("Given no verdict from the cache, when the text summary is formatted, then no cache line is added")
+    func noCacheLineWithoutCachedVerdicts() {
+        let summary = RunnerSummary(
+            results: [makeExecutionResult(status: .killed(by: "t"), activated: true)], totalDuration: 0
+        )
+
+        #expect(!TextReporter().format(summary).contains("from cache"))
+    }
 }
