@@ -1,6 +1,6 @@
 enum OperatorTier: String, Sendable, CaseIterable, Comparable {
     case conservative
-    case `default`
+    case standard = "default"
     case experimental
 
     static let usage = "--operator-tier must be 'conservative', 'default' or 'experimental'"
@@ -12,7 +12,7 @@ enum OperatorTier: String, Sendable, CaseIterable, Comparable {
     private var rank: Int {
         switch self {
         case .conservative: 0
-        case .default: 1
+        case .standard: 1
         case .experimental: 2
         }
     }

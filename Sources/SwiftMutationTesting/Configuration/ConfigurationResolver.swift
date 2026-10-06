@@ -181,7 +181,7 @@ struct ConfigurationResolver: Sendable {
 
     private func resolvedOperatorTier(cli: ParsedArguments, fileValues: [String: String]) throws -> OperatorTier {
         guard let raw = cli.filter.operatorTier ?? fileValues["operator-tier"] else {
-            return .default
+            return .standard
         }
 
         guard let tier = OperatorTier(rawValue: raw) else {
