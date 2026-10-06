@@ -76,6 +76,17 @@ struct IncompatibleMutantExecutorActivationTests {
         #expect(results.map(\.activated) == [true])
     }
 
+    @Test("Given an Xcode kill without activation that passes when run again, when executed, then the rerun decides")
+    func anXcodeKillWithoutActivationIsRunAgain() async throws {
+        let (results, launcher) = try await execute(
+            projectType: .xcode(scheme: "App", destination: "platform=macOS"),
+            testRuns: [.fails("flaky()", writesMarker: false), .passes(writesMarker: false)]
+        )
+
+        #expect(results.map(\.status) == [.noCoverage])
+        #expect(await launcher.testEnvironments.count == 2)
+    }
+
     // MARK: - Helpers
 
     private func execute(
