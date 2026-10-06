@@ -138,7 +138,8 @@ public struct SwiftMutationTesting {
     private static func writePlan(configuration: RunnerConfiguration, to path: String) async throws -> ExitCode {
         let start = Date()
         let planned = try await Planner().plan(
-            input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget
+            input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget,
+            container: configuration.build.xcodeContainer
         )
         try PlanStore().write(planned.plan, to: path)
 
@@ -199,7 +200,8 @@ public struct SwiftMutationTesting {
             configuration = try configuration.applying(plan)
         } else {
             plan = try await Planner().plan(
-                input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget
+                input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget,
+                container: configuration.build.xcodeContainer
             ).plan
         }
 
@@ -327,7 +329,8 @@ public struct SwiftMutationTesting {
         }
 
         let made = try await Planner().plan(
-            input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget
+            input: discoveryInput(for: configuration), testTarget: configuration.build.testTarget,
+            container: configuration.build.xcodeContainer
         )
         let input = try PlanMaterializer().materialize(
             plan: made.plan, projectPath: configuration.projectPath, sources: made.sources, execution: execution

@@ -321,7 +321,7 @@ struct IncompatibleMutantExecutor: Sendable {
                     "-scheme", scheme,
                     "-destination", slot.destination,
                     "-derivedDataPath", derivedDataPath,
-                ],
+                ] + (configuration.build.xcodeContainer?.arguments ?? []),
                 sandbox: sandbox,
                 timeout: configuration.build.buildTimeout
             )
@@ -336,14 +336,15 @@ struct IncompatibleMutantExecutor: Sendable {
             )
         }
 
-        var testArguments = [
-            "test-without-building",
-            "-scheme", scheme,
-            "-destination", slot.destination,
-            "-derivedDataPath", derivedDataPath,
-            "-resultBundlePath", xcresultPath,
-            "-parallel-testing-enabled", "NO",
-        ]
+        var testArguments =
+            [
+                "test-without-building",
+                "-scheme", scheme,
+                "-destination", slot.destination,
+                "-derivedDataPath", derivedDataPath,
+                "-resultBundlePath", xcresultPath,
+                "-parallel-testing-enabled", "NO",
+            ] + (configuration.build.xcodeContainer?.arguments ?? [])
 
         if let testTarget = configuration.build.testTarget {
             testArguments += ["-only-testing", testTarget]

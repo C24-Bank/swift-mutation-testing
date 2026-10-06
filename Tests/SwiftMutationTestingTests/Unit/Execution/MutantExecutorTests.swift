@@ -1164,7 +1164,9 @@ struct MutantExecutorTests {
 
     // MARK: - Testing libraries
 
-    @Test("Given a bundle with no XCTest tests, when mutants run, then the XCTest pass is probed once and skipped for every mutant")
+    @Test(
+        "Given a bundle with no XCTest tests, when mutants run, then the XCTest pass is probed once and skipped for every mutant"
+    )
     func emptyXCTestLibraryIsSkippedAfterOneProbe() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
@@ -1361,5 +1363,27 @@ struct MutantExecutorTests {
 
         #expect(results.map(\.status) == [.survived])
         #expect(await launcher.filters == [nil])
+    }
+
+    @Test("Given a workspace container, when the shared build runs, then xcodebuild is given the workspace")
+    func theSharedBuildUsesTheContainer() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+        var configuration = makeRunnerConfiguration(projectPath: dir.path)
+        configuration.build.xcodeContainer = .workspace("Apps/App.xcworkspace")
+        let launcher = RecordingProcessLauncher(responses: [(0, "")])
+
+        _ = try? await MutantExecutor(configuration: configuration, launcher: launcher).execute(
+            makeRunnerInput(
+                projectPath: dir.path,
+                schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+                mutants: [makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)]
+            )
+        )
+
+        let build = try #require(await launcher.recorded(commandStartingWith: "build-for-testing"))
+        #expect(build.arguments.suffix(2) == ["-workspace", "Apps/App.xcworkspace"])
     }
 }

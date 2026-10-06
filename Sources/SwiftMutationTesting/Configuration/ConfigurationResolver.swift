@@ -28,10 +28,15 @@ struct ConfigurationResolver: Sendable {
             testingFramework: testingFramework
         )
 
+        let xcodeContainer = try resolveXcodeContainer(
+            cli: cliArguments, fileValues: fileValues, projectType: projectType, projectPath: projectPath
+        )
+
         return RunnerConfiguration(
             projectPath: projectPath,
             build: .init(
                 projectType: projectType,
+                xcodeContainer: xcodeContainer,
                 testTarget: cliArguments.build.testTarget ?? fileValues["test-target"],
                 timeout: timeout,
                 buildTimeout: buildTimeout,
@@ -81,7 +86,8 @@ struct ConfigurationResolver: Sendable {
         let scheme = cliArguments.build.scheme ?? fileValues["scheme"]
         let destination = cliArguments.build.destination ?? fileValues["destination"]
 
-        if scheme == nil && destination == nil && hasSPMPackage(at: projectPath) {
+        let namesContainer = Self.containerFlags(cli: cliArguments, fileValues: fileValues) != (nil, nil)
+        if scheme == nil && destination == nil && !namesContainer && hasSPMPackage(at: projectPath) {
             return .spm
         }
 
@@ -94,6 +100,26 @@ struct ConfigurationResolver: Sendable {
         }
 
         return .xcode(scheme: scheme, destination: destination)
+    }
+
+    /// The command line's container wins over the file's, as a whole: `--project` replaces a `workspace` key.
+    private static func containerFlags(
+        cli: ParsedArguments, fileValues: [String: String]
+    ) -> (workspace: String?, project: String?) {
+        if cli.build.workspace != nil || cli.build.xcodeProject != nil {
+            return (cli.build.workspace, cli.build.xcodeProject)
+        }
+        return (fileValues["workspace"], fileValues["project"])
+    }
+
+    private func resolveXcodeContainer(
+        cli: ParsedArguments, fileValues: [String: String], projectType: ProjectType, projectPath: String
+    ) throws -> XcodeContainer? {
+        guard case .xcode = projectType else { return nil }
+        let (workspace, project) = Self.containerFlags(cli: cli, fileValues: fileValues)
+        return try XcodeContainerLocator.locate(
+            in: URL(fileURLWithPath: projectPath), workspace: workspace, project: project
+        )
     }
 
     private func hasSPMPackage(at projectPath: String) -> Bool {

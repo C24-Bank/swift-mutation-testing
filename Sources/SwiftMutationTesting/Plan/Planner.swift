@@ -10,7 +10,9 @@ struct Planner: Sendable {
         let sources: [ParsedSource]
     }
 
-    func plan(input: DiscoveryInput, testTarget: String? = nil) async throws -> Planned {
+    func plan(
+        input: DiscoveryInput, testTarget: String? = nil, container: XcodeContainer? = nil
+    ) async throws -> Planned {
         let sourceFiles = try FileDiscoveryStage().run(input: input)
         let parsedSources = await ParsingStage().run(sourceFiles: sourceFiles)
         let operators = DiscoveryPipeline.operators(named: input.operators)
@@ -47,7 +49,7 @@ struct Planner: Sendable {
         let plan = Plan(
             formatVersion: Plan.formatVersion,
             toolVersion: Version.number,
-            project: Plan.Project(type: input.projectType, testTarget: testTarget),
+            project: Plan.Project(type: input.projectType, testTarget: testTarget, container: container),
             scope: Plan.Scope(
                 sourcesPath: Self.relative(input.sourcesPath, to: input.projectPath),
                 excludePatterns: input.excludePatterns,

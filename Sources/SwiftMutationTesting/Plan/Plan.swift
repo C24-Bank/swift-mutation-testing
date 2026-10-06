@@ -20,8 +20,12 @@ struct Plan: Sendable, Codable, Equatable {
         let scheme: String?
         let destination: String?
         let testTarget: String?
+        /// The `.xcworkspace` or `.xcodeproj` the plan was made for, relative to the root; absent for a
+        /// package and for an Xcode root without one, so such plans keep their bytes.
+        var workspace: String?
+        var xcodeProject: String?
 
-        init(type: ProjectType, testTarget: String?) {
+        init(type: ProjectType, testTarget: String?, container: XcodeContainer? = nil) {
             switch type {
             case .spm:
                 self.type = "spm"
@@ -33,6 +37,15 @@ struct Plan: Sendable, Codable, Equatable {
                 self.destination = destination
             }
             self.testTarget = testTarget
+            switch container {
+            case .workspace(let path): workspace = path
+            case .project(let path): xcodeProject = path
+            case nil: break
+            }
+        }
+
+        var xcodeContainer: XcodeContainer? {
+            workspace.map(XcodeContainer.workspace) ?? xcodeProject.map(XcodeContainer.project)
         }
 
         var projectType: ProjectType? {

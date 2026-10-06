@@ -339,4 +339,43 @@ struct ConfigurationFileWriterTests {
             try writer.write(to: dir.path, project: .empty)
         }
     }
+
+    @Test("Given a detected workspace, when written, then the file names it so the run needs no flag")
+    func theContainerIsWritten() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        var project = DetectedProject(
+            kind: .xcode(scheme: "App", allSchemes: ["App"], destination: "platform=macOS"), testTarget: nil
+        )
+        project.xcodeContainer = .workspace("App.xcworkspace")
+
+        try writer.write(to: dir.path, project: project)
+
+        let content = try String(contentsOf: dir.appendingPathComponent(".swift-mutation-testing.yml"), encoding: .utf8)
+        #expect(content.contains("\nworkspace: App.xcworkspace\n"))
+        let values = try ConfigurationFileParser().parse(at: dir.path)
+        #expect(values["workspace"] == "App.xcworkspace")
+        #expect(values["project"] == nil)
+    }
+
+    @Test("Given several containers and none chosen, when written, then the reason and every candidate are commented")
+    func ambiguityIsWrittenAsComments() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        var project = DetectedProject(
+            kind: .xcode(scheme: nil, allSchemes: [], destination: "platform=macOS"), testTarget: nil
+        )
+        project.containerNote = "found A.xcworkspace and B.xcworkspace at the project root"
+        project.containerCandidates = [
+            .workspace("A.xcworkspace"), .workspace("B.xcworkspace"), .project("A.xcodeproj"),
+        ]
+
+        try writer.write(to: dir.path, project: project)
+
+        let content = try String(contentsOf: dir.appendingPathComponent(".swift-mutation-testing.yml"), encoding: .utf8)
+        #expect(content.contains("# No workspace or project was chosen: found A.xcworkspace and B.xcworkspace"))
+        #expect(content.contains("# workspace: A.xcworkspace\n# workspace: B.xcworkspace\n# project: A.xcodeproj"))
+        let values = try ConfigurationFileParser().parse(at: dir.path)
+        #expect(values["workspace"] == nil)
+    }
 }

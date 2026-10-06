@@ -27,7 +27,7 @@ struct PlanShardMergeIntegrationTests {
         let mergedPath = merger.url.appendingPathComponent("merged.json").path
         let merge = await SwiftMutationTesting.run(
             args: ["merge"] + shards + [
-                "--plan", planPath, "--project", merger.url.path, "--output", mergedPath, "--quiet",
+                "--plan", planPath, "--project-path", merger.url.path, "--output", mergedPath, "--quiet",
             ]
         )
         #expect(merge == .success)

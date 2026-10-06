@@ -74,15 +74,15 @@ struct CommandLineParserTests {
         #expect(throws: UsageError.self) { try parser.parse(["merge", "--plan", "p.json"]) }
     }
 
-    @Test("Given merge with --project, when parsed, then it is the project path; elsewhere it is refused")
+    @Test("Given merge with --project-path, when parsed, then it is the project path; elsewhere it is refused")
     func mergeTakesAProject() throws {
-        let result = try parser.parse(["merge", "a.json", "--plan", "p.json", "--project", "/my/project"])
+        let result = try parser.parse(["merge", "a.json", "--plan", "p.json", "--project-path", "/my/project"])
 
         #expect(result.projectPath == "/my/project")
         #expect(result.plan.results == ["a.json"])
         #expect(try parser.parse(["merge", "a.json", "--plan", "p.json"]).projectPath == ".")
-        #expect(throws: UsageError.self) { try parser.parse(["run", "--project", "/my/project"]) }
-        #expect(throws: UsageError.self) { try parser.parse(["plan", "--project", "/my/project"]) }
+        #expect(throws: UsageError.self) { try parser.parse(["run", "--project-path", "/my/project"]) }
+        #expect(throws: UsageError.self) { try parser.parse(["plan", "--project-path", "/my/project"]) }
     }
 
     @Test("Given the reproduce command, when parsed, then the mutant and the project path are read")
@@ -335,5 +335,12 @@ struct CommandLineParserTests {
         ])
 
         #expect(result.filter.disabledMutators == ["RemoveSideEffects", "SwapTernary"])
+    }
+
+    @Test("Given --workspace or --project, when parsed, then each is kept as the Xcode container")
+    func containerFlags() throws {
+        #expect(try parser.parse(["--workspace", "Apps/App.xcworkspace"]).build.workspace == "Apps/App.xcworkspace")
+        #expect(try parser.parse(["--project", "App.xcodeproj"]).build.xcodeProject == "App.xcodeproj")
+        #expect(try parser.parse(["plan", "--project", "App.xcodeproj"]).build.xcodeProject == "App.xcodeproj")
     }
 }

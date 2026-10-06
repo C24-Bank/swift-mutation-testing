@@ -306,4 +306,42 @@ struct SandboxFactoryTests {
         #expect(entries == ["File.swift"])
     }
 
+    @Test(
+        "Given a workspace whose projects sit in subdirectories, when sandboxed, then every project's SwiftLint phase is off"
+    )
+    func disablesSwiftLintInEveryProject() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+        let projects = ["App.xcodeproj", "Core/Core.xcodeproj", "Libs/Net/Net.xcodeproj", "Pods/Pods.xcodeproj"]
+        for project in projects {
+            let dir = projectDir.appendingPathComponent(project)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try swiftLintPbxprojContent().write(
+                to: dir.appendingPathComponent("project.pbxproj"), atomically: true, encoding: .utf8
+            )
+        }
+
+        let sandbox = try await factory.create(projectPath: projectDir.path, schematizedFiles: [])
+        defer { try? sandbox.cleanup() }
+
+        for project in projects {
+            let data = try Data(contentsOf: sandbox.rootURL.appendingPathComponent("\(project)/project.pbxproj"))
+            var format = PropertyListSerialization.PropertyListFormat.xml
+            let plist =
+                try PropertyListSerialization.propertyList(from: data, options: [], format: &format) as? [String: Any]
+            let lintPhase = (plist?["objects"] as? [String: Any])?["AABBCC"] as? [String: Any]
+            let script = lintPhase?["shellScript"] as? String
+            if project.hasPrefix("Pods/") {
+                #expect(script != "exit 0\n", "Pods/ is not looked into")
+            } else {
+                #expect(script == "exit 0\n", "\(project)")
+            }
+        }
+        let root = CanonicalPath.make(for: sandbox.rootURL.path)
+        #expect(
+            SandboxFactory.xcodeprojs(in: sandbox.rootURL).map {
+                String(CanonicalPath.make(for: $0.path).dropFirst(root.count + 1))
+            } == ["App.xcodeproj", "Core/Core.xcodeproj", "Libs/Net/Net.xcodeproj"]
+        )
+    }
 }

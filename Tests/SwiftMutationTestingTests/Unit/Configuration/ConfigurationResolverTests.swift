@@ -5,7 +5,7 @@ import Testing
 
 @Suite("ConfigurationResolver")
 struct ConfigurationResolverTests {
-    private let resolver = ConfigurationResolver()
+    private let resolver = IsolatedResolver()
 
     @Test("Given CLI scheme and destination, when resolved, then projectType is xcode with CLI values")
     func usesCLIValues() throws {
@@ -112,7 +112,7 @@ struct ConfigurationResolverTests {
 
     @Test("Given build-timeout only in file, when resolved, then configuration uses it")
     func buildTimeoutFromFile() throws {
-        let result = try ConfigurationResolver().resolve(
+        let result = try resolver.resolve(
             cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d")),
             fileValues: ["build-timeout": "240"]
         )
@@ -122,7 +122,7 @@ struct ConfigurationResolverTests {
 
     @Test("Given build-timeout in both CLI and file, when resolved, then CLI takes priority")
     func buildTimeoutCLIWinsOverFile() throws {
-        let result = try ConfigurationResolver().resolve(
+        let result = try resolver.resolve(
             cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d", buildTimeout: 90)),
             fileValues: ["build-timeout": "240"]
         )
@@ -130,9 +130,11 @@ struct ConfigurationResolverTests {
         #expect(result.build.buildTimeout == 90)
     }
 
-    @Test("Given no build-timeout anywhere, when resolved, then the build default is applied and test timeout is untouched")
+    @Test(
+        "Given no build-timeout anywhere, when resolved, then the build default is applied and test timeout is untouched"
+    )
     func buildTimeoutFallsBackToDefault() throws {
-        let result = try ConfigurationResolver().resolve(
+        let result = try resolver.resolve(
             cliArguments: ParsedArguments(build: .init(scheme: "App", destination: "d", timeout: 30)),
             fileValues: [:]
         )
@@ -415,7 +417,8 @@ struct ConfigurationResolverTests {
         #expect(result.filter.operators == ["NegateConditional"])
     }
 
-    @Test("Given --disable-mutator via CLI and disabled-mutators in file, when resolved, then both leave the tier's set")
+    @Test(
+        "Given --disable-mutator via CLI and disabled-mutators in file, when resolved, then both leave the tier's set")
     func cliAndFileDisabledMutatorsAreBothRemoved() throws {
         let result = try resolver.resolve(
             cliArguments: ParsedArguments(
@@ -455,11 +458,9 @@ struct ConfigurationResolverTests {
 
     @Test("Given empty project path, when resolved, then uses current directory")
     func emptyProjectPathUsesCurrentDirectory() throws {
+        // The working directory is this package: resolved as one, it needs no Xcode container.
         let result = try resolver.resolve(
-            cliArguments: ParsedArguments(
-                projectPath: "",
-                build: .init(scheme: "App", destination: "d")
-            ),
+            cliArguments: ParsedArguments(projectPath: ""),
             fileValues: [:]
         )
 
@@ -594,19 +595,19 @@ struct ConfigurationResolverTests {
         defer { FileHelpers.cleanup(dir) }
 
         try """
-            scheme: App
-            destination: platform=macOS
-            timeout: 30
-            build-timeout: 240
-            """
-            .write(
-                to: dir.appendingPathComponent(".swift-mutation-testing.yml"),
-                atomically: true,
-                encoding: .utf8
-            )
+        scheme: App
+        destination: platform=macOS
+        timeout: 30
+        build-timeout: 240
+        """
+        .write(
+            to: dir.appendingPathComponent(".swift-mutation-testing.yml"),
+            atomically: true,
+            encoding: .utf8
+        )
 
         let fileValues = try ConfigurationFileParser().parse(at: dir.path)
-        let result = try ConfigurationResolver().resolve(
+        let result = try resolver.resolve(
             cliArguments: ParsedArguments(projectPath: dir.path),
             fileValues: fileValues
         )
@@ -638,5 +639,25 @@ struct ConfigurationResolverTests {
 
         #expect(result.reporting.sarifOutput == "cli.sarif")
         #expect(result.reporting.markdownOutput == "cli.md")
+    }
+}
+
+/// Resolves as `ConfigurationResolver` does, from an empty root when the arguments name none.
+///
+/// These tests leave the project path at `.`, the working directory — this repository, whose fixtures hold
+/// Xcode projects below the root, which an Xcode run now refuses to guess between.
+private struct IsolatedResolver {
+    static let emptyRoot: String = {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("swift-mutation-testing-empty-root")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url.path
+    }()
+
+    func resolve(cliArguments: ParsedArguments, fileValues: [String: String]) throws -> RunnerConfiguration {
+        var arguments = cliArguments
+        if arguments.projectPath == "." {
+            arguments.projectPath = Self.emptyRoot
+        }
+        return try ConfigurationResolver().resolve(cliArguments: arguments, fileValues: fileValues)
     }
 }

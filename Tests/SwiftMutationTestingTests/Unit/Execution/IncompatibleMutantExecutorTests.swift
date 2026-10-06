@@ -725,7 +725,9 @@ struct IncompatibleMutantExecutorTests {
         #expect(await deps.cacheStore.result(for: MutantCacheKey.make(for: mutant)) == nil)
     }
 
-    @Test("Given SPM incompatible mutants, when execute called, then builds use the build timeout and tests use the test timeout")
+    @Test(
+        "Given SPM incompatible mutants, when execute called, then builds use the build timeout and tests use the test timeout"
+    )
     func spmIncompatibleBuildsUseBuildTimeout() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
@@ -771,7 +773,9 @@ struct IncompatibleMutantExecutorTests {
         #expect(testTimeouts.allSatisfy { $0 == 30 })
     }
 
-    @Test("Given the shared build succeeds but a per-mutant build times out, then that mutant is timeout and is not cached")
+    @Test(
+        "Given the shared build succeeds but a per-mutant build times out, then that mutant is timeout and is not cached"
+    )
     func perMutantBuildTimeoutIsNotRecordedAsUnviable() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
@@ -930,5 +934,34 @@ struct IncompatibleMutantExecutorTests {
                 fingerprint: "fingerprint"
             )
         }
+    }
+
+    @Test(
+        "Given a project container, when an incompatible mutant is built and tested, then both calls name the project")
+    func incompatibleBuildsUseTheContainer() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = 1".write(to: sourceFile, atomically: true, encoding: .utf8)
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+        let launcher = RecordingProcessLauncher(responses: [(0, ""), (0, "")])
+        var configuration = makeRunnerConfiguration(projectPath: dir.path)
+        configuration.build.xcodeContainer = .project("Core/Core.xcodeproj")
+        let mutant = makeMutantDescriptor(
+            id: "m0", filePath: sourceFile.path, originalText: "1", mutatedText: "2",
+            operatorIdentifier: "ArithmeticOperatorReplacement", description: "1 → 2", isSchematizable: false,
+            mutatedSourceContent: "let x = 2"
+        )
+
+        _ = try await IncompatibleMutantExecutor(
+            deps: makeExecutionDeps(launcher: launcher, cacheStorePath: dir.appendingPathComponent("cache.json").path),
+            sandboxFactory: SandboxFactory()
+        ).execute([mutant], configuration: configuration, pool: pool)
+
+        let build = try #require(await launcher.recorded(commandStartingWith: "build-for-testing"))
+        let test = try #require(await launcher.recorded(commandStartingWith: "test-without-building"))
+        #expect(build.arguments.suffix(2) == ["-project", "Core/Core.xcodeproj"])
+        #expect(test.arguments.suffix(2) == ["-project", "Core/Core.xcodeproj"])
     }
 }

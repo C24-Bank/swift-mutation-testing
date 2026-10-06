@@ -49,7 +49,7 @@ Creates an isolated copy of the project in `$TMPDIR/swift-mutation-testing/xmr-<
 - For `.xcodeproj`: creates fresh `xcuserdata`, copies `xcshareddata`, symlinks everything else
 - For source files in `schematizedFiles`: writes the schematized content directly
 - For all other files: creates symlinks to the originals (fast, space-efficient)
-- Disables SwiftLint `PBXShellScriptBuildPhase` entries by patching `project.pbxproj`
+- Disables SwiftLint `PBXShellScriptBuildPhase` entries by patching the `project.pbxproj` of **every** `.xcodeproj` in the sandbox, at any depth — a workspace's projects included; `.build`, `DerivedData` and `Pods/` are not looked into
 - Inserts `break` statements into empty `switch case` bodies to prevent compiler errors in schematized code
 
 The original project is never touched. Cleanup removes the entire `xmr-*` directory when execution completes.
@@ -79,7 +79,7 @@ Runs a single build for all schematizable mutants.
 ```mermaid
 flowchart TD
     A{ProjectType?}
-    A -- .xcode --> B[xcodebuild build-for-testing\n-scheme -destination\n-derivedDataPath]
+    A -- .xcode --> B[xcodebuild build-for-testing\n-scheme -destination\n-derivedDataPath\n-workspace or -project]
     A -- .spm --> C[swift build --build-tests]
     B --> D{Exit code?}
     C --> D
@@ -89,7 +89,9 @@ flowchart TD
 
 | | |
 |---|---|
-| Input | `Sandbox`, project type, timeout |
+| Input | `Sandbox`, project type, the resolved `XcodeContainer`, timeout |
+
+The container's relative path is passed as `-workspace` or `-project`, from the sandbox root. The same arguments go to the per-mutant `xcodebuild` calls of `IncompatibleMutantExecutor`, which used to pass none and so built whatever `xcodebuild` found on its own.
 | Output | `BuildArtifact` — derived data path + `.xctestrun` URL (Xcode) or sandbox path (SPM) |
 
 `BuildError` conforms to `LocalizedError`, providing structured error descriptions. `MutantExecutor` catches `BuildError.compilationFailed` and delegates to `FallbackExecutor` for per-file rebuilds rather than aborting. Any other thrown error propagates up.

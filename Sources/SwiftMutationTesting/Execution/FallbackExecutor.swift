@@ -43,6 +43,7 @@ struct FallbackExecutor: Sendable {
             do {
                 artifact = try await BuildStage(launcher: deps.launcher).build(
                     sandbox: sandbox,
+                    container: configuration.build.xcodeContainer,
                     scheme: scheme,
                     destination: destination,
                     timeout: configuration.build.buildTimeout

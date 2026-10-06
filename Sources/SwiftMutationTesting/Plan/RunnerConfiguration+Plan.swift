@@ -10,6 +10,7 @@ extension RunnerConfiguration {
         var configuration = self
         configuration.build.projectType = projectType
         configuration.build.testTarget = plan.project.testTarget
+        configuration.build.xcodeContainer = plan.project.xcodeContainer
         configuration.filter.sourcesPath = PlanMaterializer.absolute(plan.scope.sourcesPath, in: projectPath)
         configuration.filter.excludePatterns = plan.scope.excludePatterns
         configuration.filter.operators = plan.scope.operators
