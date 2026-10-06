@@ -3,5 +3,5 @@ struct FunctionBodyScope: Sendable {
     let bodyEndOffset: Int
     let statementsStartOffset: Int
     let statementsEndOffset: Int
-    var shape: FunctionBodyShape = .statements
+    var shape: FunctionBodyShape
 }
