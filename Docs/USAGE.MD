@@ -210,7 +210,7 @@ mutators:
 | `quiet` | Boolean | `false` | Suppress progress output |
 | `output` | String | — | Path for Stryker-compatible JSON report |
 | `html-output` | String | — | Path for interactive HTML report |
-| `sonar-output` | String | — | Path for SonarQube generic coverage report |
+| `sonar-output` | String | — | Path for a SonarQube generic issue import report: undetected mutants as issues, read with `sonar.externalIssuesReportPaths` |
 | `sarif-output` | String | — | Path for the SARIF 2.1.0 report of undetected mutants |
 | `markdown-output` | String | — | Path for a Markdown summary, for CI job summaries |
 | `keep-logs` | String | — | Directory for per-mutant test output logs, and for `baseline.log` when the unmutated suite fails |
@@ -314,7 +314,7 @@ swift-mutation-testing [project-path] [options]
 | `--keep-logs <dir>` | Write each mutant's captured test output to `<dir>/<mutant-id>.log`, and a failing baseline's output to `<dir>/baseline.log` |
 | `--output <path>` | Write Stryker-compatible JSON report |
 | `--html-output <path>` | Write interactive HTML report |
-| `--sonar-output <path>` | Write SonarQube generic coverage report |
+| `--sonar-output <path>` | Write a SonarQube generic issue import report (import it with `sonar.externalIssuesReportPaths`, not as coverage) |
 | `--sarif-output <path>` | Write a SARIF 2.1.0 report of undetected mutants |
 | `--markdown-output <path>` | Write a Markdown summary of the run and the quality gate |
 | `--sources-path <path>` | Directory for source discovery, or a single `.swift` file — the quick way to re-check one file after adding a test. The usual exclusions still apply |
@@ -904,7 +904,9 @@ The shorter recipes below cover one piece each.
       --quiet
 
 - name: SonarQube scan
-  uses: SonarSource/sonarqube-scan-action@v2
+  uses: SonarSource/sonarqube-scan-action@v7
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   with:
     args: >
       -Dsonar.externalIssuesReportPaths=sonar.json

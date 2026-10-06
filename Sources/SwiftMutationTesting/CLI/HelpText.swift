@@ -38,7 +38,7 @@ enum HelpText {
           --no-cache                    Disable the result cache — nothing is read or written
           --output <json-path>          Write mutation report JSON to path
           --html-output <html-path>     Write HTML report to path
-          --sonar-output <json-path>    Write Sonar Generic Coverage report to path
+          --sonar-output <json-path>    Write a SonarQube generic issue import report to path
           --sarif-output <sarif-path>   Write a SARIF 2.1.0 report of undetected mutants to path
           --markdown-output <md-path>   Write a Markdown summary, for CI job summaries, to path
           --keep-logs <directory>       Write each mutant's captured test output to <directory>
