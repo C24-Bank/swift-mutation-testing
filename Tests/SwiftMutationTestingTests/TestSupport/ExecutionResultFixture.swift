@@ -11,7 +11,8 @@ func makeExecutionResult(
     killerTestFile: String? = nil,
     operatorIdentifier: String = "ArithmeticOperatorReplacement",
     fingerprint: String = "fingerprint",
-    activated: Bool? = nil
+    activated: Bool? = nil,
+    fromCache: Bool = false
 ) -> ExecutionResult {
     ExecutionResult(
         descriptor: makeMutantDescriptor(
@@ -26,6 +27,7 @@ func makeExecutionResult(
         status: status,
         testDuration: testDuration,
         killerTestFile: killerTestFile,
-        activated: activated
+        activated: activated,
+        fromCache: fromCache
     )
 }
