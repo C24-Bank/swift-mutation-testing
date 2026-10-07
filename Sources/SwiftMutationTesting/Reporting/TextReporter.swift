@@ -26,19 +26,20 @@ struct TextReporter: Sendable {
                 "survived: \(file.survived.count)",
                 "timeout: \(file.timeouts.count)",
                 "unviable: \(file.unviable.count)",
+                "no coverage: \(file.noCoverage.count)",
             ].joined(separator: "   ")
             lines.append("  \(relative(filePath))    score: \(score)%   \(stats)")
         }
 
-        let unkilledMutants = summary.survived + summary.noCoverage
-        if !unkilledMutants.isEmpty {
+        if !summary.undetected.isEmpty {
             lines.append("")
-            lines.append("Survived mutants:")
-            for result in RunnerSummary.byLocation(unkilledMutants) {
+            lines.append("Undetected mutants:")
+            for result in RunnerSummary.byLocation(summary.undetected) {
                 let desc = result.descriptor
+                let status = result.status == .noCoverage ? "no coverage" : "survived"
                 lines.append(
                     "  \(relative(desc.filePath)):\(desc.line):\(desc.column)"
-                        + "   \(desc.operatorIdentifier)"
+                        + "   \(desc.operatorIdentifier)   \(status)"
                 )
             }
         }
