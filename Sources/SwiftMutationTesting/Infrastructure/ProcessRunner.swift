@@ -3,7 +3,9 @@ import Foundation
 struct ProcessRunner: Sendable {
     var postTerminationCleanup: (@Sendable (Int32) -> Void)?
     let onTimeout: @Sendable (Int32) -> Void
-    var readCapturedOutput: @Sendable (URL) throws -> String = { try String(contentsOf: $0, encoding: .utf8) }
+    var readCapturedOutput: @Sendable (URL) throws -> String = {
+        String(decoding: try Data(contentsOf: $0), as: UTF8.self)
+    }
     var processGroups: ProcessGroupRegistry = .shared
 
     private struct CaptureTarget {
