@@ -72,11 +72,11 @@ Testing mutants...
   ✓ 3/147  BooleanLiteralReplacement      FeatureFlags.swift:9
 
 Results by file:
-  Sources/Validator.swift      score: 72.4%   killed: 21   survived: 8   timeout: 0   unviable: 0
-  Sources/FeatureFlags.swift   score: 100.0%  killed: 6    survived: 0   timeout: 0   unviable: 0
+  Sources/Validator.swift      score: 72.4%   killed: 21   survived: 8   timeout: 0   unviable: 0   no coverage: 0
+  Sources/FeatureFlags.swift   score: 100.0%  killed: 6    survived: 0   timeout: 0   unviable: 0   no coverage: 0
 
-Survived mutants:
-  Sources/Validator.swift:34:5   NegateConditional
+Undetected mutants:
+  Sources/Validator.swift:34:5   NegateConditional   survived
 
 Overall mutation score: 85.3%
 Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 21, no coverage 0)

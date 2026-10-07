@@ -70,8 +70,8 @@ This document explains every possible outcome for a mutant, what causes it, and 
 **What it tells you:** this is the most actionable result. A surviving mutant identifies a gap between what the code does and what the tests verify. The surviving location is shown with operator and position:
 
 ```
-Survived mutants:
-  Sources/Validator.swift:34:5   RelationalOperatorReplacement
+Undetected mutants:
+  Sources/Validator.swift:34:5   RelationalOperatorReplacement   survived
 ```
 
 To address a survivor, add or strengthen a test that is sensitive to the original logic at that location.

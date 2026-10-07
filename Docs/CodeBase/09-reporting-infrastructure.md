@@ -161,7 +161,7 @@ Prints a human-readable summary to stdout. Always active (not gated by a CLI fla
 
 Output sections:
 1. Per-file table: relative path, score %, killed/survived/timeout/unviable counts
-2. Survived mutants list: `<file>:<line>:<col>  <operator>` sorted by location (`RunnerSummary.byLocation`)
+2. Undetected mutants list — survived and no coverage: `<file>:<line>:<col>   <operator>   <survived | no coverage>` sorted by location (`RunnerSummary.byLocation`); each file's line counts killed, survived, timeout, unviable and no coverage
 3. Integrity warnings — kills and timeouts whose code never ran, the first `integrityWarningsListed` (10) with their reason, then a count — when there are any
 4. Overall score line
 5. Detection line (`RunnerSummary.detectionLine`)
