@@ -41,7 +41,7 @@ flowchart TD
 }
 ```
 
-Mutant IDs follow the pattern `swift-mutation-testing_<index>`, where index is the global sequential position of the mutant across all files.
+Mutant IDs follow the pattern `swift-mutation-testing_<index>`, where index is the global sequential position of the mutant across all files. `MutantID` owns the format: it builds the id, reads the index back and orders results by it.
 
 Multiple scopes within the same file are processed in reverse order by `bodyStartOffset` to preserve correct byte offsets as the content grows.
 
@@ -49,7 +49,7 @@ Multiple scopes within the same file are processed in reverse order by `bodyStar
 
 For **incompatible** mutants, `MutationRewriter` applies the single mutation directly to the source file's raw text using UTF-8 byte offsets, producing a complete replacement source file stored in `MutantDescriptor.mutatedSourceContent`.
 
-Both `MutationRewriter` and `SchemataGenerator` use force-unwrapped UTF-8 conversions (`data(using: .utf8)!`, `String(data:encoding: .utf8)!`) because Swift source code is guaranteed to be valid UTF-8. This avoids unreachable error-handling paths.
+`MutationRewriter`, `SchemataGenerator` and `ActivationInstrumenter` make every byte splice through `UTF8Splice`, which reads, replaces or inserts on the string's UTF-8 bytes and answers `nil` — instead of trapping — when a range lies outside the text or cuts through a character. Each caller decides what `nil` means: the rewriter keeps the source unchanged, the generator discards the mutation (or leaves the body as it was), and the instrumenter leaves the mutant unmeasured.
 
 ## TypeScopeVisitor
 
@@ -69,7 +69,7 @@ FunctionBodyScope
 
 ## Per-file support declarations
 
-Every schematized file ends with a block of its own, appended by `SchemataGenerator` (`SupportDeclarations.perFile(for:)`), where `<hash>` is the first eight hex digits of the SHA-256 of the file's path:
+Every schematized file ends with a block of its own, appended by `SchemataGenerator` (`SupportDeclarations.perFile(for:)`, through `SupportDeclarations.appended(to:path:syntax:style:)`, the same call `ActivationInstrumenter` makes), where `<hash>` is the first eight hex digits of the SHA-256 of the file's path:
 
 ```swift
 @usableFromInline

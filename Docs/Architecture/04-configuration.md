@@ -197,8 +197,10 @@ flowchart TD
 1. `XcodeContainerLocator` — the container a run would build, by the rules above. When it would choose none — several at the root, a workspace reaching outside it, or containers only below the root (unless a `Package.swift` makes it a package) — `DetectedProject` keeps the reason and the candidates, and no `xcodebuild -list` runs on a container picked at random
 2. If chosen: `listProject` queries `xcodebuild -list` on it for schemes and test targets → `DetectedProject.xcode`, with `xcodeContainer` set; `ConfigurationFileWriter` writes it as `workspace:` or `project:`, or, with no choice, the reason and every candidate commented out
 3. If not found: `listSPMTestTargets` queries `swift package dump-package` for test targets → `DetectedProject.spm`
-4. `detectDestination` — scans the SDK settings of the project the container builds (the project itself, or the first one the workspace references) for iOS, tvOS, watchOS, visionOS or macOS
+4. `detectDestination` — reads the `SDKROOT` of the project the container builds (the project itself, or the first one the workspace references) and tries the `simulatorPlatforms` table in order — iOS, tvOS, watchOS, visionOS, one entry each with its `SDKROOT` and device choice — taking the first platform with an available simulator; anything else is `platform=macOS`
 5. `detectTestingFramework` — scans test target source files for `import Testing` vs `import XCTest` to determine `TestingFramework`
+
+Every file-system call of detection — the project path, the container listings, the `Package.swift` check — goes through an injected `FileSystem` (`Infrastructure/FileSystem.swift`), as in `ConfigurationResolver`, `XcodeContainerLocator` and `CacheStore`, so a test can describe a project tree without writing one. `FileSystem.projectPath(_:)` is the one resolution of a project path: `.` or empty is the current directory, anything else is standardized.
 
 `DetectedProject` carries the best-guess scheme (first scheme found), test targets, destination, and testing framework. Fields are `nil` when detection fails, producing a template file with placeholder comments.
 

@@ -53,7 +53,7 @@ Applies mutation operators to each parsed source and collects mutation points. R
 | Input | `[ParsedSource]`, resolved `[any MutationOperator]` |
 | Output | `[MutationPoint]` — file path, position, original text, mutated text, operator |
 
-Each operator walks the AST with its own visitor and emits a `MutationPoint` for every applicable node. Points are collected from all operators and all files, then returned as a flat list.
+Each operator walks the AST with its own visitor and emits a `MutationPoint` for every applicable node. The points of each file then pass through the stage's exclusions in turn — suppression, infinite-loop prevention and inactive `#if` branches, below — each a `MutationExclusion` that names the ranges it covers and the points it applies to. Points are collected from all operators and all files, then returned as a flat list.
 
 ### MutantIndexingStage
 
@@ -64,7 +64,7 @@ Assigns unique sequential IDs to each mutation point and classifies them as sche
 | Input | `[MutationPoint]`, `[ParsedSource]` |
 | Output | `[IndexedMutationPoint]` — mutation point + unique ID + schematizable flag + fingerprint |
 
-Each mutation point receives an ID in the format `swift-mutation-testing_<index>`, where `<index>` is a zero-based global counter. `TypeScopeVisitor` determines whether a mutation falls inside a function body (schematizable) or outside (incompatible). The indexed points are consumed by the next two stages.
+Each mutation point receives an ID in the format `swift-mutation-testing_<index>`, where `<index>` is a zero-based global counter. `MutantID` is the one place that builds, reads and orders that format. `TypeScopeVisitor` determines whether a mutation falls inside a function body (schematizable) or outside (incompatible). The indexed points are consumed by the next two stages.
 
 The ID is only unique within one run: a mutant added earlier in any file renumbers every later one. Each point therefore also gets a **fingerprint** — a hash of its project-relative file, the declaration that contains it (`Parser.parse(_:)`), its operator and its change — which stays the same when other code moves or changes. The quality gate matches baselines by fingerprint.
 
@@ -92,7 +92,7 @@ Each incompatible mutation point is applied to the source via `MutationRewriter`
 
 ## Mutation Operators
 
-All operators implement the `MutationOperator` protocol and are registered in `DiscoveryPipeline`. Each has a dedicated `Visitor` that extends `MutationSyntaxVisitor`.
+All operators implement the `MutationOperator` protocol and are registered in `OperatorRegistry`. Each is a `VisitorOperator` over a dedicated `Visitor` that extends `MutationSyntaxVisitor`; the visitor declares the operator's name, its description and whether it is loop-risky, and the rest of the tool — configuration, tiers, SARIF rules, the infinite-loop filter — reads those from the operator rather than from lists of its own.
 
 | Operator | What it mutates | Example |
 |---|---|---|
@@ -114,7 +114,7 @@ Mutations are suppressed with comments, which need nothing declared in the user'
 
 `ArithmeticOperatorReplacement` and `RemoveSideEffects` can turn a terminating loop into one that never ends — by flipping the step that moves an index towards its bound, or by deleting the statement that advances it. A mutant like that does not fail the tests, it hangs them, and the run pays the full `--timeout` for a `Timeout` verdict that says nothing about the suite.
 
-`InfiniteLoopBodyExtractor` collects the body range of every `while` and `repeat`, and `InfiniteLoopFilter` drops the points of those two operators that fall inside one. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite. The filter runs right after suppression, inside `MutantDiscoveryStage`.
+`InfiniteLoopBodyExtractor` collects the body range of every `while` and `repeat`, and `InfiniteLoopFilter` drops the points of those two operators — the ones that declare themselves loop-risky — that fall inside one. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite. The filter runs right after suppression, inside `MutantDiscoveryStage`.
 
 ## Inactive `#if` branches
 
@@ -150,7 +150,7 @@ MutationPoint
 
 IndexedMutationPoint
 ├── point             — MutationPoint
-├── id                — unique ID (swift-mutation-testing_<index>)
+├── id                — unique ID (MutantID: swift-mutation-testing_<index>)
 └── isSchematizable   — whether the mutation is inside a function body
 
 MutantDescriptor
