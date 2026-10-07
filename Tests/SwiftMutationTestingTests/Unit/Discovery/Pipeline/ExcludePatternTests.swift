@@ -40,6 +40,13 @@ struct ExcludePatternTests {
         #expect(ExcludePattern.isGlob("**/Generated/**"))
     }
 
+    @Test("Given a pattern whose only glob character is ? or [, when checked, then it is a glob")
+    func aSingleWildcardCharacterMakesAGlob() {
+        #expect(ExcludePattern.isGlob("Sources/?pp.swift"))
+        #expect(ExcludePattern.isGlob("Sources/[AB].swift"))
+        #expect(ExcludePattern.isGlob("Sources/App*.swift"))
+    }
+
     @Test("Given an absolute glob, when matched, then it matches the absolute path")
     func absoluteGlobs() {
         #expect(matches("/work/App/Sources/Generated/*", "Sources/Generated/Model.swift"))

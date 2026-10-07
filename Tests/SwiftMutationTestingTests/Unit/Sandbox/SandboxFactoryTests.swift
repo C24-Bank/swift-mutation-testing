@@ -75,6 +75,36 @@ struct SandboxFactoryTests {
         #expect(!FileManager.default.fileExists(atPath: userDataFile.path))
     }
 
+    @Test("Given xcodeproj with shared data and a workspace, when sandbox created, then only shared data is copied")
+    func xcodeprojCopiesSharedDataAndLinksTheRest() async throws {
+        let projectDir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(projectDir) }
+
+        let xcodeproj = projectDir.appendingPathComponent("App.xcodeproj")
+        let schemesDir = xcodeproj.appendingPathComponent("xcshareddata/xcschemes")
+        let workspaceDir = xcodeproj.appendingPathComponent("project.xcworkspace")
+        try FileManager.default.createDirectory(at: schemesDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: workspaceDir, withIntermediateDirectories: true)
+        try FileHelpers.write("<Scheme/>", named: "App.xcscheme", in: schemesDir)
+        try FileHelpers.write("<Workspace/>", named: "contents.xcworkspacedata", in: workspaceDir)
+
+        let sandbox = try await factory.create(
+            projectPath: projectDir.path,
+            schematizedFiles: []
+        )
+        defer { try? sandbox.cleanup() }
+
+        func isSymlink(_ relative: String) -> Bool {
+            let url = sandbox.rootURL.appendingPathComponent(relative)
+            return (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
+        }
+        let scheme = sandbox.rootURL.appendingPathComponent("App.xcodeproj/xcshareddata/xcschemes/App.xcscheme")
+
+        #expect(try String(contentsOf: scheme, encoding: .utf8) == "<Scheme/>")
+        #expect(!isSymlink("App.xcodeproj/xcshareddata"))
+        #expect(isSymlink("App.xcodeproj/project.xcworkspace"))
+    }
+
     @Test("Given file not in schematized list, when sandbox created, then file is a symlink to the original")
     func nonSchematizedFileIsSymlink() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()
