@@ -24,7 +24,7 @@ struct InactiveRegionFilterTests {
 
         #expect(mutations.count == 2)
 
-        let result = filter.filter(mutations, inactiveRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
 
         #expect(result.map(\.operatorIdentifier) == ["ArithmeticOperatorReplacement"])
         #expect(result.map(\.line) == [5])
@@ -35,7 +35,7 @@ struct InactiveRegionFilterTests {
         let source = makeParsedSource("func f() { let x = 1 + 2 }")
         let mutations = ArithmeticOperatorReplacement().mutations(in: source)
 
-        let result = filter.filter(mutations, inactiveRanges: [])
+        let result = filter.filter(mutations, excluding: [])
 
         #expect(result.count == mutations.count)
     }
@@ -61,7 +61,7 @@ struct InactiveRegionFilterTests {
 
         #expect(mutations.count == 3)
 
-        let result = filter.filter(mutations, inactiveRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
 
         #expect(result.map(\.line) == [6])
     }

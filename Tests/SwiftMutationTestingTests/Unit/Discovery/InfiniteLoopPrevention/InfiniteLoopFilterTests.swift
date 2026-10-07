@@ -16,7 +16,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(!mutations.isEmpty)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.isEmpty)
     }
 
@@ -29,7 +29,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(ranges.isEmpty)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.count == mutations.count)
     }
 
@@ -42,7 +42,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(!mutations.isEmpty)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.isEmpty)
     }
 
@@ -55,7 +55,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(!mutations.isEmpty)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.count == mutations.count)
     }
 
@@ -68,7 +68,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(!conditionMutations.isEmpty)
 
-        let result = filter.filter(conditionMutations, loopBodyRanges: ranges)
+        let result = filter.filter(conditionMutations, excluding: ranges)
         #expect(result.count == conditionMutations.count)
     }
 
@@ -78,7 +78,7 @@ struct InfiniteLoopFilterTests {
         let source = makeParsedSource(code)
         let mutations = ArithmeticOperatorReplacement().mutations(in: source)
 
-        let result = filter.filter(mutations, loopBodyRanges: [])
+        let result = filter.filter(mutations, excluding: [])
         #expect(result.count == mutations.count)
     }
 
@@ -99,7 +99,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(!mutations.isEmpty)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.isEmpty)
     }
 
@@ -113,7 +113,7 @@ struct InfiniteLoopFilterTests {
         #expect(ranges.isEmpty)
         #expect(!mutations.isEmpty)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.count == mutations.count)
     }
 
@@ -133,7 +133,7 @@ struct InfiniteLoopFilterTests {
 
         #expect(mutations.count >= 2)
 
-        let result = filter.filter(mutations, loopBodyRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.count == 1)
         #expect(result[0].originalText == "+")
     }
