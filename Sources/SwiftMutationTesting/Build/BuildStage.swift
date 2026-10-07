@@ -18,6 +18,10 @@ struct BuildStage: Sendable {
             "-derivedDataPath", derivedDataURL.path,
         ]
 
+        if let testPlan = ProcessInfo.processInfo.environment["SMT_TEST_PLAN"], !testPlan.isEmpty {
+            arguments += ["-testPlan", testPlan]
+        }
+
         if let workspaceURL = findXcworkspace(in: sandbox.rootURL) {
             arguments += ["-workspace", workspaceURL.path]
         } else if let projectURL = findXcodeproj(in: sandbox.rootURL) {
@@ -43,9 +47,12 @@ struct BuildStage: Sendable {
             throw BuildError.compilationFailed(output: buildOutput)
         }
 
-        let productsURL = derivedDataURL.appendingPathComponent("Build/Products")
+        let productsURLs = [
+            derivedDataURL.appendingPathComponent("Build/Products"),
+            sandbox.rootURL.appendingPathComponent("DerivedData/Build/Products"),
+        ]
 
-        guard let xctestrunURL = findXctestrun(in: productsURL) else {
+        guard let xctestrunURL = productsURLs.lazy.compactMap({ findXctestrun(in: $0) }).first else {
             throw BuildError.xctestrunNotFound
         }
 
@@ -116,6 +123,14 @@ struct BuildStage: Sendable {
                 at: directory,
                 includingPropertiesForKeys: nil
             )) ?? []
-        return items.first { $0.pathExtension == "xctestrun" }
+        let candidates = items.filter { $0.pathExtension == "xctestrun" }
+        if let testPlan = ProcessInfo.processInfo.environment["SMT_TEST_PLAN"], !testPlan.isEmpty {
+            return candidates.first { $0.lastPathComponent.contains("_\(testPlan)_") }
+        }
+        return candidates.max { lhs, rhs in
+            let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            return (lhsDate ?? .distantPast) < (rhsDate ?? .distantPast)
+        }
     }
 }

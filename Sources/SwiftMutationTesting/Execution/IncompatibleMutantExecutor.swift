@@ -344,6 +344,10 @@ struct IncompatibleMutantExecutor: Sendable {
             "-collect-test-diagnostics", "never",
         ]
 
+        if let testPlan = ProcessInfo.processInfo.environment["SMT_TEST_PLAN"], !testPlan.isEmpty {
+            testArguments += ["-testPlan", testPlan]
+        }
+
         if let testTarget = configuration.build.testTarget {
             testArguments += ["-only-testing", testTarget]
         }
