@@ -4,13 +4,13 @@ struct ParsedArguments: Sendable {
         case plan
         case merge
         case reproduce
+        case initialize
+        case help
+        case version
     }
 
     var command: Command = .run
     var projectPath: String = "."
-    var showVersion: Bool = false
-    var showHelp: Bool = false
-    var showInit: Bool = false
     var plan: PlanOptions = PlanOptions()
     var build: BuildOptions = BuildOptions()
     var reporting: ReportingOptions = ReportingOptions()

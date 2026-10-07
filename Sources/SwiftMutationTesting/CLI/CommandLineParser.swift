@@ -6,10 +6,10 @@ struct CommandLineParser: Sendable {
 
         switch arguments[0] {
         case "--help", "-h":
-            return ParsedArguments(showHelp: true)
+            return ParsedArguments(command: .help)
 
         case "--version":
-            return ParsedArguments(showVersion: true)
+            return ParsedArguments(command: .version)
 
         default:
             break
@@ -24,7 +24,7 @@ struct CommandLineParser: Sendable {
                 projectPath = next
             }
 
-            return ParsedArguments(projectPath: projectPath, showInit: true)
+            return ParsedArguments(command: .initialize, projectPath: projectPath)
         }
 
         let command = Self.command(named: remaining[0])
@@ -74,7 +74,7 @@ struct CommandLineParser: Sendable {
         _ positionals: [String], of command: ParsedArguments.Command, to flags: inout ParsedArguments
     ) throws -> String {
         switch command {
-        case .run, .plan:
+        case .run, .plan, .initialize, .help, .version:
             guard positionals.count <= 1 else {
                 throw UsageError(message: "unexpected argument '\(positionals[1])'")
             }
