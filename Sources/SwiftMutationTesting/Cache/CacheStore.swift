@@ -75,7 +75,6 @@ actor CacheStore {
         noCache ? nil : activations[key]
     }
 
-    /// The whole cached verdict of `mutant`, as a result marked as coming from the cache.
     func cachedResult(for mutant: MutantDescriptor) -> ExecutionResult? {
         let key = MutantCacheKey.make(for: mutant)
         guard let status = result(for: key) else { return nil }

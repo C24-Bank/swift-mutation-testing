@@ -1,16 +1,11 @@
 import Foundation
 import SwiftParser
 
-/// Narrows a schematized build that does not compile: it reads which sandbox files the compiler blamed, takes
-/// out of each the mutants whose `case` holds an error, regenerates the file's schema without them and builds
-/// again, until the build compiles or the errors blame no mutant left.
 struct SchemaNarrower: Sendable {
     let stage: BuildStage
     let reporter: any ProgressReporter
     let buildTimeout: Double
 
-    /// The artifact of the first build that compiles after taking out the mutants `output` blames, and every
-    /// mutant taken out on the way; no artifact when the errors blame no mutant.
     func narrow(
         after output: String,
         sandbox: Sandbox,

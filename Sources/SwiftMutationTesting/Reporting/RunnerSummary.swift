@@ -1,5 +1,3 @@
-/// A run's results sorted into what every report shows — computed once, so the reports only format it and
-/// cannot count differently.
 struct RunnerSummary: Sendable {
     let results: [ExecutionResult]
     let totalDuration: Double
@@ -57,12 +55,10 @@ struct RunnerSummary: Sendable {
         Dictionary(grouping: results, by: { $0.descriptor.filePath })
     }
 
-    /// One summary per file, in path order.
     var files: [(path: String, summary: RunnerSummary)] {
         resultsByFile.sorted { $0.key < $1.key }.map { ($0.key, RunnerSummary(results: $0.value, totalDuration: 0)) }
     }
 
-    /// `results` in source order: by file, then line, then column.
     static func byLocation(_ results: [ExecutionResult]) -> [ExecutionResult] {
         results.sorted {
             ($0.descriptor.filePath, $0.descriptor.line, $0.descriptor.column)

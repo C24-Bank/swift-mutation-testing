@@ -16,8 +16,8 @@ struct PlanStore: Sendable {
         try Self.encode(plan).write(to: URL(fileURLWithPath: path), options: .atomic)
     }
 
-    /// The bytes of a plan, the same wherever it is encoded. `sha256(of:)` over them is the plan's identity,
-    /// the one results carry.
+    /// The bytes of a plan, the same wherever it is encoded: sorted keys, no escaped slashes, one trailing
+    /// newline. `sha256(of:)` over them is the plan's identity, the one results carry.
     static func encode(_ plan: Plan) throws -> Data {
         try VersionedJSON.encode(plan)
     }

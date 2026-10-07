@@ -1,6 +1,5 @@
 import Foundation
 
-/// How a run or a merge ends: the text report, the quality gate, the report files and the baseline.
 struct RunConclusion: Sendable {
     let configuration: RunnerConfiguration
     let baseline: Baseline?

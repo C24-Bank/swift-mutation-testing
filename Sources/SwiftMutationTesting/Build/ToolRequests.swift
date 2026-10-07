@@ -1,7 +1,5 @@
 import Foundation
 
-/// The `swift` and `xcodebuild` invocations a run builds and tests with, assembled in one place so that every
-/// path builds and tests a sandbox the same way.
 enum ToolRequests {
     static func swiftBuildTests(in sandbox: Sandbox, timeout: Double) -> ProcessRequest {
         request("/usr/bin/swift", ["build", "--build-tests"], in: sandbox, timeout: timeout)
@@ -35,7 +33,6 @@ enum ToolRequests {
         request("/usr/bin/xcodebuild", arguments, in: sandbox, environment: environment, timeout: timeout)
     }
 
-    /// Where `xcodebuild` keeps a sandbox's build products.
     static func derivedDataPath(in sandbox: Sandbox) -> String {
         sandbox.rootURL.appendingPathComponent(".xmr-derived-data").path
     }

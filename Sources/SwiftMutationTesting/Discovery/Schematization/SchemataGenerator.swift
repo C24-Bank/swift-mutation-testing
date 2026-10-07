@@ -43,8 +43,6 @@ struct SchemataGenerator: Sendable {
         )
     }
 
-    /// The mutations grouped by the innermost function body holding each, the last body in the file first so
-    /// that rewriting one leaves the offsets of the ones still to come untouched; and the mutations no body holds.
     private func groupByScope(
         _ mutations: [Entry], in syntax: SourceFileSyntax
     ) -> (groups: [ScopeGroup], discarded: [MutationPoint]) {
@@ -67,7 +65,6 @@ struct SchemataGenerator: Sendable {
         return (groups, discarded)
     }
 
-    /// The `switch` that replaces one body, a case per mutation that fits in it; `nil` when none does.
     private func schemaBody(
         for group: ScopeGroup, in content: String, edits: Edits, path: String
     ) -> (switchBody: String?, discarded: [MutationPoint]) {

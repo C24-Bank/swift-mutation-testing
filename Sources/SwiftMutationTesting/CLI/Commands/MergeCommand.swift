@@ -1,4 +1,3 @@
-/// Joins the results of a plan's shards into one report, judged as one run.
 struct MergeCommand: Command {
     let options: ParsedArguments.PlanOptions
     let configuration: RunnerConfiguration

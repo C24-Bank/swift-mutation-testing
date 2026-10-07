@@ -1,10 +1,7 @@
-/// Where every verdict of a run goes, whichever path reached it: the mutant's log, the cache and plan journal,
-/// and the progress count and report.
 struct ResultRecorder: Sendable {
     let deps: ExecutionDeps
     let keepLogsPath: String?
 
-    /// The cached verdict of `mutant`, counted and reported as finished; `nil` when the cache has none.
     func cached(_ mutant: MutantDescriptor) async -> ExecutionResult? {
         guard let result = await deps.cacheStore.cachedResult(for: mutant) else { return nil }
         await finish(result)
@@ -35,7 +32,6 @@ struct ResultRecorder: Sendable {
         return result
     }
 
-    /// Counts `result` and reports its mutant as finished.
     func finish(_ result: ExecutionResult) async {
         let index = await deps.counter.increment()
         await deps.reporter.report(

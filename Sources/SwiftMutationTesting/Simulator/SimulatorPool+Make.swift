@@ -1,5 +1,4 @@
 extension SimulatorPool {
-    /// The pool a run's destination needs: clones of its simulator, or plain slots for a Mac or a package.
     static func make(
         for configuration: RunnerConfiguration, launcher: any ProcessLaunching
     ) async throws -> SimulatorPool {

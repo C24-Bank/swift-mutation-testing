@@ -1,7 +1,5 @@
 import Foundation
 
-/// Discovers and tests every mutant — or those of a plan, a shard of it, less what an interrupted run of it
-/// already reached — and reports the verdicts.
 struct RunCommand: Command {
     let configuration: RunnerConfiguration
     let planPath: String?
@@ -75,8 +73,6 @@ struct RunCommand: Command {
         return try conclusion.conclude(summary, identity: discovered.identity)
     }
 
-    /// The run's input and identity: from the plan given, through its resumer, or from a plan made now and
-    /// materialized at once, which is the plain run.
     private func discover(
         configuration: RunnerConfiguration, planned: PlanResumer?
     ) async throws -> PlanResumer.Discovered {

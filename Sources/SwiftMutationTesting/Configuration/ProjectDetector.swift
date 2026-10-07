@@ -179,8 +179,6 @@ struct ProjectDetector: Sendable {
         return "platform=macOS"
     }
 
-    /// The simulator platforms a project's `SDKROOT` can name, in the order they are tried, each with how to
-    /// pick its device among the available ones; adding a platform is one entry.
     private struct SimulatorPlatform: Sendable {
         let sdkroot: String
         let platform: String

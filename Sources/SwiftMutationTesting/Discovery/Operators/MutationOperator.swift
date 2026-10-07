@@ -1,18 +1,14 @@
 protocol MutationOperator: Sendable {
-    /// The name reports, configuration files and `--operator` use.
     var identifier: String { get }
 
-    /// A short title, and what the operator changes and what a survivor usually means.
     var summary: String { get }
     var explanation: String { get }
 
-    /// Whether a mutation of this operator inside a loop body could keep the loop from ending.
     var isLoopRisky: Bool { get }
 
     func mutations(in source: ParsedSource) -> [MutationPoint]
 }
 
-/// What an operator's visitor declares about it, read through the operator that runs it.
 protocol OperatorVisitor: MutationSyntaxVisitor {
     static var operatorIdentifier: String { get }
     static var summary: String { get }
@@ -26,7 +22,6 @@ extension OperatorVisitor {
     }
 }
 
-/// An operator whose mutations are the points its visitor records in one walk of the file.
 struct VisitorOperator<Visitor: OperatorVisitor>: MutationOperator {
     var identifier: String { Visitor.operatorIdentifier }
     var summary: String { Visitor.summary }

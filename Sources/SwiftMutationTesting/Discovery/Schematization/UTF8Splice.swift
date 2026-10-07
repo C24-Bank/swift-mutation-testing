@@ -1,7 +1,3 @@
-/// Byte-range edits on a string's UTF-8 form, the unit SwiftSyntax offsets count in.
-///
-/// Each answers `nil` when the range does not lie inside the string or the edit would leave bytes that are
-/// not UTF-8 — a range cutting through a character — and the caller decides what that means.
 enum UTF8Splice {
     static func substring(of content: String, from start: Int, to end: Int) -> String? {
         let bytes = Array(content.utf8)

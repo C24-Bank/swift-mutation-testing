@@ -1,8 +1,5 @@
 import Foundation
 
-/// Runs the unmutated suite before any mutant — in each test bundle and with each testing library, or with
-/// `swift test` when the build left no bundle — to learn which libraries each bundle really uses, and to stop a
-/// run whose baseline does not pass.
 struct BaselineProbe: Sendable {
     let configuration: RunnerConfiguration
     let launcher: any ProcessLaunching

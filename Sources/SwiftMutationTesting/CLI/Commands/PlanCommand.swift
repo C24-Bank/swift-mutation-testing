@@ -1,6 +1,5 @@
 import Foundation
 
-/// Discovers the mutants and writes them to a plan, without building.
 struct PlanCommand: Command {
     let configuration: RunnerConfiguration
     let path: String

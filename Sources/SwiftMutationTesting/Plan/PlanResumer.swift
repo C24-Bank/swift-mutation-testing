@@ -1,7 +1,5 @@
 import Foundation
 
-/// The input of a run from a plan: a slice of it under `--shard`, less what an interrupted run of the same plan
-/// and shard already reached, whose verdicts come back from the plan's journal.
 struct PlanResumer: Sendable {
     let plan: Plan
     let shard: Shard?
@@ -39,7 +37,6 @@ struct PlanResumer: Sendable {
 
     // MARK: - Private
 
-    /// The journal's verdicts for the mutants of `selection`, as results of this run.
     private func resumed(
         from journaled: [String: PlanJournal.Entry], in selection: [Plan.Mutant], projectPath: String
     ) -> [ExecutionResult] {

@@ -1,7 +1,5 @@
 import Foundation
 
-/// The file-system calls configuration, project detection and the cache make — each the real call unless a test
-/// hands in another.
 struct FileSystem: Sendable {
     var fileExists: @Sendable (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
 
@@ -22,7 +20,6 @@ struct FileSystem: Sendable {
 
     var removeItem: @Sendable (String) -> Void = { try? FileManager.default.removeItem(atPath: $0) }
 
-    /// The absolute, standardized path of a project given as `.`, as nothing, or as a path.
     func projectPath(_ path: String) -> String {
         if path == "." || path.isEmpty {
             return currentDirectory()

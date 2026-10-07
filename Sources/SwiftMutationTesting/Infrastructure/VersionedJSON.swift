@@ -1,8 +1,6 @@
 import CryptoKit
 import Foundation
 
-/// A JSON document that carries its `formatVersion`, read in two steps so that a file written by another
-/// version is refused as such rather than as unreadable.
 enum VersionedJSON {
     static func read<Document: Decodable>(
         _ type: Document.Type,
@@ -24,8 +22,6 @@ enum VersionedJSON {
         return document
     }
 
-    /// The bytes of a document, the same wherever it is encoded: sorted keys, no escaped slashes, one
-    /// trailing newline.
     static func encode(
         _ document: some Encodable, dates: JSONEncoder.DateEncodingStrategy = .deferredToDate
     ) throws -> Data {
@@ -35,7 +31,6 @@ enum VersionedJSON {
         return try encoder.encode(document) + Data("\n".utf8)
     }
 
-    /// The lowercase hex SHA-256 of `data`.
     static func sha256(of data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

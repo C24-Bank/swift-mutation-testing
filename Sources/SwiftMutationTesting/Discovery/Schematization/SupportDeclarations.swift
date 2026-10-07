@@ -26,8 +26,6 @@ enum SupportDeclarations {
         }
     }
 
-    /// `content` followed by the file's support declarations, and by a Foundation import in `style` when
-    /// `syntax` does not import it already.
     static func appended(to content: String, path: String, syntax: SourceFileSyntax, style: ImportStyle) -> String {
         var support = perFile(for: path)
         if !ImportStyle.importsFoundation(syntax) {

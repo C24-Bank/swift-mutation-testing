@@ -1,8 +1,5 @@
 import Foundation
 
-/// Every report file a run can write, and how each is asked for: its command-line flag, its key in
-/// `.swift-mutation-testing.yml`, its line in the help and in the file `init` writes. Adding a format is a case
-/// here and its reporter in `ReportWriter`.
 enum ReportFormat: String, CaseIterable, Sendable {
     case json
     case html
@@ -20,7 +17,6 @@ enum ReportFormat: String, CaseIterable, Sendable {
         }
     }
 
-    /// The configuration-file key, the flag without its dashes.
     var fileKey: String {
         String(flag.dropFirst(2))
     }
@@ -35,7 +31,6 @@ enum ReportFormat: String, CaseIterable, Sendable {
         }
     }
 
-    /// The file `init` suggests writing it to.
     var exampleFile: String {
         switch self {
         case .json: "mutation-report.json"
@@ -46,7 +41,6 @@ enum ReportFormat: String, CaseIterable, Sendable {
         }
     }
 
-    /// The flag's line in the help, the description in the help's column.
     var helpLine: String {
         let usage: (argument: String, description: String) =
             switch self {

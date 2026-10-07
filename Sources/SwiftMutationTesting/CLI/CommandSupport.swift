@@ -1,7 +1,6 @@
 import Foundation
 
 extension Planner {
-    /// A plan of the configuration's sources, with the operators, test target and container it names.
     func plan(for configuration: RunnerConfiguration) async throws -> Planned {
         try await plan(
             input: DiscoveryInput(configuration), testTarget: configuration.build.testTarget,
@@ -36,7 +35,6 @@ extension PlanMaterializer.ExecutionOptions {
 }
 
 extension RunnerConfiguration {
-    /// The plan at `path`, and this configuration under it.
     func applyingPlan(at path: String) throws -> (Plan, RunnerConfiguration) {
         let plan = try PlanStore().read(from: path)
         return (plan, try applying(plan))
@@ -50,7 +48,6 @@ extension FileDiscoveryError {
 }
 
 extension ProjectType {
-    /// The launcher a run of this kind of project starts its processes with.
     var defaultLauncher: any ProcessLaunching {
         switch self {
         case .xcode: XcodeProcessLauncher()
@@ -60,7 +57,6 @@ extension ProjectType {
 }
 
 extension ConsoleProgressReporter {
-    /// The discovery line, unless the run is quiet.
     static func announceDiscovery(mutantCount: Int, schematizableCount: Int, duration: Double, unless quiet: Bool) async
     {
         guard !quiet else { return }
@@ -75,7 +71,6 @@ extension ConsoleProgressReporter {
 }
 
 extension SandboxCleaner {
-    /// Kills the processes and removes the sandboxes an earlier run left behind.
     static func clearLeftovers() {
         OrphanedProcessReaper().reap()
         removeOrphaned()

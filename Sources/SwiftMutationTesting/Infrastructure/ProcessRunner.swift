@@ -93,7 +93,6 @@ struct ProcessRunner: Sendable {
         }
     }
 
-    /// Waits for the process `start` launches; cancelling the task kills it as a timeout would.
     private func awaitTermination<Result: Sendable>(
         of process: Process,
         killedByUs: KilledByUsFlag,
@@ -175,8 +174,6 @@ struct ProcessRunner: Sendable {
         }
     }
 
-    /// Starts the process and resumes `continuation` with what `result` makes of it once it terminates, or
-    /// with the error that kept it from starting.
     private func run<Result: Sendable>(
         _ process: Process,
         timeoutTask: Task<Void, any Error>,

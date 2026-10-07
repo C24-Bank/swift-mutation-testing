@@ -2,12 +2,10 @@ import Foundation
 
 struct MutantExecutor: Sendable {
 
-    /// The collaborators a run works through, each the real one unless a test hands in another.
     struct Environment: Sendable {
         var sandboxFactory = SandboxFactory()
         var verifier = ApplicationVerifier()
         var testFilesHasher = TestFilesHasher()
-        /// The reporter progress goes to; without one, the console's, or none under `--quiet`.
         var reporter: (any ProgressReporter)?
     }
 

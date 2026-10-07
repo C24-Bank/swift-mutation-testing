@@ -1,4 +1,3 @@
-/// Writes every report file the configuration asks for, in `ReportFormat` order.
 struct ReportWriter: Sendable {
     let configuration: RunnerConfiguration
 

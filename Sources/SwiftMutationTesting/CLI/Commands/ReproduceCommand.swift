@@ -1,4 +1,3 @@
-/// Runs one mutant, by fingerprint or id, keeping its sandbox and showing everything.
 struct ReproduceCommand: Command {
     let options: ParsedArguments.PlanOptions
     let configuration: RunnerConfiguration
