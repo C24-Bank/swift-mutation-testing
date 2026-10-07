@@ -74,4 +74,13 @@ struct EffectiveConcurrencyTests {
 
         #expect(configuration.build.concurrency == 9)
     }
+
+    @Test(
+        "Given a processor count, when the default concurrency is derived, then it leaves one processor to the tool",
+        arguments: [(1, 1), (2, 1), (8, 7)]
+    )
+    func defaultConcurrencyLeavesOneProcessor(processors: Int, workers: Int) {
+        #expect(RunnerConfiguration.concurrency(forProcessors: processors) == workers)
+    }
 }
+
