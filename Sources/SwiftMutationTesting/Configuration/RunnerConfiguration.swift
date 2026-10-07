@@ -4,7 +4,12 @@ struct RunnerConfiguration: Sendable {
     static let defaultXcodeTimeout: Double = 120.0
     static let defaultSPMTimeout: Double = 30.0
     static let defaultBuildTimeout: Double = 120.0
-    static let defaultConcurrency: Int = max(1, ProcessInfo.processInfo.processorCount - 1)
+    static let defaultConcurrency = concurrency(forProcessors: ProcessInfo.processInfo.processorCount)
+
+    /// One worker per processor, less the one the tool itself runs on.
+    static func concurrency(forProcessors processorCount: Int) -> Int {
+        max(1, processorCount - 1)
+    }
 
     let projectPath: String
     var build: BuildOptions
