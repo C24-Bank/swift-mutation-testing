@@ -1,10 +1,5 @@
 import Foundation
 
-/// Joins the results of a plan's shards into the results of the whole plan.
-///
-/// Every result must come from the same plan, no mutant may have two verdicts, and every mutant of the
-/// plan must have one: a merge with a mutant missing has no score, because a score over part of the plan
-/// would be a different number from the one a single run gives.
 struct ResultMerger: Sendable {
     struct Merged: Sendable {
         let results: [ExecutionResult]

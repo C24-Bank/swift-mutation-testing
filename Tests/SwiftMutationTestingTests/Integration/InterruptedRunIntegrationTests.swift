@@ -27,8 +27,6 @@ struct InterruptedRunIntegrationTests {
         child.arguments = ["run", root, "--plan", planPath, "--no-cache", "--quiet", "--concurrency", "1"]
         child.standardOutput = FileHandle.nullDevice
         child.standardError = FileHandle.nullDevice
-        // `waitUntilExit()` blocks a thread of the concurrency pool and, under parallel scheduling, never hears
-        // of the exit; the handler runs on Foundation's own queue.
         let exited = Mutex(false)
         child.terminationHandler = { _ in exited.withLock { $0 = true } }
         try child.run()
@@ -62,7 +60,7 @@ struct InterruptedRunIntegrationTests {
         )
         let expected = Set(
             plan.mutants.enumerated().filter { reached[$0.element.fingerprint] == nil }.map {
-                Plan.mutantID(at: $0.offset)
+                MutantID.make(index: $0.offset)
             }
         )
         #expect(tested == expected)
@@ -79,7 +77,6 @@ struct InterruptedRunIntegrationTests {
         #expect(!FileManager.default.fileExists(atPath: journalPath))
     }
 
-    /// The executable SwiftPM built next to this test bundle, under either layout of its build directory.
     static func builtTool() -> URL? {
         let build = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

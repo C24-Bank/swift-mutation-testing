@@ -14,8 +14,7 @@ struct CommandLineParserTests {
         #expect(result.projectPath == "/my/project")
         #expect(result.build.scheme == "MyApp")
         #expect(result.build.destination == "platform=macOS")
-        #expect(!result.showHelp)
-        #expect(!result.showVersion)
+        #expect(result.command == .run)
     }
 
     @Test("Given run command without explicit path, when parsed, then projectPath defaults to dot")
@@ -41,7 +40,7 @@ struct CommandLineParserTests {
         #expect(result.command == .plan)
         #expect(result.projectPath == "/my/project")
         #expect(result.plan.path == "plans/p.json")
-        #expect(result.reporting.output == nil)
+        #expect(result.reporting.outputs[.json] == nil)
         #expect(result.filter.operatorTier == "experimental")
     }
 
@@ -51,8 +50,8 @@ struct CommandLineParserTests {
 
         #expect(result.command == .run)
         #expect(result.plan.path == "p.json")
-        #expect(result.plan.shard == "2/4")
-        #expect(result.reporting.output == "r.json")
+        #expect(result.plan.shard == Shard(parsing: "2/4"))
+        #expect(result.reporting.outputs[.json] == "r.json")
     }
 
     @Test("Given a shard that is not i/n, when parsed, then it is a usage error")
@@ -70,7 +69,7 @@ struct CommandLineParserTests {
         #expect(result.command == .merge)
         #expect(result.plan.results == ["a.json", "b.json"])
         #expect(result.plan.path == "p.json")
-        #expect(result.reporting.output == "m.json")
+        #expect(result.reporting.outputs[.json] == "m.json")
         #expect(throws: UsageError.self) { try parser.parse(["merge", "--plan", "p.json"]) }
     }
 
@@ -97,33 +96,33 @@ struct CommandLineParserTests {
         #expect(throws: UsageError.self) { try parser.parse(["reproduce"]) }
     }
 
-    @Test("Given --help flag, when parsed, then showHelp is true")
+    @Test("Given --help flag, when parsed, then the command is help")
     func returnsShowHelpForHelpFlag() throws {
         let result = try parser.parse(["--help"])
 
-        #expect(result.showHelp)
+        #expect(result.command == .help)
     }
 
-    @Test("Given -h flag, when parsed, then showHelp is true")
+    @Test("Given -h flag, when parsed, then the command is help")
     func returnsShowHelpForShortFlag() throws {
         let result = try parser.parse(["-h"])
 
-        #expect(result.showHelp)
+        #expect(result.command == .help)
     }
 
     @Test("Given empty arguments, when parsed, then execution is attempted with default project path")
     func attemptsExecutionWhenEmpty() throws {
         let result = try parser.parse([])
 
-        #expect(!result.showHelp)
+        #expect(result.command == .run)
         #expect(result.projectPath == ".")
     }
 
-    @Test("Given --version flag, when parsed, then showVersion is true")
+    @Test("Given --version flag, when parsed, then the command is version")
     func returnsShowVersion() throws {
         let result = try parser.parse(["--version"])
 
-        #expect(result.showVersion)
+        #expect(result.command == .version)
     }
 
     @Test("Given --build-timeout, when parsed, then it is separate from --timeout")
@@ -160,11 +159,11 @@ struct CommandLineParserTests {
         ])
 
         #expect(result.build.testTarget == "AppTests")
-        #expect(result.reporting.output == "out.json")
-        #expect(result.reporting.htmlOutput == "report.html")
-        #expect(result.reporting.sonarOutput == "sonar.json")
-        #expect(result.reporting.sarifOutput == "report.sarif")
-        #expect(result.reporting.markdownOutput == "summary.md")
+        #expect(result.reporting.outputs[.json] == "out.json")
+        #expect(result.reporting.outputs[.html] == "report.html")
+        #expect(result.reporting.outputs[.sonar] == "sonar.json")
+        #expect(result.reporting.outputs[.sarif] == "report.sarif")
+        #expect(result.reporting.outputs[.markdown] == "summary.md")
         #expect(result.reporting.keepLogsPath == "logs")
     }
 
@@ -180,19 +179,19 @@ struct CommandLineParserTests {
         #expect(result.build.concurrency == 3)
     }
 
-    @Test("Given init command without path, when parsed, then showInit is true and projectPath defaults to dot")
+    @Test("Given init command without path, when parsed, then the command is init and projectPath defaults to dot")
     func parsesInitWithDefaultPath() throws {
         let result = try parser.parse(["init"])
 
-        #expect(result.showInit)
+        #expect(result.command == .initialize)
         #expect(result.projectPath == ".")
     }
 
-    @Test("Given init command with explicit path, when parsed, then showInit is true and projectPath is set")
+    @Test("Given init command with explicit path, when parsed, then the command is init and projectPath is set")
     func parsesInitWithExplicitPath() throws {
         let result = try parser.parse(["init", "/my/project"])
 
-        #expect(result.showInit)
+        #expect(result.command == .initialize)
         #expect(result.projectPath == "/my/project")
     }
 

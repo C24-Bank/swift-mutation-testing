@@ -59,10 +59,36 @@ struct ReproducerTests {
         #expect(tests.allSatisfy { !$0.arguments.contains("--filter") })
     }
 
+    @Test("Given a log directory that cannot be created, when reproduced, then it says no test output was captured")
+    func reproduceSaysWhenNoOutputWasCaptured() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        try SwiftMutationTestingPlanTests.writeProject(in: dir)
+        let plan = try await Planner().plan(input: Self.input(for: dir)).plan
+        let blocker = dir.appendingPathComponent("blocker")
+        try "not a directory".write(to: blocker, atomically: true, encoding: .utf8)
+        let configuration = makeRunnerConfiguration(
+            projectPath: dir.path, projectType: .spm, timeout: 30,
+            keepLogsPath: blocker.appendingPathComponent("logs").path
+        )
+
+        let output = await captureOutput {
+            _ = try? await Reproducer().reproduce(
+                "swift-mutation-testing_1", plan: plan, configuration: configuration,
+                launcher: RecordingProcessLauncher(responses: [(0, "")])
+            )
+        }
+        for line in output.split(separator: "\n") where line.hasPrefix("Sandbox: ") {
+            try? FileManager.default.removeItem(atPath: String(line.dropFirst(9)))
+        }
+
+        #expect(output.contains("(no test output was captured; the mutant did not reach its tests)"))
+    }
+
     static func input(for dir: URL) -> DiscoveryInput {
         makeDiscoveryInput(
             projectPath: dir.path, projectType: .spm, sourcesPath: dir.path,
-            operators: DiscoveryPipeline.operatorNames(upTo: .standard)
+            operators: OperatorRegistry.operatorNames(upTo: .standard)
         )
     }
 }

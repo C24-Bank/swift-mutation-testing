@@ -29,11 +29,9 @@ func makeRunnerConfiguration(
             noCache: noCache
         ),
         reporting: .init(
-            output: output,
-            htmlOutput: htmlOutput,
-            sonarOutput: sonarOutput,
-            sarifOutput: sarifOutput,
-            markdownOutput: markdownOutput,
+            outputs: [
+                .json: output, .html: htmlOutput, .sonar: sonarOutput, .sarif: sarifOutput, .markdown: markdownOutput,
+            ].compactMapValues { $0 },
             keepLogsPath: keepLogsPath,
             quiet: quiet
         ),

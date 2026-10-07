@@ -74,8 +74,6 @@ struct ConfigurationFileWriter: Sendable {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    /// `workspace:` or `project:`, the container the run builds; when none could be chosen, why, and every
-    /// candidate commented out for the user to pick.
     private func containerLines(_ project: DetectedProject) -> [String] {
         if let container = project.xcodeContainer {
             return ["\(container.key): \(container.path)", ""]
@@ -145,11 +143,9 @@ struct ConfigurationFileWriter: Sendable {
         lines.append("# no-cache: true")
         lines.append("")
         lines.append("# Report output paths")
-        lines.append("output: mutation-report.json")
-        lines.append("# html-output: mutation-report.html")
-        lines.append("# sonar-output: sonar-mutation-report.json")
-        lines.append("# sarif-output: mutation-report.sarif")
-        lines.append("# markdown-output: mutation-summary.md")
+        for format in ReportFormat.allCases {
+            lines.append("\(format == .json ? "" : "# ")\(format.fileKey): \(format.exampleFile)")
+        }
         lines.append("")
         lines.append("# Files to leave out: a glob (**/Generated/**) or a fragment of the path (/Generated/)")
         if let testTarget {
@@ -186,7 +182,7 @@ struct ConfigurationFileWriter: Sendable {
             "# Mutation operators — set active: false to disable",
             "mutators:",
         ]
-        for name in DiscoveryPipeline.allOperatorNames {
+        for name in OperatorRegistry.allOperatorNames {
             lines.append("  - name: \(name)")
             lines.append("    active: true")
         }

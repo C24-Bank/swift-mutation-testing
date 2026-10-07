@@ -45,16 +45,11 @@ struct ProcessRunner: Sendable {
 
         let killedByUs = KilledByUsFlag()
 
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                self.startProcess(
-                    process, killedByUs: killedByUs, timeout: timeout,
-                    continuation: continuation
-                )
-            }
-        } onCancel: {
-            killedByUs.mark()
-            onTimeout(process.processIdentifier)
+        return try await awaitTermination(of: process, killedByUs: killedByUs) { continuation in
+            self.startProcess(
+                process, killedByUs: killedByUs, timeout: timeout,
+                continuation: continuation
+            )
         }
     }
 
@@ -88,15 +83,23 @@ struct ProcessRunner: Sendable {
         let killedByUs = KilledByUsFlag()
         let stoppedByRule = KilledByUsFlag()
 
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                self.startCapturingProcess(
-                    process, killedByUs: killedByUs, stoppedByRule: stoppedByRule,
-                    timeout: request.timeout, stopRule: request.stopRule,
-                    capture: CaptureTarget(fileHandle: fileHandle, tempURL: tempURL),
-                    continuation: continuation
-                )
-            }
+        return try await awaitTermination(of: process, killedByUs: killedByUs) { continuation in
+            self.startCapturingProcess(
+                process, killedByUs: killedByUs, stoppedByRule: stoppedByRule,
+                timeout: request.timeout, stopRule: request.stopRule,
+                capture: CaptureTarget(fileHandle: fileHandle, tempURL: tempURL),
+                continuation: continuation
+            )
+        }
+    }
+
+    private func awaitTermination<Result: Sendable>(
+        of process: Process,
+        killedByUs: KilledByUsFlag,
+        start: (CheckedContinuation<Result, any Error>) -> Void
+    ) async throws -> Result {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation(start)
         } onCancel: {
             killedByUs.mark()
             onTimeout(process.processIdentifier)
@@ -115,21 +118,8 @@ struct ProcessRunner: Sendable {
             onTimeout(process.processIdentifier)
         }
 
-        process.terminationHandler = { [processGroups] proc in
-            processGroups.deregister(proc.processIdentifier)
-            timeoutTask.cancel()
-            postTerminationCleanup?(proc.processIdentifier)
-            let exitCode: Int32 = killedByUs.value ? -1 : proc.terminationStatus
-            continuation.resume(returning: exitCode)
-        }
-
-        do {
-            try process.run()
-            setpgid(process.processIdentifier, process.processIdentifier)
-            track(process)
-        } catch {
-            timeoutTask.cancel()
-            continuation.resume(throwing: error)
+        run(process, timeoutTask: timeoutTask, continuation: continuation) { terminated in
+            killedByUs.value ? -1 : terminated.terminationStatus
         }
     }
 
@@ -165,10 +155,12 @@ struct ProcessRunner: Sendable {
             onTimeout(process.processIdentifier)
         }
 
-        process.terminationHandler = { [processGroups] terminated in
-            processGroups.deregister(terminated.processIdentifier)
-            timeoutTask.cancel()
-            postTerminationCleanup?(terminated.processIdentifier)
+        let discardCapture = {
+            capture.fileHandle.closeFile()
+            try? FileManager.default.removeItem(at: capture.tempURL)
+        }
+        run(process, timeoutTask: timeoutTask, continuation: continuation, onLaunchFailure: discardCapture) {
+            terminated in
             capture.fileHandle.closeFile()
             let output = (try? readCapturedOutput(capture.tempURL)) ?? ""
             try? FileManager.default.removeItem(at: capture.tempURL)
@@ -178,7 +170,22 @@ struct ProcessRunner: Sendable {
             } else {
                 exitCode = killedByUs.value ? -1 : terminated.terminationStatus
             }
-            continuation.resume(returning: (exitCode: exitCode, output: output))
+            return (exitCode: exitCode, output: output)
+        }
+    }
+
+    private func run<Result: Sendable>(
+        _ process: Process,
+        timeoutTask: Task<Void, any Error>,
+        continuation: CheckedContinuation<Result, any Error>,
+        onLaunchFailure: () -> Void = {},
+        result: @escaping @Sendable (Process) -> Result
+    ) {
+        process.terminationHandler = { [processGroups] terminated in
+            processGroups.deregister(terminated.processIdentifier)
+            timeoutTask.cancel()
+            postTerminationCleanup?(terminated.processIdentifier)
+            continuation.resume(returning: result(terminated))
         }
 
         do {
@@ -187,8 +194,7 @@ struct ProcessRunner: Sendable {
             track(process)
         } catch {
             timeoutTask.cancel()
-            capture.fileHandle.closeFile()
-            try? FileManager.default.removeItem(at: capture.tempURL)
+            onLaunchFailure()
             continuation.resume(throwing: error)
         }
     }
@@ -197,8 +203,6 @@ struct ProcessRunner: Sendable {
         Self.track(process.processIdentifier, isRunning: { process.isRunning }, in: processGroups)
     }
 
-    /// Registers the group so an interrupt can kill it, and takes it back at once if the process already ended:
-    /// its termination handler may have run before the registration.
     static func track(_ pid: pid_t, isRunning: () -> Bool, in processGroups: ProcessGroupRegistry) {
         processGroups.register(pid)
         if !isRunning() {

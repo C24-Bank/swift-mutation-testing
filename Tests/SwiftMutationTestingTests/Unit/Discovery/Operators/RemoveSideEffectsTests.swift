@@ -78,7 +78,7 @@ struct RemoveSideEffectsTests {
     )
     func soleStatementOfABodyIsNotRemoved(code: String) {
         let removed = op.mutations(in: makeParsedSource(code)).map(\.description)
-        #expect(!removed.contains { $0.hasPrefix("remove foo") })
+        #expect(removed.isEmpty)
     }
 
     @Test(

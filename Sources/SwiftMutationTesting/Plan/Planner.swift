@@ -1,9 +1,5 @@
 import Foundation
 
-/// Discovery up to the plan: the files, their hashes, and every mutant with its position and fingerprint.
-///
-/// The parsed sources come out with the plan so that the direct flow, which materializes the plan right
-/// away, does not parse the files twice.
 struct Planner: Sendable {
     struct Planned: Sendable {
         let plan: Plan
@@ -15,7 +11,7 @@ struct Planner: Sendable {
     ) async throws -> Planned {
         let sourceFiles = try FileDiscoveryStage().run(input: input)
         let parsedSources = await ParsingStage().run(sourceFiles: sourceFiles)
-        let operators = DiscoveryPipeline.operators(named: input.operators)
+        let operators = OperatorRegistry.operators(named: input.operators)
         let mutationPoints = await MutantDiscoveryStage(operators: operators).run(sources: parsedSources)
         let indexed = MutantIndexingStage().run(
             mutationPoints: mutationPoints, sources: parsedSources, projectPath: input.projectPath
@@ -53,7 +49,7 @@ struct Planner: Sendable {
             scope: Plan.Scope(
                 sourcesPath: Self.relative(input.sourcesPath, to: input.projectPath),
                 excludePatterns: input.excludePatterns,
-                operators: input.operators.isEmpty ? DiscoveryPipeline.allOperatorNames : input.operators
+                operators: input.operators.isEmpty ? OperatorRegistry.allOperatorNames : input.operators
             ),
             files: files,
             mutants: mutants

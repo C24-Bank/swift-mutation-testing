@@ -19,8 +19,8 @@ struct ActivationInstrumenter: Sendable {
 
         let instrumented: String?
         if mutant.replacementKind == .removeStatement {
-            instrumented = Self.insert(
-                SupportDeclarations.activationCall(for: mutant.filePath), into: content, at: mutant.utf8Offset
+            instrumented = UTF8Splice.inserting(
+                SupportDeclarations.activationCall(for: mutant.filePath), at: mutant.utf8Offset, in: content
             )
         } else {
             guard let expression = Self.smallestWrappable(around: token, from: mutant.utf8Offset, length: length)
@@ -30,13 +30,9 @@ struct ActivationInstrumenter: Sendable {
             )
         }
 
-        guard let instrumented else { return nil }
-
-        var support = SupportDeclarations.perFile(for: mutant.filePath)
-        if !ImportStyle.importsFoundation(syntax) {
-            support = SupportDeclarations.importLine(importStyle) + "\n\n" + support
+        return instrumented.map {
+            SupportDeclarations.appended(to: $0, path: mutant.filePath, syntax: syntax, style: importStyle)
         }
-        return instrumented + "\n\n" + support + "\n"
     }
 
     // MARK: - Private
@@ -85,20 +81,10 @@ struct ActivationInstrumenter: Sendable {
         return false
     }
 
-    private static func insert(_ text: String, into content: String, at offset: Int) -> String? {
-        var bytes = Array(content.utf8)
-        guard offset >= 0, offset <= bytes.count else { return nil }
-        bytes.insert(contentsOf: Array(text.utf8), at: offset)
-        return String(bytes: bytes, encoding: .utf8)
-    }
-
     private static func wrap(_ expression: ExprSyntax, in content: String, with call: String) -> String? {
         let start = expression.positionAfterSkippingLeadingTrivia.utf8Offset
         let end = expression.endPositionBeforeTrailingTrivia.utf8Offset
-        var bytes = Array(content.utf8)
-        guard start >= 0, start <= end, end <= bytes.count else { return nil }
-        bytes.insert(UInt8(ascii: ")"), at: end)
-        bytes.insert(contentsOf: Array("\(call)(".utf8), at: start)
-        return String(bytes: bytes, encoding: .utf8)
+        guard let wrapped = UTF8Splice.substring(of: content, from: start, to: end) else { return nil }
+        return UTF8Splice.replacing(from: start, to: end, in: content, with: "\(call)(\(wrapped))")
     }
 }

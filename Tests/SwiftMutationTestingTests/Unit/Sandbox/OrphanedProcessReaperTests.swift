@@ -111,7 +111,6 @@ struct OrphanedProcessReaperTests {
         let pid = orphan.processIdentifier
         reaper.processes = { [pid] }
 
-        // A run starting in another test at the same time sweeps the whole machine and may reap it first.
         let reaped = reaper.reap()
         #expect(reaped == [pid] || !orphan.isRunning)
 

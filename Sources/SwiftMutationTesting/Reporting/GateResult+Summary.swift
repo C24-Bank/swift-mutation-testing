@@ -12,6 +12,17 @@ extension GateResult {
         Self.count(newUndetected.count, "new undetected mutant")
     }
 
+    var notes: [String] {
+        var notes: [String] = []
+        if !checksNewUndetected, !newUndetected.isEmpty {
+            notes.append("\(newUndetectedSummary) since the baseline")
+        }
+        if let fixed = fixedCount, fixed > 0 {
+            notes.append("\(Self.count(fixed, "mutant")) detected now that were undetected in the baseline")
+        }
+        return notes
+    }
+
     static func count(_ value: Int, _ noun: String) -> String {
         "\(value) \(noun)\(value == 1 ? "" : "s")"
     }

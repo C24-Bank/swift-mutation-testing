@@ -36,11 +36,7 @@ enum HelpText {
           --concurrency <n>             Parallel test workers (default: CPUs - 1). Simulator
                                         destinations only; SPM and macOS runs use one worker
           --no-cache                    Disable the result cache — nothing is read or written
-          --output <json-path>          Write mutation report JSON to path
-          --html-output <html-path>     Write HTML report to path
-          --sonar-output <json-path>    Write a SonarQube generic issue import report to path
-          --sarif-output <sarif-path>   Write a SARIF 2.1.0 report of undetected mutants to path
-          --markdown-output <md-path>   Write a Markdown summary, for CI job summaries, to path
+          \(ReportFormat.allCases.map(\.helpLine).joined(separator: "\n  "))
           --keep-logs <directory>       Write each mutant's captured test output to <directory>
           --quiet                       Suppress progress output
           --sources-path <path>         Root directory to discover Swift source files (default: project path)

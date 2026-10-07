@@ -8,11 +8,45 @@
 
 ```swift
 protocol MutationOperator: Sendable {
+    var identifier: String { get }
+    var summary: String { get }
+    var explanation: String { get }
+    var isLoopRisky: Bool { get }
     func mutations(in source: ParsedSource) -> [MutationPoint]
 }
+
+protocol OperatorVisitor: MutationSyntaxVisitor {
+    static var operatorIdentifier: String { get }
+    static var summary: String { get }
+    static var explanation: String { get }
+    static var isLoopRisky: Bool { get }  // default: false
+}
+
+struct VisitorOperator<Visitor: OperatorVisitor>: MutationOperator {
+    func mutations(in source: ParsedSource) -> [MutationPoint]
+}
+
+typealias RelationalOperatorReplacement = VisitorOperator<RelationalOperatorVisitor>
+typealias BooleanLiteralReplacement = VisitorOperator<BooleanLiteralVisitor>
+typealias LogicalOperatorReplacement = VisitorOperator<LogicalOperatorVisitor>
+typealias ArithmeticOperatorReplacement = VisitorOperator<ArithmeticOperatorVisitor>
+typealias NegateConditional = VisitorOperator<NegateConditionalVisitor>
+typealias SwapTernary = VisitorOperator<SwapTernaryVisitor>
+typealias RemoveSideEffects = VisitorOperator<RemoveSideEffectsVisitor>
 ```
 
-All seven mutation operators conform to this protocol. Each implementation creates its visitor, walks the AST, and returns the collected mutation points.
+All seven mutation operators conform to `MutationOperator`, and all seven are one generic type: `VisitorOperator` creates its visitor with `Visitor(source:)`, walks the AST once, and returns the collected mutation points. Each operator name is a typealias over it, so there is no file per operator; the sections below are named after the typealiases and describe their visitors.
+
+What an operator is comes from its visitor's statics, read through the operator:
+
+| Member | Description |
+|---|---|
+| `identifier` | The name reports, configuration files and `--operator` use; each visitor also stamps it on its `MutationPoint`s |
+| `summary` | A short title — the SARIF rule's `shortDescription` |
+| `explanation` | What the operator changes and what a survivor usually means — the SARIF rule's `fullDescription` |
+| `isLoopRisky` | Whether a mutation inside a loop body could keep the loop from ending; `true` only for `ArithmeticOperatorReplacement` and `RemoveSideEffects` |
+
+`OperatorRegistry` ([03 — Discovery Pipeline](03-discovery-pipeline.md)) holds the instances, and `SarifRuleCatalog` reads the names and descriptions from them.
 
 ---
 
@@ -24,14 +58,14 @@ class MutationSyntaxVisitor: SyntaxVisitor {
     let locationConverter: SourceLocationConverter
     var mutations: [MutationPoint]
 
-    init(source: ParsedSource)
+    required init(source: ParsedSource)
     override func visit(_ node: IfConfigClauseSyntax) -> SyntaxVisitorContinueKind
 }
 ```
 
 Every operator's visitor inherits one rule: the condition of an `#if`, `#elseif` or `#else` clause is never visited. It is a compile-time expression — `#if DEBUG && !os(Windows)`, `#elseif compiler(<6.1)` — whose `&&`, `||`, `<` and literals are not code that runs, and a mutation there changes what compiles instead of what executes. The clause's code is walked as usual, whichever branch the build will take; the points that fall in a branch the host build leaves out are dropped afterwards, by the filter in [Inactive `#if` branches](#inactive-if-branches).
 
-Base class for all operator visitors. Subclasses override `visit(_:)` methods to detect applicable nodes and append `MutationPoint` values to `mutations`.
+Base class for all operator visitors. Subclasses override `visit(_:)` methods to detect applicable nodes and append `MutationPoint` values to `mutations`. The initializer is `required` so that `VisitorOperator` can create any subclass from its type.
 
 | Field | Description |
 |---|---|
@@ -70,9 +104,7 @@ Classifies the structural shape of the replacement, independent of the specific 
 ## RelationalOperatorReplacement
 
 ```swift
-struct RelationalOperatorReplacement: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias RelationalOperatorReplacement = VisitorOperator<RelationalOperatorVisitor>
 ```
 
 Replaces comparison operators with their complements. Each token may produce multiple `MutationPoint` values (one per replacement).
@@ -95,9 +127,7 @@ Visitor: `RelationalOperatorVisitor` — visits `BinaryOperatorExprSyntax`.
 ## BooleanLiteralReplacement
 
 ```swift
-struct BooleanLiteralReplacement: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias BooleanLiteralReplacement = VisitorOperator<BooleanLiteralVisitor>
 ```
 
 Flips `true` ↔ `false`.
@@ -109,9 +139,7 @@ Visitor: `BooleanLiteralVisitor` — visits `BooleanLiteralExprSyntax`.
 ## LogicalOperatorReplacement
 
 ```swift
-struct LogicalOperatorReplacement: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias LogicalOperatorReplacement = VisitorOperator<LogicalOperatorVisitor>
 ```
 
 Swaps `&&` ↔ `||`.
@@ -123,9 +151,7 @@ Visitor: `LogicalOperatorVisitor` — visits `BinaryOperatorExprSyntax` where th
 ## ArithmeticOperatorReplacement
 
 ```swift
-struct ArithmeticOperatorReplacement: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias ArithmeticOperatorReplacement = VisitorOperator<ArithmeticOperatorVisitor>
 ```
 
 Swaps arithmetic operators: `+` ↔ `-`, `*` ↔ `/`, `%` → `*`.
@@ -141,9 +167,7 @@ Visitor: `ArithmeticOperatorVisitor` — visits `BinaryOperatorExprSyntax`.
 ## NegateConditional
 
 ```swift
-struct NegateConditional: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias NegateConditional = VisitorOperator<NegateConditionalVisitor>
 ```
 
 Wraps a condition expression in `!()`.
@@ -155,9 +179,7 @@ Visitor: `NegateConditionalVisitor` — visits `ConditionElementSyntax`.
 ## SwapTernary
 
 ```swift
-struct SwapTernary: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias SwapTernary = VisitorOperator<SwapTernaryVisitor>
 ```
 
 Swaps the true and false branches of a ternary expression.
@@ -175,9 +197,7 @@ Visitor: `SwapTernaryVisitor` — visits `UnresolvedTernaryExprSyntax`.
 ## RemoveSideEffects
 
 ```swift
-struct RemoveSideEffects: MutationOperator, Sendable {
-    func mutations(in source: ParsedSource) -> [MutationPoint]
-}
+typealias RemoveSideEffects = VisitorOperator<RemoveSideEffectsVisitor>
 ```
 
 Removes standalone function call statements. Three things are never removed, each because removing them produces a mutant that cannot compile rather than one the tests could catch:
@@ -209,12 +229,12 @@ Delegates to `SuppressionVisitor` and returns the collected suppressed byte rang
 ### Discovery/Suppression/SuppressionFilter.swift
 
 ```swift
-struct SuppressionFilter: Sendable {
-    func filter(_ points: [MutationPoint], suppressedRanges: [Range<AbsolutePosition>]) -> [MutationPoint]
+struct SuppressionFilter: MutationExclusion {
+    func ranges(in syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
 }
 ```
 
-Removes any `MutationPoint` whose `utf8Offset` (as `AbsolutePosition`) falls within a suppressed range.
+A `MutationExclusion` whose ranges are the suppressed ones `SuppressionAnnotationExtractor` finds. It keeps the default `applies(to:)`, so the shared `filter` removes any `MutationPoint` whose `utf8Offset` (as `AbsolutePosition`) falls within a suppressed range.
 
 ---
 
@@ -247,7 +267,7 @@ Records two kinds of range:
 
 Two operators can turn a terminating loop into one that never ends: `ArithmeticOperatorReplacement`, which can flip the step that moves an index towards its bound, and `RemoveSideEffects`, which can delete the statement that advances it. A mutant like that does not fail the tests — it hangs them, and the run pays the full `--timeout` for a verdict of `Timeout` that says nothing about the test suite.
 
-Mutation points of those two operators are therefore dropped at discovery when they fall inside the body of a `while` or a `repeat`. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite.
+Mutation points of those two operators — the ones whose `isLoopRisky` is `true`, collected in `OperatorRegistry.loopRiskyNames` — are therefore dropped at discovery when they fall inside the body of a `while` or a `repeat`. `for` loops are left alone: they iterate a sequence, and neither operator can make that sequence infinite.
 
 ### Discovery/InfiniteLoopPrevention/InfiniteLoopBodyVisitor.swift
 
@@ -272,17 +292,16 @@ Walks the file once with `InfiniteLoopBodyVisitor` and returns what it found.
 ### Discovery/InfiniteLoopPrevention/InfiniteLoopFilter.swift
 
 ```swift
-struct InfiniteLoopFilter: Sendable {
-    func filter(
-        _ mutationPoints: [MutationPoint],
-        loopBodyRanges: [Range<AbsolutePosition>]
-    ) -> [MutationPoint]
+struct InfiniteLoopFilter: MutationExclusion {
+    var riskyOperators: Set<String> = OperatorRegistry.loopRiskyNames
+    func ranges(in syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
+    func applies(to point: MutationPoint) -> Bool
 }
 ```
 
-Removes the points of the two risky operators whose `utf8Offset` falls inside a collected range. Every other operator passes through untouched, and a file with no `while` or `repeat` returns its points unchanged without any range checks.
+A `MutationExclusion` whose ranges are the loop bodies `InfiniteLoopBodyExtractor` finds, and which applies only to points of `riskyOperators`. The shared `filter` removes the points of the risky operators whose `utf8Offset` falls inside a collected range. Every other operator passes through untouched, and a file with no `while` or `repeat` returns its points unchanged without any range checks.
 
-`MutantDiscoveryStage` applies this after `SuppressionFilter`, so a suppressed region is never even considered.
+`MutantDiscoveryStage.standardExclusions` applies this after `SuppressionFilter`, so a suppressed region is never even considered.
 
 ---
 
@@ -318,12 +337,12 @@ Asks SwiftIfConfig for the configured regions of the file and returns the range 
 ### Discovery/IfConfig/InactiveRegionFilter.swift
 
 ```swift
-struct InactiveRegionFilter: Sendable {
-    func filter(_ mutationPoints: [MutationPoint], inactiveRanges: [Range<AbsolutePosition>]) -> [MutationPoint]
+struct InactiveRegionFilter: MutationExclusion {
+    func ranges(in syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
 }
 ```
 
-Removes any point whose `utf8Offset` falls inside a collected range, for every operator. `MutantDiscoveryStage` applies it last, after the infinite-loop filter.
+A `MutationExclusion` whose ranges are the ones `InactiveRegionExtractor` returns. It keeps the default `applies(to:)`, so the shared `filter` removes any point whose `utf8Offset` falls inside a collected range, for every operator. `MutantDiscoveryStage.standardExclusions` applies it last, after the infinite-loop filter.
 
 ---
 

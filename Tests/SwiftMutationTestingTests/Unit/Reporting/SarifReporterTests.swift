@@ -142,9 +142,13 @@ struct SarifReporterTests {
             totalDuration: 0
         )
 
-        let log = SarifReporter(outputPath: "/unused", projectRoot: "/tmp", resultLimit: 3).buildLog(summary)
+        var log: SarifLog?
+        let warning = captureErrorsSync {
+            log = SarifReporter(outputPath: "/unused", projectRoot: "/tmp", resultLimit: 3).buildLog(summary)
+        }
 
-        #expect(log.runs[0].results.map { $0.locations[0].physicalLocation.region.startLine } == [1, 2, 3])
+        #expect(log?.runs[0].results.map { $0.locations[0].physicalLocation.region.startLine } == [1, 2, 3])
+        #expect(warning.hasPrefix("Warning: the SARIF report lists the first 3 of 5 undetected mutants"))
     }
 
     @Test("Given a summary, when reported, then the log names the schema, the version and the tool")

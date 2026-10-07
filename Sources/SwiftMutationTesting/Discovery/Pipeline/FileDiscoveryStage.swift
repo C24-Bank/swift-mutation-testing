@@ -28,8 +28,6 @@ struct FileDiscoveryStage: Sendable {
             throw FileDiscoveryError.sourcesPathNotFound(input.sourcesPath)
         }
 
-        // A single file — the natural way to re-check one file after adding a test — is discovered alone,
-        // under the same exclusions as a file found in a directory.
         if !isDirectory.boolValue {
             guard url.pathExtension == "swift" else {
                 throw FileDiscoveryError.sourcesPathNotSwift(input.sourcesPath)

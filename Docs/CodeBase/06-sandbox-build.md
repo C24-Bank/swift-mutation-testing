@@ -122,7 +122,7 @@ Handles cleanup of orphaned and active sandbox directories.
 
 | Method | Description |
 |---|---|
-| `removeOrphaned(in:)` | Scans the directory for `xmr-*` entries and removes the ones whose owning process is gone. Called by `runPipeline` before `MutantExecutor` runs, to clean up sandboxes from interrupted runs |
+| `removeOrphaned(in:)` | Scans the directory for `xmr-*` entries and removes the ones whose owning process is gone. Called through `SandboxCleaner.clearLeftovers()` (CLI/CommandSupport.swift) by `RunCommand` before `MutantExecutor` runs and by `ReproduceCommand`, to clean up sandboxes from interrupted runs |
 | `register(_:in:)` | Records the sandbox as the active one in the registry |
 | `deregister(in:)` | Forgets the active sandbox without touching the directory |
 | `cleanupActiveSandbox(in:)` | Removes the active sandbox directory, if one is registered |
@@ -142,7 +142,7 @@ A name that does not parse — anything from a version before this, or a foreign
 
 The one case this does not cover is a crashed run whose pid has since been reused by an unrelated process: its sandbox is kept rather than swept. That leaks a temp directory until the system purges `$TMPDIR`; it does not lose anyone's data, which is the trade the old behaviour got backwards.
 
-**Where the sweep looks, and when.** Up to 1.5.0 sandboxes were created loose in `$TMPDIR` and the sweep ran in `main()`, before arguments were parsed. Listing a directory costs time in proportion to everything in it, not just our entries, and `$TMPDIR` is shared with every other tool on the machine: with a few hundred thousand leftovers from other test suites, `--version` took twenty seconds, all of it inside `contentsOfDirectory`. Sandboxes now live in a directory of their own, so the sweep lists only what this tool created, and it runs from `runPipeline` right before mutants are executed, so commands that never execute any never pay for it. Sandboxes an older version left loose in `$TMPDIR` are not swept; macOS purges them from `$TMPDIR` on its own.
+**Where the sweep looks, and when.** Up to 1.5.0 sandboxes were created loose in `$TMPDIR` and the sweep ran in `main()`, before arguments were parsed. Listing a directory costs time in proportion to everything in it, not just our entries, and `$TMPDIR` is shared with every other tool on the machine: with a few hundred thousand leftovers from other test suites, `--version` took twenty seconds, all of it inside `contentsOfDirectory`. Sandboxes now live in a directory of their own, so the sweep lists only what this tool created, and it runs from `clearLeftovers()`, which `RunCommand` and `ReproduceCommand` call right before mutants are executed, so commands that never execute any never pay for it. Sandboxes an older version left loose in `$TMPDIR` are not swept; macOS purges them from `$TMPDIR` on its own.
 
 ---
 
@@ -161,7 +161,7 @@ struct OrphanedProcessReaper: Sendable {
 }
 ```
 
-Kills test processes left running by a run that is gone. `runPipeline` calls `reap()` right before `SandboxCleaner.removeOrphaned()`.
+Kills test processes left running by a run that is gone. `SandboxCleaner.clearLeftovers()` calls `reap()` right before `SandboxCleaner.removeOrphaned()`.
 
 A run that is killed with `SIGKILL` or crashes never reaches the signal handler, so a mutant stuck in a loop at that moment keeps running forever, reparented to `launchd` (#105). The directory sweep does not help: it removes the sandbox and leaves the process, which keeps running from its unlinked bundle. The reaper therefore looks at processes rather than directories. It reads each process's `argv` (`ProcessArguments`), looks for a path component that `SandboxName.ownerPID(of:)` accepts — `swiftpm-testing-helper` always carries one in `--test-bundle-path` — and kills the process and its descendants when that owner is no longer alive.
 
@@ -232,7 +232,39 @@ Passes the resolved container as `-workspace <path>` or `-project <path>`, relat
 
 **SPM path (`buildSPM`):** Runs `swift build --build-tests` in the sandbox directory. Returns a `BuildArtifact` with the sandbox path (no `.xctestrun` needed).
 
-Derived data is placed at `<sandbox>/.xmr-derived-data` to keep it inside the sandbox directory.
+Both requests come from `ToolRequests` (`buildForTesting(in:scheme:destination:container:timeout:)` and `swiftBuildTests(in:timeout:)`). Derived data is placed at `ToolRequests.derivedDataPath(in:)` — `<sandbox>/.xmr-derived-data` — to keep it inside the sandbox directory.
+
+---
+
+## Build/ToolRequests.swift
+
+```swift
+enum ToolRequests {
+    static func swiftBuildTests(in sandbox: Sandbox, timeout: Double) -> ProcessRequest
+    static func swiftTest(
+        in sandbox: Sandbox, filter: String?, environment: [String: String], timeout: Double
+    ) -> ProcessRequest
+    static func buildForTesting(
+        in sandbox: Sandbox, scheme: String, destination: String, container: XcodeContainer?, timeout: Double
+    ) -> ProcessRequest
+    static func xcodebuild(
+        _ arguments: [String], in sandbox: Sandbox, environment: [String: String] = [:], timeout: Double
+    ) -> ProcessRequest
+    static func derivedDataPath(in sandbox: Sandbox) -> String
+}
+```
+
+Every `swift` and `xcodebuild` invocation a run builds and tests a sandbox with, assembled in one place so every path does it the same way. Each request runs in the sandbox root, inherits the tool's environment and adds `environment` on top (`additionalEnvironment`).
+
+| Method | Invocation | Used by |
+|---|---|---|
+| `swiftBuildTests` | `swift build --build-tests` | `BuildStage.buildSPM`, `IncompatibleMutantExecutor` (warm and per-mutant SPM builds) |
+| `swiftTest` | `swift test --skip-build [--filter <filter>]` | `TestExecutionStage` (SPM without bundles), `IncompatibleMutantExecutor.testSPM`, `BaselineProbe` |
+| `buildForTesting` | `xcodebuild build-for-testing -scheme -destination -derivedDataPath` plus the container's arguments | `BuildStage.build`, `IncompatibleMutantExecutor` (Xcode) |
+| `xcodebuild` | `xcodebuild` with the given arguments | `TestExecutionStage` (`test-without-building`), `IncompatibleMutantExecutor.testXcode` |
+| `derivedDataPath` | `<sandbox>/.xmr-derived-data` | every Xcode build and test |
+
+Before, each caller built its own `ProcessRequest`, and the incompatible Xcode path put its derived data in `.derived-data` while the schematized build used `.xmr-derived-data`; there is now one directory.
 
 ---
 

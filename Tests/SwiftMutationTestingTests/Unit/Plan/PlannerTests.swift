@@ -74,7 +74,7 @@ struct PlannerTests {
         ).plan
 
         #expect(plan.scope.sourcesPath == ".")
-        #expect(plan.scope.operators == DiscoveryPipeline.allOperatorNames)
+        #expect(plan.scope.operators == OperatorRegistry.allOperatorNames)
     }
 
     // MARK: - Fixture

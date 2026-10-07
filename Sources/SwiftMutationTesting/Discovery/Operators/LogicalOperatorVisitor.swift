@@ -1,6 +1,11 @@
 import SwiftSyntax
 
-final class LogicalOperatorVisitor: MutationSyntaxVisitor {
+final class LogicalOperatorVisitor: MutationSyntaxVisitor, OperatorVisitor {
+    static let operatorIdentifier = "LogicalOperatorReplacement"
+    static let summary = "Logical operator replacement"
+    static let explanation =
+        "Replaces && with || and || with &&. A survivor usually means only cases where both sides agree are tested."
+
     private static let replacementTable: [String: String] = [
         "&&": "||",
         "||": "&&",
@@ -17,7 +22,7 @@ final class LogicalOperatorVisitor: MutationSyntaxVisitor {
 
         mutations.append(
             MutationPoint(
-                operatorIdentifier: "LogicalOperatorReplacement",
+                operatorIdentifier: Self.operatorIdentifier,
                 filePath: filePath,
                 line: location.line,
                 column: location.column,

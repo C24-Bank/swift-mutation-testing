@@ -1,6 +1,13 @@
 import SwiftSyntax
 
-final class ArithmeticOperatorVisitor: MutationSyntaxVisitor {
+final class ArithmeticOperatorVisitor: MutationSyntaxVisitor, OperatorVisitor {
+    static let operatorIdentifier = "ArithmeticOperatorReplacement"
+    static let summary = "Arithmetic operator replacement"
+    static let explanation =
+        "Replaces an arithmetic operator (+, -, *, /, %) with another. "
+        + "A survivor usually means the computed value is not asserted exactly."
+    static let isLoopRisky = true
+
     private static let replacementTable: [String: String] = [
         "+": "-",
         "-": "+",
@@ -25,7 +32,7 @@ final class ArithmeticOperatorVisitor: MutationSyntaxVisitor {
 
         mutations.append(
             MutationPoint(
-                operatorIdentifier: "ArithmeticOperatorReplacement",
+                operatorIdentifier: Self.operatorIdentifier,
                 filePath: filePath,
                 line: location.line,
                 column: location.column,

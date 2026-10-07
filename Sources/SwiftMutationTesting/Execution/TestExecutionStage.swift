@@ -80,18 +80,8 @@ struct TestExecutionStage: Sendable {
         in context: TestExecutionContext,
         timeout: Double
     ) async throws -> Attempt {
-        let key = MutantCacheKey.make(for: mutant)
-
-        if let cached = await deps.cacheStore.result(for: key) {
-            let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
-            let result = ExecutionResult(
-                descriptor: mutant, status: cached, testDuration: 0, killerTestFile: killerTestFile,
-                activated: await deps.cacheStore.activated(for: key), fromCache: true
-            )
-            let index = await deps.counter.increment()
-            await deps.reporter.report(
-                .mutantFinished(descriptor: mutant, status: cached, index: index, total: deps.counter.total))
-            return .settled(result)
+        if let cached = await recorder(in: context).cached(mutant) {
+            return .settled(cached)
         }
 
         let (outcome, launched) = try await measure(mutant, in: context, timeout: timeout)
@@ -105,7 +95,7 @@ struct TestExecutionStage: Sendable {
         }
 
         return .settled(
-            await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
+            await recordResult(mutant: mutant, outcome: outcome, launched: launched, in: context)
         )
     }
 
@@ -114,9 +104,8 @@ struct TestExecutionStage: Sendable {
         in context: TestExecutionContext,
         timeout: Double
     ) async throws -> ExecutionResult {
-        let key = MutantCacheKey.make(for: mutant)
         let (outcome, launched) = try await measure(mutant, in: context, timeout: timeout)
-        return await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
+        return await recordResult(mutant: mutant, outcome: outcome, launched: launched, in: context)
     }
 
     private func measure(
@@ -206,45 +195,22 @@ struct TestExecutionStage: Sendable {
 
     private func recordResult(
         mutant: MutantDescriptor,
-        key: MutantCacheKey,
         outcome: TestRunOutcome,
         launched: TestLaunchResult,
         in context: TestExecutionContext
     ) async -> ExecutionResult {
-        let status = Self.classify(outcome.asExecutionStatus, activated: launched.activated)
-        let duration = launched.duration
+        await recorder(in: context).record(
+            mutant, status: Self.classify(outcome.asExecutionStatus, activated: launched.activated),
+            duration: launched.duration, output: launched.output, activated: launched.activated
+        )
+    }
 
-        MutantLogWriter(directory: context.configuration.reporting.keepLogsPath)?
-            .write(
-                mutant: mutant, status: status, duration: duration, output: launched.output,
-                activated: launched.activated
-            )
-        let killerTestFile = resolveKillerTestFile(status: status)
-        let result = ExecutionResult(
-            descriptor: mutant, status: status, testDuration: duration,
-            killerTestFile: killerTestFile, activated: launched.activated
-        )
-        await deps.cacheStore.store(
-            status: status, for: key, killerTestFile: killerTestFile, activated: launched.activated,
-            duration: duration
-        )
-        let index = await deps.counter.increment()
-        await deps.reporter.report(
-            .mutantFinished(
-                descriptor: mutant, status: status,
-                index: index, total: deps.counter.total
-            )
-        )
-        return result
+    private func recorder(in context: TestExecutionContext) -> ResultRecorder {
+        ResultRecorder(deps: deps, keepLogsPath: context.configuration.reporting.keepLogsPath)
     }
 
     static func classify(_ status: ExecutionStatus, activated: Bool) -> ExecutionStatus {
         status == .survived && !activated ? .noCoverage : status
-    }
-
-    private func resolveKillerTestFile(status: ExecutionStatus) -> String? {
-        guard case .killed(let testName) = status else { return nil }
-        return deps.killerTestFileResolver.resolve(testName: testName)
     }
 
     private struct SPMRun {
@@ -321,19 +287,10 @@ struct TestExecutionStage: Sendable {
             }
         }
 
-        var arguments = ["test", "--skip-build"]
-        if let filter = run.filter {
-            arguments += ["--filter", filter]
-        }
-
-        let request = ProcessRequest(
-            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-            arguments: arguments,
-            environment: nil,
-            additionalEnvironment: TestBundleInvocation.environment(
-                mutantID: mutant.id, activationFile: run.activationFile
-            ),
-            workingDirectoryURL: context.sandbox.rootURL,
+        let request = ToolRequests.swiftTest(
+            in: context.sandbox,
+            filter: run.filter,
+            environment: TestBundleInvocation.environment(mutantID: mutant.id, activationFile: run.activationFile),
             timeout: timeout
         )
         return [configuration.build.reproducing ? request : request.stopping(at: .firstTestFailure)]
@@ -370,14 +327,7 @@ struct TestExecutionStage: Sendable {
 
         let start = Date()
         let captured = try await deps.launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/xcodebuild"),
-                arguments: arguments,
-                environment: nil,
-                additionalEnvironment: [:],
-                workingDirectoryURL: context.sandbox.rootURL,
-                timeout: timeout
-            )
+            ToolRequests.xcodebuild(arguments, in: context.sandbox, timeout: timeout)
         )
 
         return TestLaunchResult(

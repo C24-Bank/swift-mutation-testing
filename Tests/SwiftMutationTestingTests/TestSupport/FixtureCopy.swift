@@ -1,12 +1,5 @@
 import Foundation
 
-/// A private copy of a project under `Fixtures/`, so that no two tests ever share a tree.
-///
-/// Build products and caches are left behind: the executor builds in its own sandbox anyway, and a
-/// shared `.swift-mutation-testing-cache` is exactly the state two parallel tests would race on.
-/// Symlinks are copied as the files they point to: when this suite itself runs inside a mutation
-/// sandbox, `Fixtures/` is a tree of links into the original checkout, and a copy of links would send
-/// the pipeline under test outside the tree it is given.
 struct FixtureCopy {
     let url: URL
 

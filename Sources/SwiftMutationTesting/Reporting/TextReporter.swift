@@ -19,30 +19,27 @@ struct TextReporter: Sendable {
 
         lines.append("")
         lines.append("Results by file:")
-        for (filePath, fileResults) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
-            let file = RunnerSummary(results: fileResults, totalDuration: 0)
+        for (filePath, file) in summary.files {
             let score = String(format: "%.1f", file.score)
             let stats = [
                 "killed: \(file.killed.count)",
                 "survived: \(file.survived.count)",
                 "timeout: \(file.timeouts.count)",
                 "unviable: \(file.unviable.count)",
+                "no coverage: \(file.noCoverage.count)",
             ].joined(separator: "   ")
             lines.append("  \(relative(filePath))    score: \(score)%   \(stats)")
         }
 
-        let unkilledMutants = summary.survived + summary.noCoverage
-        if !unkilledMutants.isEmpty {
+        if !summary.undetected.isEmpty {
             lines.append("")
-            lines.append("Survived mutants:")
-            let sorted = unkilledMutants.sorted {
-                ($0.descriptor.filePath, $0.descriptor.line) < ($1.descriptor.filePath, $1.descriptor.line)
-            }
-            for result in sorted {
+            lines.append("Undetected mutants:")
+            for result in RunnerSummary.byLocation(summary.undetected) {
                 let desc = result.descriptor
+                let status = result.status == .noCoverage ? "no coverage" : "survived"
                 lines.append(
                     "  \(relative(desc.filePath)):\(desc.line):\(desc.column)"
-                        + "   \(desc.operatorIdentifier)"
+                        + "   \(desc.operatorIdentifier)   \(status)"
                 )
             }
         }
@@ -73,9 +70,7 @@ struct TextReporter: Sendable {
     static let integrityWarningsListed = 10
 
     private func integritySection(_ summary: RunnerSummary) -> [String] {
-        let warnings = summary.integrityWarnings.sorted {
-            ($0.descriptor.filePath, $0.descriptor.line) < ($1.descriptor.filePath, $1.descriptor.line)
-        }
+        let warnings = RunnerSummary.byLocation(summary.integrityWarnings)
         guard !warnings.isEmpty else { return [] }
 
         var lines = [""]

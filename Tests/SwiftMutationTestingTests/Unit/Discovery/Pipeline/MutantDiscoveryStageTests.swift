@@ -1,3 +1,4 @@
+import SwiftSyntax
 import Testing
 
 @testable import SwiftMutationTesting
@@ -18,6 +19,21 @@ struct MutantDiscoveryStageTests {
         let source = makeParsedSource("func f() { let x = true; notify() }", path: "a.swift")
         let result = await stage.run(sources: [source])
         #expect(result.count == 2)
+    }
+
+    @Test("Given exclusions of its own, when run, then the stage applies those and not the standard ones")
+    func appliesTheExclusionsItIsGiven() async {
+        let code = "@SwiftMutationTestingDisabled func f() { let a = true; let b = false }"
+        let source = makeParsedSource(code, path: "a.swift")
+
+        let unfiltered = await MutantDiscoveryStage(operators: [BooleanLiteralReplacement()], exclusions: [])
+            .run(sources: [source])
+        let custom = await MutantDiscoveryStage(
+            operators: [BooleanLiteralReplacement()], exclusions: [ExcludingFalse()]
+        ).run(sources: [source])
+
+        #expect(unfiltered.map(\.originalText) == ["true", "false"])
+        #expect(custom.map(\.originalText) == ["true"])
     }
 
     @Test("Given source with suppression annotation, when run, then filters suppressed mutations")
@@ -81,5 +97,15 @@ struct MutantDiscoveryStageTests {
         let source = makeParsedSource("func f() { let x = 1 }", path: "a.swift")
         let result = await stage.run(sources: [source])
         #expect(result.isEmpty)
+    }
+
+    private struct ExcludingFalse: MutationExclusion {
+        func ranges(in syntax: SourceFileSyntax) -> [Range<AbsolutePosition>] {
+            [AbsolutePosition(utf8Offset: 0) ..< syntax.endPosition]
+        }
+
+        func applies(to point: MutationPoint) -> Bool {
+            point.originalText == "false"
+        }
     }
 }

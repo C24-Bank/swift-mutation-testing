@@ -343,7 +343,7 @@ struct ConfigurationResolverTests {
             fileValues: [:]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .standard))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .standard))
     }
 
     @Test("Given --operator-tier via CLI, when resolved, then the operators up to that tier run")
@@ -356,7 +356,7 @@ struct ConfigurationResolverTests {
             fileValues: [:]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .experimental))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .experimental))
     }
 
     @Test("Given operator-tier in file, when resolved, then the operators up to that tier run")
@@ -366,7 +366,7 @@ struct ConfigurationResolverTests {
             fileValues: ["operator-tier": "conservative"]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .conservative))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .conservative))
     }
 
     @Test("Given --operator-tier via CLI and operator-tier in file, when resolved, then the CLI tier wins")
@@ -379,7 +379,7 @@ struct ConfigurationResolverTests {
             fileValues: ["operator-tier": "conservative"]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .experimental))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .experimental))
     }
 
     @Test("Given a tier that does not exist, when resolved, then throws UsageError naming the three tiers")
@@ -428,7 +428,7 @@ struct ConfigurationResolverTests {
             fileValues: ["disabled-mutators": "SwapTernary"]
         )
 
-        let expected = DiscoveryPipeline.operatorNames(upTo: .experimental)
+        let expected = OperatorRegistry.operatorNames(upTo: .experimental)
             .filter { $0 != "RemoveSideEffects" && $0 != "SwapTernary" }
         #expect(result.filter.operators == expected)
     }
@@ -458,7 +458,6 @@ struct ConfigurationResolverTests {
 
     @Test("Given empty project path, when resolved, then uses current directory")
     func emptyProjectPathUsesCurrentDirectory() throws {
-        // The working directory is this package: resolved as one, it needs no Xcode container.
         let result = try resolver.resolve(
             cliArguments: ParsedArguments(projectPath: ""),
             fileValues: [:]
@@ -484,7 +483,7 @@ struct ConfigurationResolverTests {
             fileValues: ["output": "/tmp/report.txt"]
         )
 
-        #expect(result.reporting.output == "/tmp/report.txt")
+        #expect(result.reporting.outputs[.json] == "/tmp/report.txt")
     }
 
     @Test("Given no testingFramework anywhere, when resolved, then defaults to swiftTesting")
@@ -623,8 +622,8 @@ struct ConfigurationResolverTests {
             fileValues: ["sarif-output": "file.sarif", "markdown-output": "file.md"]
         )
 
-        #expect(result.reporting.sarifOutput == "file.sarif")
-        #expect(result.reporting.markdownOutput == "file.md")
+        #expect(result.reporting.outputs[.sarif] == "file.sarif")
+        #expect(result.reporting.outputs[.markdown] == "file.md")
     }
 
     @Test("Given SARIF and Markdown paths in both places, when resolved, then the command line wins")
@@ -632,20 +631,16 @@ struct ConfigurationResolverTests {
         let result = try resolver.resolve(
             cliArguments: ParsedArguments(
                 build: .init(scheme: "App", destination: "platform=macOS"),
-                reporting: .init(sarifOutput: "cli.sarif", markdownOutput: "cli.md")
+                reporting: .init(outputs: [.sarif: "cli.sarif", .markdown: "cli.md"])
             ),
             fileValues: ["sarif-output": "file.sarif", "markdown-output": "file.md"]
         )
 
-        #expect(result.reporting.sarifOutput == "cli.sarif")
-        #expect(result.reporting.markdownOutput == "cli.md")
+        #expect(result.reporting.outputs[.sarif] == "cli.sarif")
+        #expect(result.reporting.outputs[.markdown] == "cli.md")
     }
 }
 
-/// Resolves as `ConfigurationResolver` does, from an empty root when the arguments name none.
-///
-/// These tests leave the project path at `.`, the working directory — this repository, whose fixtures hold
-/// Xcode projects below the root, which an Xcode run now refuses to guess between.
 private struct IsolatedResolver {
     static let emptyRoot: String = {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("swift-mutation-testing-empty-root")

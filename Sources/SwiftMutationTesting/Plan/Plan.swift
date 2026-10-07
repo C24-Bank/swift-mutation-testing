@@ -1,10 +1,3 @@
-/// What a run is going to do, written down before any build: the project, the scope, the files with a
-/// hash of their content, and every mutant with a position and a fingerprint.
-///
-/// A plan carries no absolute path and no execution option — timeout, concurrency, cache are the run's
-/// business — so two plans of the same code are the same bytes wherever they were made, and a plan made
-/// on one machine runs on another. The schematized content is not in it either: the run regenerates it
-/// from the mutants, which keeps the plan small enough to read.
 struct Plan: Sendable, Codable, Equatable {
     static let formatVersion = 1
 
@@ -20,8 +13,6 @@ struct Plan: Sendable, Codable, Equatable {
         let scheme: String?
         let destination: String?
         let testTarget: String?
-        /// The `.xcworkspace` or `.xcodeproj` the plan was made for, relative to the root; absent for a
-        /// package and for an Xcode root without one, so such plans keep their bytes.
         var workspace: String?
         var xcodeProject: String?
 
@@ -83,15 +74,9 @@ struct Plan: Sendable, Codable, Equatable {
         let description: String
         let schematizable: Bool
     }
-
-    /// The report id of the mutant at `index` of `mutants`, the same id the direct flow gives it.
-    static func mutantID(at index: Int) -> String {
-        "swift-mutation-testing_\(index)"
-    }
 }
 
 extension Plan.Mutant {
-    /// The plan's bytes keep the key `operator`, so a plan's hash does not change with the Swift name.
     enum CodingKeys: String, CodingKey {
         case fingerprint, file, utf8Start, utf8End, line, column
         case operatorIdentifier = "operator"

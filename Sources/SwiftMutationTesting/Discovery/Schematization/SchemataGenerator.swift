@@ -1,73 +1,30 @@
+import SwiftSyntax
+
 struct SchemataGenerator: Sendable {
+    private typealias Entry = (index: Int, point: MutationPoint)
+    private typealias ScopeGroup = (scope: FunctionBodyScope, mutations: [Entry])
+
     func generate(
         source: ParsedSource, mutations: [(index: Int, point: MutationPoint)], importStyle: ImportStyle = .implicit
     ) -> SchemaGeneration {
-        let visitor = TypeScopeVisitor()
-        visitor.walk(source.syntax)
-
-        var groupedByScope: [Int: (scope: FunctionBodyScope, mutations: [(index: Int, point: MutationPoint)])] = [:]
-        var discarded: [MutationPoint] = []
-
-        for entry in mutations {
-            guard let scope = visitor.innermostScope(containing: entry.point.utf8Offset) else {
-                discarded.append(entry.point)
-                continue
-            }
-
-            groupedByScope[scope.bodyStartOffset, default: (scope: scope, mutations: [])].mutations
-                .append(entry)
-        }
-
-        let sortedGroups = groupedByScope.values.sorted {
-            $0.scope.bodyStartOffset > $1.scope.bodyStartOffset
-        }
+        var (groups, discarded) = groupByScope(mutations, in: source.syntax)
 
         var content = source.file.content
         var edits = Edits()
 
-        for group in sortedGroups {
+        for group in groups {
+            let body = schemaBody(for: group, in: content, edits: edits, path: source.file.path)
+            discarded += body.discarded
+            guard let switchBody = body.switchBody else { continue }
+
             let scope = group.scope
-            let statementsStart = edits.current(scope.statementsStartOffset)
-
-            guard
-                let originalStatements = extract(
-                    from: content,
-                    start: statementsStart,
-                    end: edits.current(scope.statementsEndOffset)
-                )
-            else {
-                discarded += group.mutations.map(\.point)
-                continue
-            }
-
-            let sortedMutations = group.mutations.sorted { $0.index < $1.index }
-            var cases: [(id: String, statements: String)] = []
-
-            for entry in sortedMutations {
-                guard
-                    let mutated = apply(
-                        entry.point,
-                        to: originalStatements,
-                        at: edits.current(entry.point.utf8Offset) - statementsStart
-                    )
-                else {
-                    discarded.append(entry.point)
-                    continue
-                }
-                cases.append((id: mutantID(entry.index), statements: mutated))
-            }
-
-            guard !cases.isEmpty else { continue }
-
-            let switchBody = buildSwitchBody(
-                cases: cases, defaultStatements: originalStatements, shape: scope.shape, path: source.file.path
-            )
-            content = replaceRange(
-                in: content,
-                start: edits.current(scope.bodyStartOffset),
-                end: edits.current(scope.bodyEndOffset),
-                with: switchBody
-            )
+            content =
+                UTF8Splice.replacing(
+                    from: edits.current(scope.bodyStartOffset),
+                    to: edits.current(scope.bodyEndOffset),
+                    in: content,
+                    with: switchBody
+                ) ?? content
             edits.record(
                 start: scope.bodyStartOffset,
                 delta: switchBody.utf8.count - (scope.bodyEndOffset - scope.bodyStartOffset)
@@ -78,11 +35,73 @@ struct SchemataGenerator: Sendable {
             return SchemaGeneration(content: content, discarded: discarded)
         }
 
-        var support = SupportDeclarations.perFile(for: source.file.path)
-        if !ImportStyle.importsFoundation(source.syntax) {
-            support = SupportDeclarations.importLine(importStyle) + "\n\n" + support
+        return SchemaGeneration(
+            content: SupportDeclarations.appended(
+                to: content, path: source.file.path, syntax: source.syntax, style: importStyle
+            ),
+            discarded: discarded
+        )
+    }
+
+    private func groupByScope(
+        _ mutations: [Entry], in syntax: SourceFileSyntax
+    ) -> (groups: [ScopeGroup], discarded: [MutationPoint]) {
+        let visitor = TypeScopeVisitor()
+        visitor.walk(syntax)
+
+        var groupedByScope: [Int: ScopeGroup] = [:]
+        var discarded: [MutationPoint] = []
+
+        for entry in mutations {
+            guard let scope = visitor.innermostScope(containing: entry.point.utf8Offset) else {
+                discarded.append(entry.point)
+                continue
+            }
+
+            groupedByScope[scope.bodyStartOffset, default: (scope: scope, mutations: [])].mutations.append(entry)
         }
-        return SchemaGeneration(content: content + "\n\n" + support + "\n", discarded: discarded)
+
+        let groups = groupedByScope.values.sorted { $0.scope.bodyStartOffset > $1.scope.bodyStartOffset }
+        return (groups, discarded)
+    }
+
+    private func schemaBody(
+        for group: ScopeGroup, in content: String, edits: Edits, path: String
+    ) -> (switchBody: String?, discarded: [MutationPoint]) {
+        let scope = group.scope
+        let statementsStart = edits.current(scope.statementsStartOffset)
+
+        guard
+            let originalStatements = UTF8Splice.substring(
+                of: content, from: statementsStart, to: edits.current(scope.statementsEndOffset)
+            )
+        else {
+            return (nil, group.mutations.map(\.point))
+        }
+
+        var cases: [(id: String, statements: String)] = []
+        var discarded: [MutationPoint] = []
+
+        for entry in group.mutations.sorted(by: { $0.index < $1.index }) {
+            guard
+                let mutated = apply(
+                    entry.point,
+                    to: originalStatements,
+                    at: edits.current(entry.point.utf8Offset) - statementsStart
+                )
+            else {
+                discarded.append(entry.point)
+                continue
+            }
+            cases.append((id: MutantID.make(index: entry.index), statements: mutated))
+        }
+
+        guard !cases.isEmpty else { return (nil, discarded) }
+
+        let switchBody = buildSwitchBody(
+            cases: cases, defaultStatements: originalStatements, shape: scope.shape, path: path
+        )
+        return (switchBody, discarded)
     }
 
     private struct Edits {
@@ -97,28 +116,13 @@ struct SchemataGenerator: Sendable {
         }
     }
 
-    private func mutantID(_ index: Int) -> String {
-        "swift-mutation-testing_\(index)"
-    }
-
-    private func extract(from content: String, start: Int, end: Int) -> String? {
-        let data = content.data(using: .utf8)!
-        guard start >= 0, end <= data.count, start <= end
-        else { return nil }
-        return String(data: data.subdata(in: start ..< end), encoding: .utf8)!
-    }
-
     private func apply(_ mutation: MutationPoint, to statementsText: String, at relativeOffset: Int) -> String? {
-        let statementsData = statementsText.data(using: .utf8)!
-        let originalData = mutation.originalText.data(using: .utf8)!
-        let mutatedData = mutation.mutatedText.data(using: .utf8)!
-
-        guard relativeOffset >= 0, relativeOffset + originalData.count <= statementsData.count
-        else { return nil }
-
-        var result = statementsData
-        result.replaceSubrange(relativeOffset ..< relativeOffset + originalData.count, with: mutatedData)
-        return String(data: result, encoding: .utf8)!
+        UTF8Splice.replacing(
+            from: relativeOffset,
+            to: relativeOffset + mutation.originalText.utf8.count,
+            in: statementsText,
+            with: mutation.mutatedText
+        )
     }
 
     private func buildSwitchBody(
@@ -156,20 +160,5 @@ struct SchemataGenerator: Sendable {
 
     private func defaultBody(_ statements: String, shape: FunctionBodyShape) -> String {
         shape == .conditional(returnsValue: true) ? "return \(statements)" : statements
-    }
-
-    private func replaceRange(
-        in content: String, start: Int, end: Int, with replacement: String
-    )
-        -> String
-    {
-        let contentData = content.data(using: .utf8)!
-        let replacementData = replacement.data(using: .utf8)!
-        guard start >= 0, end <= contentData.count
-        else { return content }
-
-        var result = contentData
-        result.replaceSubrange(start ..< end, with: replacementData)
-        return String(data: result, encoding: .utf8)!
     }
 }

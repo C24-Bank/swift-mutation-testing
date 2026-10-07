@@ -85,6 +85,19 @@ struct TestOutputParserTests {
         #expect(result == .crashed)
     }
 
+    @Test(
+        "Given output carrying a single test-run marker, when parsed, then returns crashed",
+        arguments: [
+            "◇ Suite \"Parsing\" started.\nsome other output",
+            "✔ Test run with 3 tests in 1 suite passed after 0.002 seconds.",
+            "Executed 0 tests, with 0 failures",
+            "Test Suite 'All tests' started",
+        ]
+    )
+    func eachTestRunMarkerAloneIsACrash(output: String) {
+        #expect(TestOutputParser().parse(output) == .crashed)
+    }
+
     @Test("Given empty output, when parsed, then returns unviable")
     func parsesEmptyOutputAsUnviable() {
         let result = TestOutputParser().parse("")

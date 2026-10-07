@@ -1,11 +1,13 @@
 import Foundation
 
 struct ConfigurationResolver: Sendable {
+    var fileSystem = FileSystem()
+
     func resolve(
         cliArguments: ParsedArguments,
         fileValues: [String: String]
     ) throws -> RunnerConfiguration {
-        let projectPath = resolvedPath(cliArguments.projectPath)
+        let projectPath = fileSystem.projectPath(cliArguments.projectPath)
         let concurrency = resolvedConcurrency(cli: cliArguments, fileValues: fileValues)
 
         guard concurrency >= 1 else {
@@ -45,11 +47,9 @@ struct ConfigurationResolver: Sendable {
                 testingFramework: testingFramework
             ),
             reporting: .init(
-                output: cliArguments.reporting.output ?? fileValues["output"],
-                htmlOutput: cliArguments.reporting.htmlOutput ?? fileValues["html-output"],
-                sonarOutput: cliArguments.reporting.sonarOutput ?? fileValues["sonar-output"],
-                sarifOutput: cliArguments.reporting.sarifOutput ?? fileValues["sarif-output"],
-                markdownOutput: cliArguments.reporting.markdownOutput ?? fileValues["markdown-output"],
+                outputs: ReportFormat.allCases.reduce(into: [:]) { outputs, format in
+                    outputs[format] = cliArguments.reporting.outputs[format] ?? fileValues[format.fileKey]
+                },
                 keepLogsPath: cliArguments.reporting.keepLogsPath ?? fileValues["keep-logs"],
                 quiet: cliArguments.reporting.quiet || fileValues["quiet"]?.lowercased() == "true"
             ),
@@ -102,7 +102,6 @@ struct ConfigurationResolver: Sendable {
         return .xcode(scheme: scheme, destination: destination)
     }
 
-    /// The command line's container wins over the file's, as a whole: `--project` replaces a `workspace` key.
     private static func containerFlags(
         cli: ParsedArguments, fileValues: [String: String]
     ) -> (workspace: String?, project: String?) {
@@ -118,14 +117,13 @@ struct ConfigurationResolver: Sendable {
         guard case .xcode = projectType else { return nil }
         let (workspace, project) = Self.containerFlags(cli: cli, fileValues: fileValues)
         return try XcodeContainerLocator.locate(
-            in: URL(fileURLWithPath: projectPath), workspace: workspace, project: project
-        )
+            in: URL(fileURLWithPath: projectPath), workspace: workspace, project: project, fileSystem: fileSystem)
     }
 
     private func hasSPMPackage(at projectPath: String) -> Bool {
         let packageURL = URL(fileURLWithPath: projectPath)
             .appendingPathComponent("Package.swift")
-        return FileManager.default.fileExists(atPath: packageURL.path)
+        return fileSystem.fileExists(packageURL.path)
     }
 
     private func resolvedTimeout(cli: ParsedArguments, fileValues: [String: String], projectType: ProjectType) -> Double
@@ -176,7 +174,7 @@ struct ConfigurationResolver: Sendable {
         let fileDisabled = resolveList(cli: [], keys: ["disabled-mutators"], from: fileValues)
         let disabled = Set(cli.filter.disabledMutators + fileDisabled)
 
-        return DiscoveryPipeline.operatorNames(upTo: tier).filter { !disabled.contains($0) }
+        return OperatorRegistry.operatorNames(upTo: tier).filter { !disabled.contains($0) }
     }
 
     private func resolvedOperatorTier(cli: ParsedArguments, fileValues: [String: String]) throws -> OperatorTier {
@@ -222,7 +220,7 @@ struct ConfigurationResolver: Sendable {
         if baseline == nil, policy.maxScoreDrop != nil || policy.maxNewSurvivors != nil {
             throw UsageError(message: "--max-score-drop and --max-new-survivors need --baseline")
         }
-        if let baseline, !FileManager.default.fileExists(atPath: baseline) {
+        if let baseline, !fileSystem.fileExists(baseline) {
             throw UsageError(message: "baseline '\(baseline)' does not exist; write one with --write-baseline")
         }
 
@@ -248,14 +246,6 @@ struct ConfigurationResolver: Sendable {
     private func projectRelative(_ path: String, in projectPath: String) -> String {
         guard !path.hasPrefix("/") else { return path }
         return URL(fileURLWithPath: projectPath).appendingPathComponent(path).standardizedFileURL.path
-    }
-
-    private func resolvedPath(_ path: String) -> String {
-        if path == "." || path.isEmpty {
-            return FileManager.default.currentDirectoryPath
-        }
-
-        return URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL.path
     }
 
     private func resolveList(cli: [String], keys: [String], from fileValues: [String: String]) -> [String] {

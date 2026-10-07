@@ -1,4 +1,3 @@
-/// One of `count` slices of a plan, `1 ≤ index ≤ count`, written `i/n` on the command line.
 struct Shard: Sendable, Equatable, CustomStringConvertible {
     let index: Int
     let count: Int
@@ -21,12 +20,6 @@ struct Shard: Sendable, Equatable, CustomStringConvertible {
     var description: String { "\(index)/\(count)" }
 }
 
-/// Splits a plan by file: every mutant of a file goes to one shard, so each shard builds one schema with
-/// only its mutants and no file is built twice.
-///
-/// Files are taken in path order and each goes to the shard with the fewest mutants so far, ties to the
-/// lowest index, so the same plan and the same `n` always give the same partition. A file with more
-/// mutants than its share still goes whole to one shard: the balance is approximate.
 enum ShardSelector {
     static func files(of plan: Plan, in shard: Shard) -> [String] {
         var countByFile: [String: Int] = [:]

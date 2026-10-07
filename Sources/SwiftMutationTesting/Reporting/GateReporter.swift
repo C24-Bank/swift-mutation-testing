@@ -19,13 +19,7 @@ struct GateReporter: Sendable {
             }
         }
 
-        if !result.checksNewUndetected, !result.newUndetected.isEmpty {
-            lines.append("  ℹ \(result.newUndetectedSummary) since the baseline")
-        }
-
-        if let fixed = result.fixedCount, fixed > 0 {
-            lines.append("  ℹ \(GateResult.count(fixed, "mutant")) detected now that were undetected in the baseline")
-        }
+        lines.append(contentsOf: result.notes.map { "  ℹ \($0)" })
 
         return lines.joined(separator: "\n")
     }

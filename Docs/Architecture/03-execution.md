@@ -18,21 +18,21 @@ flowchart TD
     REG --> VERIFY[ApplicationVerifier\nevery mutant in the sandbox?]
     VERIFY -- no --> INTEGRITY[throw IntegrityError]
     VERIFY -- yes --> BS[BuildStage\nbuild-for-testing]
-    BS -- compilationFailed --> RETRY[retryExcludingErrors\nnarrow the schema, rebuild]
+    BS -- compilationFailed --> RETRY[SchemaNarrower\nnarrow the schema, rebuild]
     RETRY -- gave up --> FBP[FallbackExecutor\none build per schematized file]
-    BS -- success --> PROBE[probe each test bundle and library once\nbaseline + which have tests]
+    BS -- success --> PROBE[BaselineProbe\neach test bundle and library once\nbaseline + which have tests]
     RETRY -- rebuilt --> PROBE
     PROBE -- fails --> ABORT[throw BaselineError]
     PROBE -- passes --> TES[TestExecutionStage\nthree passes, see below]
     TES --> TR[TestResultResolver]
     TR --> CLASSIFY[marker not written?\nsurvived → noCoverage]
-    CLASSIFY --> CACHE[CacheStore]
+    CLASSIFY --> CACHE[ResultRecorder\nlog · CacheStore · progress]
     FBP --> CACHE
     IN -- incompatible mutants --> IME[IncompatibleMutantExecutor\nwarm sandboxes, incremental rebuild per mutant]
     IME --> CACHE
     CACHE --> DEREG[SandboxCleaner.deregister\nsandbox.cleanup]
     DEREG --> SUM[RunnerSummary]
-    SUM --> REPORTERS[TextReporter · JsonReporter · HtmlReporter\nSonarReporter · SarifReporter · MarkdownReporter]
+    SUM --> REPORTERS[TextReporter · ReportWriter\nJSON · HTML · Sonar · SARIF · Markdown]
 ```
 
 ## SandboxFactory
@@ -60,7 +60,7 @@ Right after the sandbox is created, and before anything is built, `ApplicationVe
 
 Handles cleanup of orphaned sandbox directories and signal-based cleanup of the active sandbox.
 
-**Orphaned cleanup (`removeOrphaned`):** Called by `runPipeline` just before `MutantExecutor` runs — never on the `--version`, `--help` or `init` paths. Scans `$TMPDIR/swift-mutation-testing/` (or a provided directory) for directories prefixed with `xmr-` and removes the ones whose owning process is gone. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
+**Orphaned cleanup (`removeOrphaned`):** Called through `SandboxCleaner.clearLeftovers()` by `RunCommand` just before `MutantExecutor` runs, and by `ReproduceCommand` — never on the `--version`, `--help` or `init` paths. Scans `$TMPDIR/swift-mutation-testing/` (or a provided directory) for directories prefixed with `xmr-` and removes the ones whose owning process is gone. This cleans up sandboxes from previous interrupted runs that were never cleaned up normally.
 
 **Orphaned processes (`OrphanedProcessReaper`):** Runs right before the directory sweep. Lists the processes of the current user, reads each one's arguments (`sysctl(KERN_PROCARGS2)`), and kills — with its descendants — any process whose arguments point into an `xmr-<pid>-<UUID>` sandbox whose owner is gone. This is what cleans up after a run that could not clean up itself: killed with `SIGKILL`, or crashed, while a mutant was stuck in a loop. It works from the arguments rather than the directory because the sandbox may already have been deleted while the test binary kept running.
 
@@ -90,15 +90,17 @@ flowchart TD
 | | |
 |---|---|
 | Input | `Sandbox`, project type, the resolved `XcodeContainer`, timeout |
-
-The container's relative path is passed as `-workspace` or `-project`, from the sandbox root. The same arguments go to the per-mutant `xcodebuild` calls of `IncompatibleMutantExecutor`, which used to pass none and so built whatever `xcodebuild` found on its own.
 | Output | `BuildArtifact` — derived data path + `.xctestrun` URL (Xcode) or sandbox path (SPM) |
 
-`BuildError` conforms to `LocalizedError`, providing structured error descriptions. `MutantExecutor` catches `BuildError.compilationFailed` and delegates to `FallbackExecutor` for per-file rebuilds rather than aborting. Any other thrown error propagates up.
+The container's relative path is passed as `-workspace` or `-project`, from the sandbox root. The same arguments go to the per-mutant `xcodebuild` calls of `IncompatibleMutantExecutor`, which used to pass none and so built whatever `xcodebuild` found on its own.
+
+**`ToolRequests`** builds every `swift` and `xcodebuild` request of a run — `swift build --build-tests`, `swift test --skip-build [--filter]`, `xcodebuild build-for-testing` and the other `xcodebuild` calls — so the schematized, fallback, incompatible and baseline paths build and test a sandbox the same way, with one derived data directory, `<sandbox>/.xmr-derived-data`. The incompatible Xcode path used `.derived-data` before.
+
+`BuildError` conforms to `LocalizedError`, providing structured error descriptions. On `BuildError.compilationFailed`, `MutantExecutor` hands an SPM build to `SchemaNarrower`, which takes out the mutants whose `case` the compiler blamed, regenerates their files' schemas and rebuilds until the build compiles; when it gives up — and always on the Xcode path — `FallbackExecutor` takes over with per-file rebuilds rather than aborting. Any other thrown error propagates up.
 
 ## SimulatorPool
 
-`SimulatorPool` is an `actor` that manages a pool of simulator slots for parallel test execution.
+`SimulatorPool` is an `actor` that manages a pool of simulator slots for parallel test execution. `SimulatorPool.make(for:launcher:)` picks the pool from the configuration's destination: simulator clones when `SimulatorManager.requiresSimulatorPool(for:)` says so, plain slots otherwise.
 
 | Destination | Behaviour |
 |---|---|
@@ -115,7 +117,7 @@ The container's relative path is passed as `-workspace` or `-project`, from the 
 
 Before the first mutant runs, the suite is run once with no mutant selected. `__swiftMutationTestingID_<hash>` is empty, so every schema falls through to its `default` branch and the original code executes.
 
-The run continues only if that suite passes. A suite that already fails without a mutation kills every mutant it reaches, so every verdict it produces is worthless — and nothing in the report would reveal it. `MutantExecutor` throws `BaselineError` instead, naming the failing tests, the timeout that stopped the suite, or the output it failed with.
+The run continues only if that suite passes. A suite that already fails without a mutation kills every mutant it reaches, so every verdict it produces is worthless — and nothing in the report would reveal it. `BaselineProbe` throws `BaselineError` instead, naming the failing tests, the timeout that stopped the suite, or the output it failed with.
 
 **The baseline and the library probe are the same run.** A package builds one test bundle per test target. Each bundle is invoked once with each testing library against the unmutated sandbox, and that single invocation answers both questions: a bundle and library reporting no tests — exit 69 from SwiftPM's helper, `Executed 0 tests` from `xctest` — is dropped from every mutant's run, and one that does have tests must pass them. A bundle with tests in neither library is dropped altogether. Only when no bundle was produced does the baseline fall back to a separate `swift test --skip-build`. The probe runs the suite to the end; mutants stop at their first failing test.
 
@@ -146,13 +148,13 @@ flowchart TD
 
 **Per-mutant execution, Xcode path:**
 
-1. Check cache — return cached result immediately if `noCache` is false and a match exists
+1. Check cache — return cached result immediately if `noCache` is false and a match exists (`ResultRecorder.cached`, which reads `CacheStore.cachedResult(for:)`)
 2. Activate the mutant: `XCTestRunPlist.activating(_:)` injects the mutant ID into `EnvironmentVariables.__SWIFT_MUTATION_TESTING_ACTIVE` in a fresh `.xctestrun` copy
 3. Acquire a simulator slot from the pool
 4. Run `xcodebuild test-without-building -xctestrun <path> -resultBundlePath <xcresult>`
 5. Release the simulator slot
 6. Parse the result via `ResultParser`
-7. Store status in `CacheStore`
+7. Record the verdict through `ResultRecorder`: mutant log, `CacheStore`, progress
 
 **Per-mutant execution, SPM path:** the mutant id travels in the environment rather than in a plist, and the bundle is invoked directly instead of through `swift test`. Two things happen before the whole suite is asked:
 
@@ -182,7 +184,7 @@ flowchart TD
     BS -- failed --> UNVIABLE[Mark all mutants in file as .unviable]
 ```
 
-For each schematized file, `FallbackExecutor` creates a sandbox containing only that file's schematization, builds it, and runs the test suite against its mutants. Files whose builds fail have all their mutants marked as `.unviable`. Results are cached via `CacheStore`.
+For each schematized file, `FallbackExecutor` creates a sandbox containing only that file's schematization, builds it, and runs the test suite against its mutants. Files whose builds fail have all their mutants marked as `.unviable`, each with a mutant log holding the build error. Verdicts are recorded through `ResultRecorder`.
 
 ## IncompatibleMutantExecutor
 
@@ -202,6 +204,8 @@ flowchart TD
     DEAL --> WRITE[write mutated file\nincremental rebuild → tests → restore]
     WRITE --> SPM[SPMResultParser]
 ```
+
+Cache hits and every verdict — a mutation that could not be applied and a failed build included — go through `ResultRecorder`, as on the other paths.
 
 **Activation:** each mutant is first built with a call that records when its mutated code runs, and tested with the activation marker, so an unreached survivor is `noCoverage` and a kill without activation is run once more, as on the schematized path. If that copy does not build, the plain mutant is built and tested unmeasured. See [Activation Marker](05-schematization.md#activation-marker).
 
@@ -274,6 +278,10 @@ Source changes are handled separately, by the key rather than by the diff: `Muta
 
 `KillerTestFileResolver` maps test names back to source file paths by matching XCTest class names and Swift Testing function names against the project's test file list.
 
+## ResultRecorder
+
+Every verdict, whichever path reached it, goes through `ResultRecorder.record(...)`: the mutant's log (`MutantLogWriter`, under `--keep-logs`), the cache and its journal — and the plan journal of a planned run — the killer test file, the progress count and the `mutantFinished` event. A cached verdict comes back through `cached(_:)`, counted and reported the same way. Before it, each executor repeated those steps and some skipped the log: a fallback build failure or a mutation that could not be applied now leaves a mutant log like any other verdict.
+
 ## Reporting
 
 ### Progress Reporting
@@ -300,6 +308,8 @@ score      = detected / (detected + undetected) × 100
 | `SonarReporter` | SonarQube generic issue import format | `--sonar-output <path>` |
 | `SarifReporter` | SARIF 2.1.0, for GitHub code scanning | `--sarif-output <path>` |
 | `MarkdownReporter` | Markdown summary, with the quality gate | `--markdown-output <path>` |
+
+`ReportWriter` writes every requested report file from one table — label, path, writer — and warns through `StandardError` when one cannot be written.
 
 ## Concurrency Model
 

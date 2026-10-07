@@ -94,12 +94,12 @@ Testing mutants...
   ...
 
 Results by file:
-  Sources/Calculator.swift    score: 95.0%   killed: 19   survived: 1   timeout: 0   unviable: 0
-  Sources/Validator.swift     score: 72.4%   killed: 21   survived: 8   timeout: 0   unviable: 0
+  Sources/Calculator.swift    score: 95.0%   killed: 19   survived: 1   timeout: 0   unviable: 0   no coverage: 0
+  Sources/Validator.swift     score: 72.4%   killed: 21   survived: 8   timeout: 0   unviable: 0   no coverage: 0
 
-Survived mutants:
-  Sources/Validator.swift:34:5   RelationalOperatorReplacement
-  Sources/Validator.swift:67:12  NegateConditional
+Undetected mutants:
+  Sources/Validator.swift:34:5   RelationalOperatorReplacement   survived
+  Sources/Validator.swift:67:12  NegateConditional               survived
   ...
 
 Overall mutation score: 85.3%
@@ -590,12 +590,12 @@ Those mutants are not lost: each gets a build of its own, like an incompatible m
 
 ```
 Results by file:
-  Sources/Calculator.swift    score: 95.0%   killed: 19   survived: 1   timeout: 0   unviable: 0
-  Sources/Validator.swift     score: 72.4%   killed: 21   survived: 8   timeout: 0   unviable: 0
+  Sources/Calculator.swift    score: 95.0%   killed: 19   survived: 1   timeout: 0   unviable: 0   no coverage: 0
+  Sources/Validator.swift     score: 72.4%   killed: 21   survived: 8   timeout: 0   unviable: 0   no coverage: 0
 
-Survived mutants:
-  Sources/Validator.swift:34:5   RelationalOperatorReplacement
-  Sources/Validator.swift:67:12  NegateConditional
+Undetected mutants:
+  Sources/Validator.swift:34:5   RelationalOperatorReplacement   survived
+  Sources/Validator.swift:67:12  NegateConditional               survived
 
 Overall mutation score: 85.3%
 Detected: 122 (killed 122, timeout 0) / Undetected: 21 (survived 18, no coverage 3)

@@ -2,10 +2,13 @@ import Foundation
 
 actor CacheStore {
 
-    init(storePath: String, noCache: Bool = false, planJournal: PlanJournal? = nil) {
+    init(
+        storePath: String, noCache: Bool = false, planJournal: PlanJournal? = nil, fileSystem: FileSystem = FileSystem()
+    ) {
         self.storePath = storePath
         self.noCache = noCache
         self.planJournal = planJournal
+        self.fileSystem = fileSystem
         self.entries = [:]
         self.killerTestFiles = [:]
         self.activations = [:]
@@ -18,6 +21,7 @@ actor CacheStore {
     private let storePath: String
     private let noCache: Bool
     private let planJournal: PlanJournal?
+    private let fileSystem: FileSystem
     private var entries: [MutantCacheKey: ExecutionStatus]
     private var killerTestFiles: [MutantCacheKey: String]
     private var activations: [MutantCacheKey: Bool]
@@ -27,9 +31,6 @@ actor CacheStore {
         return url.deletingLastPathComponent().appendingPathComponent("metadata.json").path
     }
 
-    /// One verdict per line, appended as soon as it is known. A run that ends before `persist()` — a
-    /// `Ctrl+C`, a crash, a lost machine — leaves its verdicts here, and the next `load()` replays them, so
-    /// the run continues where it stopped. `persist()` folds the journal into the results file and removes it.
     private var journalPath: String {
         let url = URL(fileURLWithPath: storePath)
         return url.deletingLastPathComponent().appendingPathComponent(Self.journalName).path
@@ -71,6 +72,15 @@ actor CacheStore {
         noCache ? nil : activations[key]
     }
 
+    func cachedResult(for mutant: MutantDescriptor) -> ExecutionResult? {
+        let key = MutantCacheKey.make(for: mutant)
+        guard let status = result(for: key) else { return nil }
+        return ExecutionResult(
+            descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFiles[key],
+            activated: activations[key], fromCache: true
+        )
+    }
+
     func store(
         status: ExecutionStatus,
         for key: MutantCacheKey,
@@ -98,12 +108,12 @@ actor CacheStore {
 
     func load() throws {
         guard !noCache else { return }
-        guard FileManager.default.fileExists(atPath: storePath) else {
+        guard fileSystem.fileExists(storePath) else {
             apply(journaledEntries())
             return
         }
 
-        if FileManager.default.fileExists(atPath: metadataPath), try loadMetadata() == nil {
+        if fileSystem.fileExists(metadataPath), try loadMetadata() == nil {
             discardUnreadable()
             return
         }
@@ -132,28 +142,11 @@ actor CacheStore {
     }
 
     private func journaledEntries() -> [CacheEntry] {
-        guard let data = FileManager.default.contents(atPath: journalPath) else { return [] }
-
-        return data.split(separator: UInt8(ascii: "\n")).compactMap { line in
-            try? JSONDecoder().decode(CacheEntry.self, from: line)
-        }
+        JSONLines.read(CacheEntry.self, from: journalPath)
     }
 
     private func journal(_ entry: CacheEntry) {
-        guard var line = try? JSONEncoder().encode(entry) else { return }
-        line.append(UInt8(ascii: "\n"))
-
-        let url = URL(fileURLWithPath: journalPath)
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        if let handle = try? FileHandle(forWritingTo: url) {
-            defer { try? handle.close() }
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: line)
-        } else {
-            try? line.write(to: url)
-        }
+        JSONLines.append(entry, to: journalPath)
     }
 
     func persist() throws {
@@ -166,19 +159,16 @@ actor CacheStore {
         }
         let data = try JSONEncoder().encode(cacheEntries)
         let url = URL(fileURLWithPath: storePath)
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        try fileSystem.createDirectory(url.deletingLastPathComponent())
         try data.write(to: url, options: .atomic)
-        try? FileManager.default.removeItem(atPath: journalPath)
+        fileSystem.removeItem(journalPath)
     }
 
     func loadMetadata() throws -> CacheMetadata? {
         guard !noCache else { return nil }
 
         let url = URL(fileURLWithPath: metadataPath)
-        guard FileManager.default.fileExists(atPath: metadataPath) else { return nil }
+        guard fileSystem.fileExists(metadataPath) else { return nil }
         let data = try Data(contentsOf: url)
         guard
             let metadata = try? JSONDecoder().decode(CacheMetadata.self, from: data),
@@ -192,10 +182,7 @@ actor CacheStore {
 
         let data = try JSONEncoder().encode(metadata)
         let url = URL(fileURLWithPath: metadataPath)
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        try fileSystem.createDirectory(url.deletingLastPathComponent())
         try data.write(to: url, options: .atomic)
     }
 
@@ -231,8 +218,6 @@ actor CacheStore {
         activations.removeValue(forKey: key)
     }
 
-    /// Forgets every verdict when the cache was made against another test selection — another target, testing
-    /// library, scheme, destination or container — and returns whether it did.
     @discardableResult
     func discard(unlessMadeWith selection: CacheTestSelection) throws -> Bool {
         guard let stored = try loadMetadata(), stored.testSelection != selection, !entries.isEmpty else {
@@ -242,7 +227,7 @@ actor CacheStore {
         entries = [:]
         killerTestFiles = [:]
         activations = [:]
-        try? FileManager.default.removeItem(atPath: journalPath)
+        fileSystem.removeItem(journalPath)
         return true
     }
 
@@ -275,10 +260,9 @@ actor CacheStore {
         entries = [:]
         killerTestFiles = [:]
         let directory = URL(fileURLWithPath: storePath).deletingLastPathComponent().path
-        fputs(
+        StandardError.write(
             "Warning: ignoring the cache at '\(directory)', which this version cannot read; "
-                + "every mutant will be tested again.\n",
-            stderr
+                + "every mutant will be tested again."
         )
     }
 }

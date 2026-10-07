@@ -14,8 +14,6 @@ actor TimeoutUnderLoadLauncher: ProcessLaunching {
     private(set) var timeouts: [String: [Double]] = [:]
     private(set) var maxInFlightDuringFirstAttempts = 0
 
-    /// `holdFirstAttemptsUntil` and `holdRetriesUntil` keep a run waiting until that many are in flight,
-    /// so that an assertion on how many ran at once does not depend on how loaded the machine is.
     init(
         timesOutFirst: Set<String>,
         alwaysTimesOut: Set<String> = [],

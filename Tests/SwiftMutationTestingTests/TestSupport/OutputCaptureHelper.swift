@@ -15,3 +15,11 @@ func captureOutputSync(_ block: () -> Void) -> String {
     }
     return capture.contents
 }
+
+func captureErrorsSync(_ block: () -> Void) -> String {
+    let capture = StandardOutput.Capture()
+    StandardError.$capture.withValue(capture) {
+        block()
+    }
+    return capture.contents
+}

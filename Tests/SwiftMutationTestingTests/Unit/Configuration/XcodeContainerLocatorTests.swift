@@ -191,4 +191,15 @@ struct XcodeContainerLocatorTests {
             atomically: true, encoding: .utf8
         )
     }
+
+    @Test("Given a file system of its own, when candidates are listed, then they come from it and not from disk")
+    func candidatesComeFromTheFileSystemGiven() {
+        var fileSystem = FileSystem()
+        fileSystem.contentsOfDirectory = { _ in ["B.xcodeproj", "A.xcworkspace", "README.md", "A.xcodeproj"] }
+
+        let found = XcodeContainerLocator.candidates(in: URL(fileURLWithPath: "/nowhere"), fileSystem: fileSystem)
+
+        #expect(found.workspaces == ["A.xcworkspace"])
+        #expect(found.projects == ["A.xcodeproj", "B.xcodeproj"])
+    }
 }

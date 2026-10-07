@@ -2,6 +2,10 @@ struct FallbackExecutor: Sendable {
     let deps: ExecutionDeps
     let configuration: RunnerConfiguration
 
+    private var recorder: ResultRecorder {
+        ResultRecorder(deps: deps, keepLogsPath: configuration.reporting.keepLogsPath)
+    }
+
     func execute(input: RunnerInput, pool: SimulatorPool) async throws -> [ExecutionResult] {
         var results: [ExecutionResult] = []
 
@@ -83,22 +87,12 @@ struct FallbackExecutor: Sendable {
     private func cachedResults(for mutants: [MutantDescriptor]) async -> [ExecutionResult]? {
         var results: [ExecutionResult] = []
         for mutant in mutants {
-            let key = MutantCacheKey.make(for: mutant)
-            guard let status = await deps.cacheStore.result(for: key) else { return nil }
-            let killerTestFile = await deps.cacheStore.killerTestFile(for: key)
-            results.append(
-                ExecutionResult(
-                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
-                    activated: await deps.cacheStore.activated(for: key), fromCache: true
-                ))
+            guard let result = await deps.cacheStore.cachedResult(for: mutant) else { return nil }
+            results.append(result)
         }
 
         for result in results {
-            let index = await deps.counter.increment()
-            await deps.reporter.report(
-                .mutantFinished(
-                    descriptor: result.descriptor, status: result.status,
-                    index: index, total: deps.counter.total))
+            await recorder.finish(result)
         }
 
         return results
@@ -117,12 +111,7 @@ struct FallbackExecutor: Sendable {
 
         var results: [ExecutionResult] = []
         for mutant in mutants {
-            let key = MutantCacheKey.make(for: mutant)
-            await deps.cacheStore.store(status: status, for: key)
-            let index = await deps.counter.increment()
-            await deps.reporter.report(
-                .mutantFinished(descriptor: mutant, status: status, index: index, total: deps.counter.total))
-            results.append(ExecutionResult(descriptor: mutant, status: status, testDuration: 0))
+            results.append(await recorder.record(mutant, status: status, output: error.localizedDescription))
         }
         return results
     }

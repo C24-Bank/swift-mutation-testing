@@ -77,7 +77,9 @@ struct ProcessGroupRegistryTests {
 
         registry.register(101)
         registry.register(202)
-        registry.register(303)
+        for pid in pid_t(303) ... 340 {
+            registry.register(pid)
+        }
         registry.killAll(kill: recorder.asKill)
 
         #expect(Set(recorder.recorded.map(\.pid)) == [-101, -202])

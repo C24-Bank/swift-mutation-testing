@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import SwiftSyntax
 
 enum SupportDeclarations {
     static func suffix(for path: String) -> String {
@@ -23,6 +24,14 @@ enum SupportDeclarations {
         case .implicit: "import Foundation"
         case .explicit: "internal import Foundation"
         }
+    }
+
+    static func appended(to content: String, path: String, syntax: SourceFileSyntax, style: ImportStyle) -> String {
+        var support = perFile(for: path)
+        if !ImportStyle.importsFoundation(syntax) {
+            support = importLine(style) + "\n\n" + support
+        }
+        return content + "\n\n" + support + "\n"
     }
 
     static func perFile(for path: String) -> String {

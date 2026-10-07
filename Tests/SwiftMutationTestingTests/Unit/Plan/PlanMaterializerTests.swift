@@ -97,7 +97,7 @@ struct PlanMaterializerTests {
             plan: plan, projectPath: dir.path, execution: Self.execution, mutants: [logical]
         )
 
-        #expect(input.mutants.map(\.id) == [Plan.mutantID(at: 1)])
+        #expect(input.mutants.map(\.id) == [MutantID.make(index: 1)])
         #expect(input.mutants.map(\.fingerprint) == [logical.fingerprint])
         #expect(input.schematizedFiles.map { Planner.relative($0.originalPath, to: dir.path) } == ["Sources/B.swift"])
     }

@@ -62,6 +62,24 @@ struct TestFilesHasherTests {
         #expect(result.keys.contains("Tests/FooTests.swift"))
     }
 
+    @Test("Given a test file outside Tests and a helper inside it, when hashPerFile called, then both are hashed")
+    func hashPerFileTakesEitherATestsDirectoryOrATestsSuffix() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourcesDir = dir.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true)
+        try FileHelpers.write("let t = 1", named: "InlineTests.swift", in: sourcesDir)
+
+        let testsDir = dir.appendingPathComponent("Tests")
+        try FileManager.default.createDirectory(at: testsDir, withIntermediateDirectories: true)
+        try FileHelpers.write("let h = 1", named: "Helpers.swift", in: testsDir)
+
+        let result = TestFilesHasher().hashPerFile(projectPath: dir.path)
+
+        #expect(Set(result.keys) == ["Sources/InlineTests.swift", "Tests/Helpers.swift"])
+    }
+
     @Test("Given test file symlinked outside project, when hashPerFile called, then absolute path is used as key")
     func hashPerFileUsesAbsolutePathForExternalSymlink() throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()

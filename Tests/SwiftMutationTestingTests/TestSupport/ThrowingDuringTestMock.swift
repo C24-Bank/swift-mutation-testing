@@ -6,7 +6,6 @@ actor ThrowingDuringTestMock: ProcessLaunching {
     private let throwingOnTestCall: Int
     private var testCallCount = 0
 
-    /// Throws on the n-th `test` request; the first one is the baseline, the mutants follow.
     init(throwingOnTestCall: Int = 2) {
         self.throwingOnTestCall = throwingOnTestCall
     }

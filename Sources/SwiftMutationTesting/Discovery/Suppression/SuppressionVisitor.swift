@@ -1,14 +1,5 @@
 import SwiftSyntax
 
-/// Finds the code a user asked to leave unmutated.
-///
-/// Two comment directives, which need nothing declared and so never break the user's build:
-///
-/// - `// swift-mutation-testing:disable` in the comments right above a declaration — a function, an
-///   initializer, a type, an extension, a property — suppresses the whole declaration;
-/// - `// swift-mutation-testing:disable-next-line`, anywhere, suppresses the line that follows it.
-///
-/// The `@SwiftMutationTestingDisabled` attribute is still honoured for projects that declared it themselves.
 final class SuppressionVisitor: SyntaxVisitor {
     static let disableDirective = "swift-mutation-testing:disable"
     static let disableNextLineDirective = "swift-mutation-testing:disable-next-line"
@@ -89,7 +80,6 @@ final class SuppressionVisitor: SyntaxVisitor {
         }
     }
 
-    /// The line comments around a token, each with the position where it starts.
     private func comments(of token: TokenSyntax) -> [(TriviaPiece, AbsolutePosition)] {
         var found: [(TriviaPiece, AbsolutePosition)] = []
         var position = token.position
@@ -114,7 +104,6 @@ final class SuppressionVisitor: SyntaxVisitor {
         }
     }
 
-    /// The directive a `//` comment carries — its first word — or `nil`; text after it is the reason.
     static func directive(in piece: TriviaPiece) -> String? {
         guard case .lineComment(let text) = piece else { return nil }
         let body = text.dropFirst(2).drop { $0 == " " || $0 == "\t" }

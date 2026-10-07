@@ -38,7 +38,8 @@ enum PlanError: Error, Equatable, LocalizedError {
             return "--shard must be i/n with 1 ≤ i ≤ n, not '\(raw)'"
 
         case .unknownMutant(let reference):
-            return "no mutant '\(reference)' in the plan; give a fingerprint or an id such as swift-mutation-testing_12"
+            return "no mutant '\(reference)' in the plan; give a fingerprint or an id such as "
+                + MutantID.make(index: 12)
         }
     }
 }

@@ -5,7 +5,7 @@ struct IndexedMutationPoint: Sendable {
     let fingerprint: String
 
     var mutantID: String {
-        "swift-mutation-testing_\(index)"
+        MutantID.make(index: index)
     }
 
     func toDescriptor(mutatedContent: String?, sourceContentHash: String) -> MutantDescriptor {

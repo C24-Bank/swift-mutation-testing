@@ -3,7 +3,6 @@ struct MutationReportPayload: Sendable, Codable {
     let thresholds: MutationReportThresholds
     let projectRoot: String
     let files: [String: MutationReportFile]
-    /// The schema's free-form configuration object; this tool puts the run's identity there.
     let config: MutationReportConfig?
 }
 

@@ -12,7 +12,7 @@ struct SuppressionFilterTests {
     func noRangesReturnAllMutations() {
         let source = makeParsedSource("func f() { let x = true }")
         let mutations = op.mutations(in: source)
-        let result = filter.filter(mutations, suppressedRanges: [])
+        let result = filter.filter(mutations, excluding: [])
         #expect(result.count == mutations.count)
     }
 
@@ -21,7 +21,7 @@ struct SuppressionFilterTests {
         let source = makeParsedSource("@SwiftMutationTestingDisabled func f() { let x = true }")
         let mutations = op.mutations(in: source)
         let ranges = extractor.extractSuppressedRanges(from: source.syntax)
-        let result = filter.filter(mutations, suppressedRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.isEmpty)
     }
 
@@ -34,7 +34,7 @@ struct SuppressionFilterTests {
         let source = makeParsedSource(code)
         let mutations = op.mutations(in: source)
         let ranges = extractor.extractSuppressedRanges(from: source.syntax)
-        let result = filter.filter(mutations, suppressedRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.count == 1)
         #expect(result[0].originalText == "false")
     }
@@ -50,7 +50,7 @@ struct SuppressionFilterTests {
         let source = makeParsedSource(code)
         let mutations = op.mutations(in: source)
         let ranges = extractor.extractSuppressedRanges(from: source.syntax)
-        let result = filter.filter(mutations, suppressedRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.isEmpty)
     }
 
@@ -65,7 +65,7 @@ struct SuppressionFilterTests {
         let source = makeParsedSource(code)
         let mutations = op.mutations(in: source)
         let ranges = extractor.extractSuppressedRanges(from: source.syntax)
-        let result = filter.filter(mutations, suppressedRanges: ranges)
+        let result = filter.filter(mutations, excluding: ranges)
         #expect(result.count == 1)
         #expect(result[0].originalText == "false")
     }

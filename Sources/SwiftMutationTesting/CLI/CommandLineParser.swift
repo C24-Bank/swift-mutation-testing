@@ -1,31 +1,4 @@
 struct CommandLineParser: Sendable {
-    private struct FlagValues {
-        var scheme: String?
-        var destination: String?
-        var testTarget: String?
-        var timeout: Double?
-        var buildTimeout: Double?
-        var concurrency: Int?
-        var noCache = false
-        var testingFramework: String?
-        var workspace: String?
-        var xcodeProject: String?
-        var output: String?
-        var htmlOutput: String?
-        var sonarOutput: String?
-        var sarifOutput: String?
-        var markdownOutput: String?
-        var keepLogsPath: String?
-        var quiet = false
-        var sourcesPath: String?
-        var excludePatterns: [String] = []
-        var operators: [String] = []
-        var disabledMutators: [String] = []
-        var operatorTier: String?
-        var gate = ParsedArguments.GateOptions()
-        var plan = ParsedArguments.PlanOptions()
-    }
-
     func parse(_ arguments: [String]) throws -> ParsedArguments {
         guard !arguments.isEmpty else {
             return ParsedArguments()
@@ -33,10 +6,10 @@ struct CommandLineParser: Sendable {
 
         switch arguments[0] {
         case "--help", "-h":
-            return ParsedArguments(showHelp: true)
+            return ParsedArguments(command: .help)
 
         case "--version":
-            return ParsedArguments(showVersion: true)
+            return ParsedArguments(command: .version)
 
         default:
             break
@@ -51,7 +24,7 @@ struct CommandLineParser: Sendable {
                 projectPath = next
             }
 
-            return ParsedArguments(projectPath: projectPath, showInit: true)
+            return ParsedArguments(command: .initialize, projectPath: projectPath)
         }
 
         let command = Self.command(named: remaining[0])
@@ -69,8 +42,8 @@ struct CommandLineParser: Sendable {
         projectPath = try apply(positionals, of: command, to: &flags)
 
         if command == .plan {
-            flags.plan.path = flags.output
-            flags.output = nil
+            flags.plan.path = flags.reporting.outputs[.json]
+            flags.reporting.outputs[.json] = nil
         }
         if flags.plan.shard != nil, command != .run {
             throw UsageError(message: "--shard only applies to run")
@@ -82,7 +55,9 @@ struct CommandLineParser: Sendable {
             projectPath = path
         }
 
-        return parsedArguments(command: command, projectPath: projectPath, flags: flags)
+        flags.command = command
+        flags.projectPath = projectPath
+        return flags
     }
 
     private static func command(named word: String) -> ParsedArguments.Command {
@@ -94,12 +69,11 @@ struct CommandLineParser: Sendable {
         }
     }
 
-    /// What the words before the flags mean for each command; returns the project path.
     private func apply(
-        _ positionals: [String], of command: ParsedArguments.Command, to flags: inout FlagValues
+        _ positionals: [String], of command: ParsedArguments.Command, to flags: inout ParsedArguments
     ) throws -> String {
         switch command {
-        case .run, .plan:
+        case .run, .plan, .initialize, .help, .version:
             guard positionals.count <= 1 else {
                 throw UsageError(message: "unexpected argument '\(positionals[1])'")
             }
@@ -115,7 +89,7 @@ struct CommandLineParser: Sendable {
         case .reproduce:
             guard let mutant = positionals.first else {
                 throw UsageError(
-                    message: "reproduce needs a mutant: a fingerprint or an id such as swift-mutation-testing_12")
+                    message: "reproduce needs a mutant: a fingerprint or an id such as \(MutantID.make(index: 12))")
             }
             guard positionals.count <= 2 else {
                 throw UsageError(message: "unexpected argument '\(positionals[2])'")
@@ -125,47 +99,8 @@ struct CommandLineParser: Sendable {
         }
     }
 
-    private func parsedArguments(
-        command: ParsedArguments.Command, projectPath: String, flags: FlagValues
-    ) -> ParsedArguments {
-        ParsedArguments(
-            command: command,
-            projectPath: projectPath,
-            plan: flags.plan,
-            build: .init(
-                scheme: flags.scheme,
-                destination: flags.destination,
-                testTarget: flags.testTarget,
-                timeout: flags.timeout,
-                buildTimeout: flags.buildTimeout,
-                concurrency: flags.concurrency,
-                noCache: flags.noCache,
-                testingFramework: flags.testingFramework,
-                workspace: flags.workspace,
-                xcodeProject: flags.xcodeProject
-            ),
-            reporting: .init(
-                output: flags.output,
-                htmlOutput: flags.htmlOutput,
-                sonarOutput: flags.sonarOutput,
-                sarifOutput: flags.sarifOutput,
-                markdownOutput: flags.markdownOutput,
-                keepLogsPath: flags.keepLogsPath,
-                quiet: flags.quiet
-            ),
-            filter: .init(
-                sourcesPath: flags.sourcesPath,
-                excludePatterns: flags.excludePatterns,
-                operators: flags.operators,
-                disabledMutators: flags.disabledMutators,
-                operatorTier: flags.operatorTier
-            ),
-            gate: flags.gate
-        )
-    }
-
-    private func parseFlags(_ arguments: [String]) throws -> FlagValues {
-        var values = FlagValues()
+    private func parseFlags(_ arguments: [String]) throws -> ParsedArguments {
+        var values = ParsedArguments()
         var index = 0
 
         while index < arguments.count {
@@ -178,7 +113,7 @@ struct CommandLineParser: Sendable {
 
     private func applyFlag(
         _ flag: String,
-        to values: inout FlagValues,
+        to values: inout ParsedArguments,
         at index: inout Int,
         in arguments: [String]
     ) throws {
@@ -193,7 +128,7 @@ struct CommandLineParser: Sendable {
 
     private func applyPlanFlag(
         _ flag: String,
-        to values: inout FlagValues,
+        to values: inout ParsedArguments,
         at index: inout Int,
         in arguments: [String]
     ) throws -> Bool {
@@ -206,10 +141,10 @@ struct CommandLineParser: Sendable {
 
         case "--shard":
             let raw = try nextValue(for: flag, at: &index, in: arguments)
-            guard Shard(parsing: raw) != nil else {
+            guard let shard = Shard(parsing: raw) else {
                 throw UsageError(message: PlanError.invalidShard(raw).errorDescription ?? raw)
             }
-            values.plan.shard = raw
+            values.plan.shard = shard
 
         default:
             return false
@@ -219,40 +154,40 @@ struct CommandLineParser: Sendable {
 
     private func applyBuildFlag(
         _ flag: String,
-        to values: inout FlagValues,
+        to values: inout ParsedArguments,
         at index: inout Int,
         in arguments: [String]
     ) throws -> Bool {
         switch flag {
         case "--scheme":
-            values.scheme = try nextValue(for: flag, at: &index, in: arguments)
+            values.build.scheme = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--destination":
-            values.destination = try nextValue(for: flag, at: &index, in: arguments)
+            values.build.destination = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--target":
-            values.testTarget = try nextValue(for: flag, at: &index, in: arguments)
+            values.build.testTarget = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--workspace":
-            values.workspace = try nextValue(for: flag, at: &index, in: arguments)
+            values.build.workspace = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--project":
-            values.xcodeProject = try nextValue(for: flag, at: &index, in: arguments)
+            values.build.xcodeProject = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--timeout":
-            values.timeout = try nextDouble(for: flag, at: &index, in: arguments)
+            values.build.timeout = try nextDouble(for: flag, at: &index, in: arguments)
 
         case "--build-timeout":
-            values.buildTimeout = try nextDouble(for: flag, at: &index, in: arguments)
+            values.build.buildTimeout = try nextDouble(for: flag, at: &index, in: arguments)
 
         case "--concurrency":
-            values.concurrency = try nextInt(for: flag, at: &index, in: arguments)
+            values.build.concurrency = try nextInt(for: flag, at: &index, in: arguments)
 
         case "--no-cache":
-            values.noCache = true
+            values.build.noCache = true
 
         case "--testing-framework":
-            values.testingFramework = try nextValue(for: flag, at: &index, in: arguments)
+            values.build.testingFramework = try nextValue(for: flag, at: &index, in: arguments)
 
         default:
             return false
@@ -262,31 +197,21 @@ struct CommandLineParser: Sendable {
 
     private func applyReportingFlag(
         _ flag: String,
-        to values: inout FlagValues,
+        to values: inout ParsedArguments,
         at index: inout Int,
         in arguments: [String]
     ) throws -> Bool {
+        if let format = ReportFormat.named(flag: flag) {
+            values.reporting.outputs[format] = try nextValue(for: flag, at: &index, in: arguments)
+            return true
+        }
+
         switch flag {
-        case "--output":
-            values.output = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--html-output":
-            values.htmlOutput = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--sonar-output":
-            values.sonarOutput = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--sarif-output":
-            values.sarifOutput = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--markdown-output":
-            values.markdownOutput = try nextValue(for: flag, at: &index, in: arguments)
-
         case "--keep-logs":
-            values.keepLogsPath = try nextValue(for: flag, at: &index, in: arguments)
+            values.reporting.keepLogsPath = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--quiet":
-            values.quiet = true
+            values.reporting.quiet = true
 
         default:
             return false
@@ -296,25 +221,25 @@ struct CommandLineParser: Sendable {
 
     private func applyFilterFlag(
         _ flag: String,
-        to values: inout FlagValues,
+        to values: inout ParsedArguments,
         at index: inout Int,
         in arguments: [String]
     ) throws -> Bool {
         switch flag {
         case "--sources-path":
-            values.sourcesPath = try nextValue(for: flag, at: &index, in: arguments)
+            values.filter.sourcesPath = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--exclude":
-            values.excludePatterns.append(try nextValue(for: flag, at: &index, in: arguments))
+            values.filter.excludePatterns.append(try nextValue(for: flag, at: &index, in: arguments))
 
         case "--operator":
-            values.operators.append(try nextValue(for: flag, at: &index, in: arguments))
+            values.filter.operators.append(try nextValue(for: flag, at: &index, in: arguments))
 
         case "--disable-mutator":
-            values.disabledMutators.append(try nextValue(for: flag, at: &index, in: arguments))
+            values.filter.disabledMutators.append(try nextValue(for: flag, at: &index, in: arguments))
 
         case "--operator-tier":
-            values.operatorTier = try nextValue(for: flag, at: &index, in: arguments)
+            values.filter.operatorTier = try nextValue(for: flag, at: &index, in: arguments)
 
         default:
             return false
@@ -324,7 +249,7 @@ struct CommandLineParser: Sendable {
 
     private func applyGateFlag(
         _ flag: String,
-        to values: inout FlagValues,
+        to values: inout ParsedArguments,
         at index: inout Int,
         in arguments: [String]
     ) throws -> Bool {

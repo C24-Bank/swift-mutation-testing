@@ -1,6 +1,12 @@
 import SwiftSyntax
 
-final class RelationalOperatorVisitor: MutationSyntaxVisitor {
+final class RelationalOperatorVisitor: MutationSyntaxVisitor, OperatorVisitor {
+    static let operatorIdentifier = "RelationalOperatorReplacement"
+    static let summary = "Relational operator replacement"
+    static let explanation =
+        "Replaces a relational operator (>, >=, <, <=, ==, !=) with a neighbouring one. "
+        + "A survivor usually means a boundary value is not tested."
+
     private static let replacementTable: [String: [String]] = [
         ">": [">=", "<"],
         ">=": [">", "<="],
@@ -22,7 +28,7 @@ final class RelationalOperatorVisitor: MutationSyntaxVisitor {
         for replacement in replacements {
             mutations.append(
                 MutationPoint(
-                    operatorIdentifier: "RelationalOperatorReplacement",
+                    operatorIdentifier: Self.operatorIdentifier,
                     filePath: filePath,
                     line: location.line,
                     column: location.column,

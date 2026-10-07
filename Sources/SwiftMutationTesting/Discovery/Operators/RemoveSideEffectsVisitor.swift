@@ -1,6 +1,12 @@
 import SwiftSyntax
 
-final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
+final class RemoveSideEffectsVisitor: MutationSyntaxVisitor, OperatorVisitor {
+    static let operatorIdentifier = "RemoveSideEffects"
+    static let summary = "Remove side effects"
+    static let explanation =
+        "Removes a standalone call statement. A survivor usually means the call's effect is not verified."
+    static let isLoopRisky = true
+
     private static let deniedCallee: Set<String> = [
         "print", "debugPrint", "assert", "assertionFailure",
         "precondition", "preconditionFailure", "fatalError",
@@ -28,7 +34,7 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
 
         mutations.append(
             MutationPoint(
-                operatorIdentifier: "RemoveSideEffects",
+                operatorIdentifier: Self.operatorIdentifier,
                 filePath: filePath,
                 line: location.line,
                 column: location.column,

@@ -1,10 +1,6 @@
 import SwiftIfConfig
 import SwiftSyntax
 
-/// Finds the `#if` clauses the host build leaves out, so their mutants are never counted.
-///
-/// A clause whose condition cannot be decided (an unknown module under `canImport`, a malformed
-/// condition) keeps every clause of its `#if`: dropping a real mutant is the error to avoid.
 struct InactiveRegionExtractor: Sendable {
     let compilerVersion: VersionTuple
 
@@ -20,7 +16,6 @@ struct InactiveRegionExtractor: Sendable {
             .filter { $0.diagMessage.severity == .error }
             .map(\.position)
 
-        // `nil` when an error lies outside every condition: then no clause is dropped.
         let undecidable = Self.undecidableDeclarations(at: errorPositions, among: clauses)
 
         return regions.compactMap { clause, state in
@@ -32,8 +27,6 @@ struct InactiveRegionExtractor: Sendable {
         }
     }
 
-    /// The `#if` declarations whose condition holds an error, or `nil` when an error lies outside every
-    /// condition: then nothing can be dropped safely.
     static func undecidableDeclarations(
         at errorPositions: [AbsolutePosition],
         among clauses: [IfConfigClauseSyntax]
