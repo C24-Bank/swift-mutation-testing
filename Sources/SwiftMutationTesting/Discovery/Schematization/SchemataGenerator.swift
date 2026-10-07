@@ -1,65 +1,23 @@
+import SwiftSyntax
+
 struct SchemataGenerator: Sendable {
+    private typealias Entry = (index: Int, point: MutationPoint)
+    private typealias ScopeGroup = (scope: FunctionBodyScope, mutations: [Entry])
+
     func generate(
         source: ParsedSource, mutations: [(index: Int, point: MutationPoint)], importStyle: ImportStyle = .implicit
     ) -> SchemaGeneration {
-        let visitor = TypeScopeVisitor()
-        visitor.walk(source.syntax)
-
-        var groupedByScope: [Int: (scope: FunctionBodyScope, mutations: [(index: Int, point: MutationPoint)])] = [:]
-        var discarded: [MutationPoint] = []
-
-        for entry in mutations {
-            guard let scope = visitor.innermostScope(containing: entry.point.utf8Offset) else {
-                discarded.append(entry.point)
-                continue
-            }
-
-            groupedByScope[scope.bodyStartOffset, default: (scope: scope, mutations: [])].mutations
-                .append(entry)
-        }
-
-        let sortedGroups = groupedByScope.values.sorted {
-            $0.scope.bodyStartOffset > $1.scope.bodyStartOffset
-        }
+        var (groups, discarded) = groupByScope(mutations, in: source.syntax)
 
         var content = source.file.content
         var edits = Edits()
 
-        for group in sortedGroups {
+        for group in groups {
+            let body = schemaBody(for: group, in: content, edits: edits, path: source.file.path)
+            discarded += body.discarded
+            guard let switchBody = body.switchBody else { continue }
+
             let scope = group.scope
-            let statementsStart = edits.current(scope.statementsStartOffset)
-
-            guard
-                let originalStatements = UTF8Splice.substring(
-                    of: content, from: statementsStart, to: edits.current(scope.statementsEndOffset)
-                )
-            else {
-                discarded += group.mutations.map(\.point)
-                continue
-            }
-
-            let sortedMutations = group.mutations.sorted { $0.index < $1.index }
-            var cases: [(id: String, statements: String)] = []
-
-            for entry in sortedMutations {
-                guard
-                    let mutated = apply(
-                        entry.point,
-                        to: originalStatements,
-                        at: edits.current(entry.point.utf8Offset) - statementsStart
-                    )
-                else {
-                    discarded.append(entry.point)
-                    continue
-                }
-                cases.append((id: MutantID.make(index: entry.index), statements: mutated))
-            }
-
-            guard !cases.isEmpty else { continue }
-
-            let switchBody = buildSwitchBody(
-                cases: cases, defaultStatements: originalStatements, shape: scope.shape, path: source.file.path
-            )
             content =
                 UTF8Splice.replacing(
                     from: edits.current(scope.bodyStartOffset),
@@ -83,6 +41,70 @@ struct SchemataGenerator: Sendable {
             ),
             discarded: discarded
         )
+    }
+
+    /// The mutations grouped by the innermost function body holding each, the last body in the file first so
+    /// that rewriting one leaves the offsets of the ones still to come untouched; and the mutations no body holds.
+    private func groupByScope(
+        _ mutations: [Entry], in syntax: SourceFileSyntax
+    ) -> (groups: [ScopeGroup], discarded: [MutationPoint]) {
+        let visitor = TypeScopeVisitor()
+        visitor.walk(syntax)
+
+        var groupedByScope: [Int: ScopeGroup] = [:]
+        var discarded: [MutationPoint] = []
+
+        for entry in mutations {
+            guard let scope = visitor.innermostScope(containing: entry.point.utf8Offset) else {
+                discarded.append(entry.point)
+                continue
+            }
+
+            groupedByScope[scope.bodyStartOffset, default: (scope: scope, mutations: [])].mutations.append(entry)
+        }
+
+        let groups = groupedByScope.values.sorted { $0.scope.bodyStartOffset > $1.scope.bodyStartOffset }
+        return (groups, discarded)
+    }
+
+    /// The `switch` that replaces one body, a case per mutation that fits in it; `nil` when none does.
+    private func schemaBody(
+        for group: ScopeGroup, in content: String, edits: Edits, path: String
+    ) -> (switchBody: String?, discarded: [MutationPoint]) {
+        let scope = group.scope
+        let statementsStart = edits.current(scope.statementsStartOffset)
+
+        guard
+            let originalStatements = UTF8Splice.substring(
+                of: content, from: statementsStart, to: edits.current(scope.statementsEndOffset)
+            )
+        else {
+            return (nil, group.mutations.map(\.point))
+        }
+
+        var cases: [(id: String, statements: String)] = []
+        var discarded: [MutationPoint] = []
+
+        for entry in group.mutations.sorted(by: { $0.index < $1.index }) {
+            guard
+                let mutated = apply(
+                    entry.point,
+                    to: originalStatements,
+                    at: edits.current(entry.point.utf8Offset) - statementsStart
+                )
+            else {
+                discarded.append(entry.point)
+                continue
+            }
+            cases.append((id: MutantID.make(index: entry.index), statements: mutated))
+        }
+
+        guard !cases.isEmpty else { return (nil, discarded) }
+
+        let switchBody = buildSwitchBody(
+            cases: cases, defaultStatements: originalStatements, shape: scope.shape, path: path
+        )
+        return (switchBody, discarded)
     }
 
     private struct Edits {
