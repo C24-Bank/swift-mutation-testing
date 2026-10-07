@@ -1,27 +1,19 @@
 import SwiftSyntax
 
-struct InfiniteLoopFilter: Sendable {
+struct InfiniteLoopFilter: MutationExclusion {
 
     private static let riskyOperators: Set<String> = [
         "ArithmeticOperatorReplacement",
         "RemoveSideEffects",
     ]
 
-    func filter(
-        _ mutationPoints: [MutationPoint],
-        loopBodyRanges: [Range<AbsolutePosition>]
-    ) -> [MutationPoint] {
-        guard !loopBodyRanges.isEmpty else {
-            return mutationPoints
-        }
+    private let extractor = InfiniteLoopBodyExtractor()
 
-        return mutationPoints.filter { point in
-            guard Self.riskyOperators.contains(point.operatorIdentifier) else {
-                return true
-            }
+    func ranges(in syntax: SourceFileSyntax) -> [Range<AbsolutePosition>] {
+        extractor.extractLoopBodyRanges(from: syntax)
+    }
 
-            let position = AbsolutePosition(utf8Offset: point.utf8Offset)
-            return !loopBodyRanges.contains { $0.contains(position) }
-        }
+    func applies(to point: MutationPoint) -> Bool {
+        Self.riskyOperators.contains(point.operatorIdentifier)
     }
 }

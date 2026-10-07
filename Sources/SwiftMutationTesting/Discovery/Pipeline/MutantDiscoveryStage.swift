@@ -1,15 +1,14 @@
 struct MutantDiscoveryStage: Sendable {
+    static let standardExclusions: [any MutationExclusion] = [
+        SuppressionFilter(), InfiniteLoopFilter(), InactiveRegionFilter(),
+    ]
+
     let operators: [any MutationOperator]
+    let exclusions: [any MutationExclusion]
 
-    private let suppressionExtractor = SuppressionAnnotationExtractor()
-    private let suppressionFilter = SuppressionFilter()
-    private let loopExtractor = InfiniteLoopBodyExtractor()
-    private let loopFilter = InfiniteLoopFilter()
-    private let regionExtractor = InactiveRegionExtractor()
-    private let regionFilter = InactiveRegionFilter()
-
-    init(operators: [any MutationOperator]) {
+    init(operators: [any MutationOperator], exclusions: [any MutationExclusion] = Self.standardExclusions) {
         self.operators = operators
+        self.exclusions = exclusions
     }
 
     func run(sources: [ParsedSource]) async -> [MutationPoint] {
@@ -39,12 +38,8 @@ struct MutantDiscoveryStage: Sendable {
     }
 
     private func mutationPoints(for source: ParsedSource) -> [MutationPoint] {
-        let suppressedRanges = suppressionExtractor.extractSuppressedRanges(from: source.syntax)
-        let loopBodyRanges = loopExtractor.extractLoopBodyRanges(from: source.syntax)
-        let inactiveRanges = regionExtractor.extractInactiveRanges(from: source.syntax)
-        let mutations = operators.flatMap { $0.mutations(in: source) }
-        let afterSuppression = suppressionFilter.filter(mutations, suppressedRanges: suppressedRanges)
-        let afterLoops = loopFilter.filter(afterSuppression, loopBodyRanges: loopBodyRanges)
-        return regionFilter.filter(afterLoops, inactiveRanges: inactiveRanges)
+        exclusions.reduce(operators.flatMap { $0.mutations(in: source) }) { points, exclusion in
+            exclusion.filter(points, in: source.syntax)
+        }
     }
 }
