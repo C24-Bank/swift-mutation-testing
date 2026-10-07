@@ -77,7 +77,11 @@ struct ProcessGroupRegistryTests {
 
         registry.register(101)
         registry.register(202)
-        registry.register(303)
+        // Many past the capacity: the overflow's coverage is derived from counters that the concurrent test
+        // below races on, and a handful of lost counts must not hide it.
+        for pid in pid_t(303) ... 340 {
+            registry.register(pid)
+        }
         registry.killAll(kill: recorder.asKill)
 
         #expect(Set(recorder.recorded.map(\.pid)) == [-101, -202])
