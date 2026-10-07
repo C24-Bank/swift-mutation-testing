@@ -25,7 +25,7 @@ struct TextReporterTests {
         #expect(output.contains("12.5s"))
     }
 
-    @Test("Given survived mutants, when format called, then survived section lists file and operator")
+    @Test("Given survived mutants, when format called, then the undetected section lists file, operator and status")
     func formatListsSurvivedMutants() {
         let summary = RunnerSummary(
             results: [makeExecutionResult(filePath: "/abs/Sources/Foo.swift", line: 3, column: 5, status: .survived)],
@@ -34,19 +34,18 @@ struct TextReporterTests {
 
         let output = TextReporter().format(summary)
 
-        #expect(output.contains("Survived mutants:"))
-        #expect(output.contains("/abs/Sources/Foo.swift"))
-        #expect(output.contains("ArithmeticOperatorReplacement"))
+        #expect(output.contains("Undetected mutants:"))
+        #expect(output.contains("/abs/Sources/Foo.swift:3:5   ArithmeticOperatorReplacement   survived"))
     }
 
-    @Test("Given only unviable mutants, when format called, then survived section is absent")
+    @Test("Given only unviable mutants, when format called, then the undetected section is absent")
     func formatOmitsSurvivedSectionWhenNone() {
         let summary = RunnerSummary(
             results: [makeExecutionResult(line: 3, column: 5, status: .unviable)], totalDuration: 0)
 
         let output = TextReporter().format(summary)
 
-        #expect(!output.contains("Survived mutants:"))
+        #expect(!output.contains("Undetected mutants:"))
     }
 
     @Test("Given results by file, when format called, then results by file section is present")
@@ -163,7 +162,7 @@ struct TextReporterTests {
 
         let output = TextReporter().format(summary)
 
-        #expect(output.contains("Survived mutants:"))
+        #expect(output.contains("Undetected mutants:"))
         let aIndex = output.range(of: "/abs/Sources/A.swift")?.lowerBound
         let zIndex = output.range(of: "/abs/Sources/Z.swift")?.lowerBound
         #expect(aIndex != nil && zIndex != nil)
@@ -182,8 +181,8 @@ struct TextReporterTests {
         #expect(output.contains("30m 25s"))
     }
 
-    @Test("Given noCoverage mutant, when format called, then it appears in survived section")
-    func noCoverageAppearsInSurvivedSection() {
+    @Test("Given a no-coverage mutant, when format called, then it is listed as undetected with no coverage")
+    func noCoverageIsListedAsUndetected() {
         let summary = RunnerSummary(
             results: [makeExecutionResult(filePath: "/abs/Foo.swift", line: 3, column: 5, status: .noCoverage)],
             totalDuration: 0
@@ -191,7 +190,24 @@ struct TextReporterTests {
 
         let output = TextReporter().format(summary)
 
-        #expect(output.contains("Survived mutants:"))
-        #expect(output.contains("/abs/Foo.swift"))
+        #expect(output.contains("Undetected mutants:"))
+        #expect(output.contains("/abs/Foo.swift:3:5   ArithmeticOperatorReplacement   no coverage"))
+        #expect(!output.contains("Survived mutants:"))
+    }
+
+    @Test("Given mutants of every status in a file, when format called, then its line counts no coverage too")
+    func perFileStatsCountNoCoverage() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(id: "0", filePath: "/abs/Foo.swift", status: .killed(by: "t")),
+                makeExecutionResult(id: "1", filePath: "/abs/Foo.swift", status: .noCoverage),
+                makeExecutionResult(id: "2", filePath: "/abs/Foo.swift", status: .noCoverage),
+            ],
+            totalDuration: 0
+        )
+
+        let output = TextReporter().format(summary)
+
+        #expect(output.contains("killed: 1   survived: 0   timeout: 0   unviable: 0   no coverage: 2"))
     }
 }
