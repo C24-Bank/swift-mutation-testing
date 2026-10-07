@@ -452,17 +452,10 @@ struct MutantExecutor: Sendable {
     }
 
     private func swiftTestRequest(in sandbox: Sandbox) -> ProcessRequest {
-        var arguments = ["test", "--skip-build"]
-        if let testTarget = configuration.build.testTarget {
-            arguments += ["--filter", testTarget]
-        }
-
-        return ProcessRequest(
-            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-            arguments: arguments,
-            environment: nil,
-            additionalEnvironment: ["__SWIFT_MUTATION_TESTING_ACTIVE": ""],
-            workingDirectoryURL: sandbox.rootURL,
+        ToolRequests.swiftTest(
+            in: sandbox,
+            filter: configuration.build.testTarget,
+            environment: ["__SWIFT_MUTATION_TESTING_ACTIVE": ""],
             timeout: configuration.build.timeout
         )
     }

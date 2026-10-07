@@ -321,19 +321,10 @@ struct TestExecutionStage: Sendable {
             }
         }
 
-        var arguments = ["test", "--skip-build"]
-        if let filter = run.filter {
-            arguments += ["--filter", filter]
-        }
-
-        let request = ProcessRequest(
-            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-            arguments: arguments,
-            environment: nil,
-            additionalEnvironment: TestBundleInvocation.environment(
-                mutantID: mutant.id, activationFile: run.activationFile
-            ),
-            workingDirectoryURL: context.sandbox.rootURL,
+        let request = ToolRequests.swiftTest(
+            in: context.sandbox,
+            filter: run.filter,
+            environment: TestBundleInvocation.environment(mutantID: mutant.id, activationFile: run.activationFile),
             timeout: timeout
         )
         return [configuration.build.reproducing ? request : request.stopping(at: .firstTestFailure)]
@@ -370,14 +361,7 @@ struct TestExecutionStage: Sendable {
 
         let start = Date()
         let captured = try await deps.launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/xcodebuild"),
-                arguments: arguments,
-                environment: nil,
-                additionalEnvironment: [:],
-                workingDirectoryURL: context.sandbox.rootURL,
-                timeout: timeout
-            )
+            ToolRequests.xcodebuild(arguments, in: context.sandbox, timeout: timeout)
         )
 
         return TestLaunchResult(

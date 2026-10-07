@@ -132,14 +132,7 @@ struct IncompatibleMutantExecutor: Sendable {
                 group.addTask {
                     let sandbox = try await sandboxFactory.createClean(projectPath: configuration.projectPath)
                     let build = try await deps.launcher.launchCapturing(
-                        ProcessRequest(
-                            executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                            arguments: spmBuildArguments(),
-                            environment: nil,
-                            additionalEnvironment: [:],
-                            workingDirectoryURL: sandbox.rootURL,
-                            timeout: configuration.build.buildTimeout
-                        )
+                        ToolRequests.swiftBuildTests(in: sandbox, timeout: configuration.build.buildTimeout)
                     )
                     return (slot, WarmSandbox(sandbox: sandbox, build: build))
                 }
@@ -149,10 +142,6 @@ struct IncompatibleMutantExecutor: Sendable {
             for try await entry in group { warmed.append(entry) }
             return warmed.sorted { $0.0 < $1.0 }.map(\.1)
         }
-    }
-
-    private func spmBuildArguments() -> [String] {
-        ["build", "--build-tests"]
     }
 
     private func runInSharedSandbox(
@@ -219,14 +208,7 @@ struct IncompatibleMutantExecutor: Sendable {
         try? FileManager.default.removeItem(at: sandbox.rootURL.appendingPathComponent(".build/manifests"))
 
         return try await deps.launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                arguments: spmBuildArguments(),
-                environment: nil,
-                additionalEnvironment: [:],
-                workingDirectoryURL: sandbox.rootURL,
-                timeout: configuration.build.buildTimeout
-            )
+            ToolRequests.swiftBuildTests(in: sandbox, timeout: configuration.build.buildTimeout)
         )
     }
 
@@ -256,20 +238,13 @@ struct IncompatibleMutantExecutor: Sendable {
         sandbox: Sandbox,
         measured: Bool
     ) async throws -> Verdict {
-        var testArgs = ["test", "--skip-build"]
-        if let testTarget = configuration.build.testTarget {
-            testArgs += ["--filter", testTarget]
-        }
-
         let marker = measured ? ActivationMarker(for: mutant.id, in: sandbox) : nil
         let start = Date()
         let test = try await deps.launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                arguments: testArgs,
-                environment: nil,
-                additionalEnvironment: marker.map { [ActivationMarker.environmentVariable: $0.path] } ?? [:],
-                workingDirectoryURL: sandbox.rootURL,
+            ToolRequests.swiftTest(
+                in: sandbox,
+                filter: configuration.build.testTarget,
+                environment: marker.map { [ActivationMarker.environmentVariable: $0.path] } ?? [:],
                 timeout: configuration.build.timeout
             )
         )
@@ -391,14 +366,11 @@ struct IncompatibleMutantExecutor: Sendable {
         let start = Date()
 
         let build = try await deps.launcher.launchCapturing(
-            xcodebuildRequest(
-                arguments: [
-                    "build-for-testing",
-                    "-scheme", run.attempt.scheme,
-                    "-destination", run.slot.destination,
-                    "-derivedDataPath", derivedDataPath(of: run.sandbox),
-                ] + (configuration.build.xcodeContainer?.arguments ?? []),
-                sandbox: run.sandbox,
+            ToolRequests.buildForTesting(
+                in: run.sandbox,
+                scheme: run.attempt.scheme,
+                destination: run.slot.destination,
+                container: configuration.build.xcodeContainer,
                 timeout: configuration.build.buildTimeout
             )
         )
@@ -429,7 +401,7 @@ struct IncompatibleMutantExecutor: Sendable {
                 "test-without-building",
                 "-scheme", run.attempt.scheme,
                 "-destination", run.slot.destination,
-                "-derivedDataPath", derivedDataPath(of: run.sandbox),
+                "-derivedDataPath", ToolRequests.derivedDataPath(in: run.sandbox),
                 "-resultBundlePath", xcresultPath,
                 "-parallel-testing-enabled", "NO",
             ] + (configuration.build.xcodeContainer?.arguments ?? [])
@@ -441,11 +413,8 @@ struct IncompatibleMutantExecutor: Sendable {
         let marker = run.attempt.measured ? ActivationMarker(for: run.attempt.mutant.id, in: run.sandbox) : nil
         let environment = marker.map { [Self.testRunnerPrefix + ActivationMarker.environmentVariable: $0.path] }
         let test = try await deps.launcher.launchCapturing(
-            xcodebuildRequest(
-                arguments: testArguments,
-                sandbox: run.sandbox,
-                timeout: configuration.build.timeout,
-                environment: environment ?? [:]
+            ToolRequests.xcodebuild(
+                testArguments, in: run.sandbox, environment: environment ?? [:], timeout: configuration.build.timeout
             )
         )
 
@@ -474,28 +443,8 @@ struct IncompatibleMutantExecutor: Sendable {
         ).asExecutionStatus
     }
 
-    private func derivedDataPath(of sandbox: Sandbox) -> String {
-        sandbox.rootURL.appendingPathComponent(".derived-data").path
-    }
-
     private func xcresultPath(in sandbox: Sandbox) -> String {
         sandbox.rootURL.appendingPathComponent("\(UUID().uuidString).xcresult").path
-    }
-
-    private func xcodebuildRequest(
-        arguments: [String],
-        sandbox: Sandbox,
-        timeout: Double,
-        environment: [String: String] = [:]
-    ) -> ProcessRequest {
-        ProcessRequest(
-            executableURL: URL(fileURLWithPath: "/usr/bin/xcodebuild"),
-            arguments: arguments,
-            environment: nil,
-            additionalEnvironment: environment,
-            workingDirectoryURL: sandbox.rootURL,
-            timeout: timeout
-        )
     }
 
     private func resolveKillerTestFile(status: ExecutionStatus) -> String? {

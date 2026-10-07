@@ -10,25 +10,11 @@ struct BuildStage: Sendable {
         destination: String,
         timeout: Double
     ) async throws -> BuildArtifact {
-        let derivedDataURL = sandbox.rootURL.appendingPathComponent(".xmr-derived-data")
-
-        var arguments = [
-            "build-for-testing",
-            "-scheme", scheme,
-            "-destination", destination,
-            "-derivedDataPath", derivedDataURL.path,
-        ]
-
-        arguments += container?.arguments ?? []
+        let derivedDataURL = URL(fileURLWithPath: ToolRequests.derivedDataPath(in: sandbox))
 
         let (exitCode, buildOutput) = try await launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/xcodebuild"),
-                arguments: arguments,
-                environment: nil,
-                additionalEnvironment: [:],
-                workingDirectoryURL: sandbox.rootURL,
-                timeout: timeout
+            ToolRequests.buildForTesting(
+                in: sandbox, scheme: scheme, destination: destination, container: container, timeout: timeout
             )
         )
 
@@ -63,17 +49,8 @@ struct BuildStage: Sendable {
         sandbox: Sandbox,
         timeout: Double
     ) async throws -> BuildArtifact {
-        let arguments = ["build", "--build-tests"]
-
         let (exitCode, buildOutput) = try await launcher.launchCapturing(
-            ProcessRequest(
-                executableURL: URL(fileURLWithPath: "/usr/bin/swift"),
-                arguments: arguments,
-                environment: nil,
-                additionalEnvironment: [:],
-                workingDirectoryURL: sandbox.rootURL,
-                timeout: timeout
-            )
+            ToolRequests.swiftBuildTests(in: sandbox, timeout: timeout)
         )
 
         guard exitCode != SPMResultParser.timedOutExitCode else {
