@@ -192,4 +192,3 @@ struct RunnerSummaryTests {
         #expect(RunnerSummary.byLocation(results).map(\.descriptor.id) == ["0", "1", "2", "3"])
     }
 }
-

@@ -83,4 +83,3 @@ struct EffectiveConcurrencyTests {
         #expect(RunnerConfiguration.concurrency(forProcessors: processors) == workers)
     }
 }
-

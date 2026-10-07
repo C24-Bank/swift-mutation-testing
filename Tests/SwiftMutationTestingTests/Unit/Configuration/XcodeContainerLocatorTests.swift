@@ -203,4 +203,3 @@ struct XcodeContainerLocatorTests {
         #expect(found.projects == ["A.xcodeproj", "B.xcodeproj"])
     }
 }
-
