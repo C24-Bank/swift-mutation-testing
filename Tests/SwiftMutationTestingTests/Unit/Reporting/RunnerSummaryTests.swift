@@ -162,4 +162,34 @@ struct RunnerSummaryTests {
                 == "Detected: 3 (killed 2, timeout 1) / Undetected: 2 (survived 1, no coverage 1)"
         )
     }
+
+    @Test("Given results in several files, when summarised per file, then the files come in path order with their own counts")
+    func filesComeInPathOrderWithTheirOwnCounts() {
+        let summary = RunnerSummary(
+            results: [
+                makeExecutionResult(id: "b0", filePath: "/p/B.swift", status: .survived),
+                makeExecutionResult(id: "a0", filePath: "/p/A.swift", status: .killed(by: "t")),
+                makeExecutionResult(id: "a1", filePath: "/p/A.swift", status: .noCoverage),
+            ],
+            totalDuration: 3
+        )
+
+        #expect(summary.files.map(\.path) == ["/p/A.swift", "/p/B.swift"])
+        #expect(summary.files.map(\.summary.killed.count) == [1, 0])
+        #expect(summary.files.map(\.summary.undetected.count) == [1, 1])
+        #expect(summary.files.allSatisfy { $0.summary.totalDuration == 0 })
+    }
+
+    @Test("Given results out of order, when put in source order, then they follow file, line and column")
+    func byLocationFollowsFileLineAndColumn() {
+        let results = [
+            makeExecutionResult(id: "3", filePath: "/p/B.swift", line: 1, column: 1, status: .survived),
+            makeExecutionResult(id: "2", filePath: "/p/A.swift", line: 2, column: 9, status: .survived),
+            makeExecutionResult(id: "1", filePath: "/p/A.swift", line: 2, column: 3, status: .survived),
+            makeExecutionResult(id: "0", filePath: "/p/A.swift", line: 1, column: 5, status: .survived),
+        ]
+
+        #expect(RunnerSummary.byLocation(results).map(\.descriptor.id) == ["0", "1", "2", "3"])
+    }
 }
+
