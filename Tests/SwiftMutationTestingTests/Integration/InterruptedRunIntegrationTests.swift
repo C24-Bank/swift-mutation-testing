@@ -62,7 +62,7 @@ struct InterruptedRunIntegrationTests {
         )
         let expected = Set(
             plan.mutants.enumerated().filter { reached[$0.element.fingerprint] == nil }.map {
-                Plan.mutantID(at: $0.offset)
+                MutantID.make(index: $0.offset)
             }
         )
         #expect(tested == expected)

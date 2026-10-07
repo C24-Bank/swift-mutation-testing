@@ -20,7 +20,7 @@ struct ResultMergerTests {
 
         let merged = try ResultMerger().merge(resultPaths: [first, second], plan: plan, projectPath: dir.path)
 
-        #expect(merged.results.map(\.descriptor.id) == (0 ..< 3).map(Plan.mutantID(at:)))
+        #expect(merged.results.map(\.descriptor.id) == (0 ..< 3).map(MutantID.make(index:)))
         #expect(merged.results.map(\.status) == [.killed(by: "Suite.a"), .survived, .killedByCrash])
         #expect(merged.results.map(\.activated) == [true, true, false])
         #expect(merged.results.map(\.descriptor.fingerprint) == Self.mutants.map(\.fingerprint))
@@ -122,7 +122,7 @@ struct ResultMergerTests {
         let results = verdicts.map { mutant, status, activated in
             ExecutionResult(
                 descriptor: makeMutantDescriptor(
-                    id: Plan.mutantID(at: plan.mutants.firstIndex(of: mutant) ?? 0),
+                    id: MutantID.make(index: plan.mutants.firstIndex(of: mutant) ?? 0),
                     filePath: dir.appendingPathComponent(mutant.file).path, line: mutant.line, column: mutant.column,
                     utf8Offset: mutant.utf8Start, originalText: mutant.original, mutatedText: mutant.replacement,
                     operatorIdentifier: mutant.operatorIdentifier, fingerprint: mutant.fingerprint

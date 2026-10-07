@@ -73,7 +73,7 @@ struct SwiftMutationTestingPlanTests {
             .filter { !$0.isEmpty }
         let expected = ShardSelector.mutants(of: plan, in: Shard(index: 2, count: 2))
         #expect(!expected.isEmpty)
-        #expect(Set(tested) == Set(expected.map { Plan.mutantID(at: plan.mutants.firstIndex(of: $0)!) }))
+        #expect(Set(tested) == Set(expected.map { MutantID.make(index: plan.mutants.firstIndex(of: $0)!) }))
 
         let data = try Data(contentsOf: URL(fileURLWithPath: reportPath))
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -261,7 +261,7 @@ struct SwiftMutationTestingPlanTests {
         #expect(output.contains("Resumed 1 verdicts from an interrupted run of this plan"))
         let tested = await launcher.requests.compactMap { $0.additionalEnvironment["__SWIFT_MUTATION_TESTING_ACTIVE"] }
             .filter { !$0.isEmpty }
-        #expect(Set(tested) == Set((1 ..< plan.mutants.count).map(Plan.mutantID(at:))))
+        #expect(Set(tested) == Set((1 ..< plan.mutants.count).map(MutantID.make(index:))))
         let report = try Self.verdicts(at: reportPath)
         #expect(report.count == plan.mutants.count)
         #expect(report[plan.mutants[0].fingerprint] == "Killed")
