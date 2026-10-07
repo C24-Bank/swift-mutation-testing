@@ -108,7 +108,6 @@ struct SchemaNarrowerExclusionTests {
             indexed.map { $0.toDescriptor(mutatedContent: nil, sourceContentHash: "hash") }
         }
 
-        /// The 1-based number of the line just below the schema line that reads `marker`.
         func lineAfter(_ marker: String) throws -> Int {
             let lines = schema.components(separatedBy: "\n")
             let index = try #require(lines.firstIndex { $0.trimmingCharacters(in: .whitespaces) == marker })

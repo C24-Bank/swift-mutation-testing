@@ -87,9 +87,6 @@ struct TimeoutEscalationTests {
         return sleeper
     }
 
-    /// Waits until the sleeper has exited and been reaped, however long a loaded machine takes to get there:
-    /// a dead process that is not yet reaped still answers `kill(pid, 0)`. A sleeper nobody signals exits by
-    /// itself after 30 seconds, so a broken escalation fails instead of hanging.
     private func exit(of sleeper: Sleeper) async {
         await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
@@ -99,7 +96,6 @@ struct TimeoutEscalationTests {
         }
     }
 
-    /// Only a process still running is signalled: once reaped, its pid may already belong to another.
     private func stop(_ sleeper: Sleeper) {
         if sleeper.process.isRunning {
             kill(sleeper.pid, SIGKILL)
@@ -110,8 +106,6 @@ struct TimeoutEscalationTests {
         sleeper.process.terminationReason == .uncaughtSignal && sleeper.process.terminationStatus == SIGKILL
     }
 
-    /// A `sleep 30` whose exit is signalled by its termination handler, installed before it starts so that
-    /// no exit can be missed.
     private struct Sleeper: @unchecked Sendable {
         let process: Process
         let exited: DispatchSemaphore
