@@ -19,34 +19,6 @@ struct DiscoveryPipelineTests {
         #expect(!result.mutants.isEmpty)
     }
 
-    @Test("Given the experimental tier, when the operators up to it are listed, then every operator is there, in registry order")
-    func theExperimentalTierHoldsEveryOperator() {
-        #expect(DiscoveryPipeline.operatorNames(upTo: .experimental) == DiscoveryPipeline.allOperatorNames)
-    }
-
-    @Test("Given the tiers of the record campaign, when each is listed, then it holds the operators the campaign assigned")
-    func theTiersAreTheCampaignsAssignments() {
-        #expect(
-            DiscoveryPipeline.operatorNames(upTo: .conservative) == [
-                "LogicalOperatorReplacement", "NegateConditional", "SwapTernary",
-            ]
-        )
-        #expect(
-            DiscoveryPipeline.operatorNames(upTo: .standard) == DiscoveryPipeline.operatorNames(upTo: .conservative)
-        )
-        #expect(DiscoveryPipeline.operatorNames(upTo: .experimental).count == 7)
-    }
-
-    @Test("Given each tier, when the operators up to it are listed, then the lower tier's set is inside the higher one's")
-    func lowerTiersAreInsideHigherOnes() {
-        let conservative = DiscoveryPipeline.operatorNames(upTo: .conservative)
-        let standard = DiscoveryPipeline.operatorNames(upTo: .standard)
-        let experimental = DiscoveryPipeline.operatorNames(upTo: .experimental)
-
-        #expect(conservative.allSatisfy { standard.contains($0) })
-        #expect(standard.allSatisfy { experimental.contains($0) })
-    }
-
     @Test("Given non-existent sources path, when run, then throws")
     func nonExistentSourcesPathThrows() async {
         let input = makeDiscoveryInput(projectPath: "/nonexistent", sourcesPath: "/nonexistent/does/not/exist")

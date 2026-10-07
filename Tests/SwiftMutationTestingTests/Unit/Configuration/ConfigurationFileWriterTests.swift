@@ -248,7 +248,7 @@ struct ConfigurationFileWriterTests {
 
         let content = try String(contentsOf: dir.appendingPathComponent(".swift-mutation-testing.yml"), encoding: .utf8)
         #expect(content.contains("mutators:"))
-        for name in DiscoveryPipeline.allOperatorNames {
+        for name in OperatorRegistry.allOperatorNames {
             #expect(content.contains("  - name: \(name)"))
             #expect(content.contains("    active: true"))
         }

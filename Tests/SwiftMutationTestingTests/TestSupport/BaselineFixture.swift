@@ -5,7 +5,7 @@ import Foundation
 func makeBaseline(
     score: Double = 80,
     scope: BaselineScope = BaselineScope(
-        operators: DiscoveryPipeline.allOperatorNames, sourcesPath: ".", excludePatterns: []
+        operators: OperatorRegistry.allOperatorNames, sourcesPath: ".", excludePatterns: []
     ),
     undetected fingerprints: [String] = []
 ) -> Baseline {

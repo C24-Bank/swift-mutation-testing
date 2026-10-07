@@ -55,7 +55,7 @@ struct BaselineTests {
     func scopeOfADefaultConfiguration() {
         let scope = BaselineScope(configuration: makeRunnerConfiguration(projectPath: "/tmp"))
 
-        #expect(scope.operators == DiscoveryPipeline.allOperatorNames.sorted())
+        #expect(scope.operators == OperatorRegistry.allOperatorNames.sorted())
         #expect(scope.sourcesPath == ".")
         #expect(scope.excludePatterns.isEmpty)
     }
@@ -117,6 +117,6 @@ struct BaselineTests {
     }
 
     private func scope() -> BaselineScope {
-        BaselineScope(operators: DiscoveryPipeline.allOperatorNames, sourcesPath: ".", excludePatterns: [])
+        BaselineScope(operators: OperatorRegistry.allOperatorNames, sourcesPath: ".", excludePatterns: [])
     }
 }

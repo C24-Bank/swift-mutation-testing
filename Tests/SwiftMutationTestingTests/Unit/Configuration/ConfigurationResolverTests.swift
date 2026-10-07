@@ -343,7 +343,7 @@ struct ConfigurationResolverTests {
             fileValues: [:]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .standard))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .standard))
     }
 
     @Test("Given --operator-tier via CLI, when resolved, then the operators up to that tier run")
@@ -356,7 +356,7 @@ struct ConfigurationResolverTests {
             fileValues: [:]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .experimental))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .experimental))
     }
 
     @Test("Given operator-tier in file, when resolved, then the operators up to that tier run")
@@ -366,7 +366,7 @@ struct ConfigurationResolverTests {
             fileValues: ["operator-tier": "conservative"]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .conservative))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .conservative))
     }
 
     @Test("Given --operator-tier via CLI and operator-tier in file, when resolved, then the CLI tier wins")
@@ -379,7 +379,7 @@ struct ConfigurationResolverTests {
             fileValues: ["operator-tier": "conservative"]
         )
 
-        #expect(result.filter.operators == DiscoveryPipeline.operatorNames(upTo: .experimental))
+        #expect(result.filter.operators == OperatorRegistry.operatorNames(upTo: .experimental))
     }
 
     @Test("Given a tier that does not exist, when resolved, then throws UsageError naming the three tiers")
@@ -428,7 +428,7 @@ struct ConfigurationResolverTests {
             fileValues: ["disabled-mutators": "SwapTernary"]
         )
 
-        let expected = DiscoveryPipeline.operatorNames(upTo: .experimental)
+        let expected = OperatorRegistry.operatorNames(upTo: .experimental)
             .filter { $0 != "RemoveSideEffects" && $0 != "SwapTernary" }
         #expect(result.filter.operators == expected)
     }
