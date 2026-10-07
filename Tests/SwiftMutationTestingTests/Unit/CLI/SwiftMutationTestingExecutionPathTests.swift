@@ -83,13 +83,13 @@ struct SwiftMutationTestingExecutionPathTests {
 
     @Test("Given xcode project type, when defaultLauncher called, then returns XcodeProcessLauncher")
     func defaultLauncherForXcodeReturnsXcodeProcessLauncher() {
-        let launcher = SwiftMutationTesting.defaultLauncher(for: .xcode(scheme: "S", destination: "d"))
+        let launcher = ProjectType.xcode(scheme: "S", destination: "d").defaultLauncher
         #expect(launcher is XcodeProcessLauncher)
     }
 
     @Test("Given spm project type, when defaultLauncher called, then returns SPMProcessLauncher")
     func defaultLauncherForSPMReturnsSPMProcessLauncher() {
-        let launcher = SwiftMutationTesting.defaultLauncher(for: .spm)
+        let launcher = ProjectType.spm.defaultLauncher
         #expect(launcher is SPMProcessLauncher)
     }
 

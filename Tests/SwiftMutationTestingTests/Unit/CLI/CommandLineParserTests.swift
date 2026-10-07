@@ -14,8 +14,7 @@ struct CommandLineParserTests {
         #expect(result.projectPath == "/my/project")
         #expect(result.build.scheme == "MyApp")
         #expect(result.build.destination == "platform=macOS")
-        #expect(!result.showHelp)
-        #expect(!result.showVersion)
+        #expect(result.command == .run)
     }
 
     @Test("Given run command without explicit path, when parsed, then projectPath defaults to dot")
@@ -97,33 +96,33 @@ struct CommandLineParserTests {
         #expect(throws: UsageError.self) { try parser.parse(["reproduce"]) }
     }
 
-    @Test("Given --help flag, when parsed, then showHelp is true")
+    @Test("Given --help flag, when parsed, then the command is help")
     func returnsShowHelpForHelpFlag() throws {
         let result = try parser.parse(["--help"])
 
-        #expect(result.showHelp)
+        #expect(result.command == .help)
     }
 
-    @Test("Given -h flag, when parsed, then showHelp is true")
+    @Test("Given -h flag, when parsed, then the command is help")
     func returnsShowHelpForShortFlag() throws {
         let result = try parser.parse(["-h"])
 
-        #expect(result.showHelp)
+        #expect(result.command == .help)
     }
 
     @Test("Given empty arguments, when parsed, then execution is attempted with default project path")
     func attemptsExecutionWhenEmpty() throws {
         let result = try parser.parse([])
 
-        #expect(!result.showHelp)
+        #expect(result.command == .run)
         #expect(result.projectPath == ".")
     }
 
-    @Test("Given --version flag, when parsed, then showVersion is true")
+    @Test("Given --version flag, when parsed, then the command is version")
     func returnsShowVersion() throws {
         let result = try parser.parse(["--version"])
 
-        #expect(result.showVersion)
+        #expect(result.command == .version)
     }
 
     @Test("Given --build-timeout, when parsed, then it is separate from --timeout")
@@ -180,19 +179,19 @@ struct CommandLineParserTests {
         #expect(result.build.concurrency == 3)
     }
 
-    @Test("Given init command without path, when parsed, then showInit is true and projectPath defaults to dot")
+    @Test("Given init command without path, when parsed, then the command is init and projectPath defaults to dot")
     func parsesInitWithDefaultPath() throws {
         let result = try parser.parse(["init"])
 
-        #expect(result.showInit)
+        #expect(result.command == .initialize)
         #expect(result.projectPath == ".")
     }
 
-    @Test("Given init command with explicit path, when parsed, then showInit is true and projectPath is set")
+    @Test("Given init command with explicit path, when parsed, then the command is init and projectPath is set")
     func parsesInitWithExplicitPath() throws {
         let result = try parser.parse(["init", "/my/project"])
 
-        #expect(result.showInit)
+        #expect(result.command == .initialize)
         #expect(result.projectPath == "/my/project")
     }
 

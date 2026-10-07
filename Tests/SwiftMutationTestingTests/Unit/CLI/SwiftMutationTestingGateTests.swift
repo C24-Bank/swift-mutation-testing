@@ -69,14 +69,14 @@ struct SwiftMutationTestingGateTests {
         let path = dir.appendingPathComponent("b.json").path
         try BaselineStore().write(makeBaseline(undetected: ["x"]), to: path)
 
-        let baseline = try SwiftMutationTesting.loadBaseline(for: configuration(projectPath: dir.path, baseline: path))
+        let baseline = try RunConclusion.loadBaseline(for: configuration(projectPath: dir.path, baseline: path))
 
         #expect(baseline?.undetected.map(\.fingerprint) == ["x"])
     }
 
     @Test("Given no baseline configured, when loaded, then there is none")
     func loadsNothingWithoutABaseline() throws {
-        #expect(try SwiftMutationTesting.loadBaseline(for: configuration()) == nil)
+        #expect(try RunConclusion.loadBaseline(for: configuration()) == nil)
     }
 
     @Test("Given a baseline recorded with other operators, when loaded, then the scope mismatch is an error")
@@ -88,7 +88,7 @@ struct SwiftMutationTestingGateTests {
         try BaselineStore().write(makeBaseline(scope: scope), to: path)
 
         #expect {
-            try SwiftMutationTesting.loadBaseline(for: configuration(projectPath: dir.path, baseline: path))
+            try RunConclusion.loadBaseline(for: configuration(projectPath: dir.path, baseline: path))
         } throws: { error in
             guard case .scopeMismatch(_, let differences) = error as? GateError else { return false }
             return differences.count == 1 && differences[0].hasPrefix("operators:")
@@ -129,8 +129,8 @@ struct SwiftMutationTestingGateTests {
     }
 
     private func apply(_ configuration: RunnerConfiguration, now: Date = Date()) throws -> ExitCode {
-        let gate = SwiftMutationTesting.evaluateGate(summary(), configuration: configuration, baseline: nil)
-        return try SwiftMutationTesting.applyGate(gate, summary: summary(), configuration: configuration, now: now)
+        let gate = RunConclusion.evaluateGate(summary(), configuration: configuration, baseline: nil)
+        return try RunConclusion.applyGate(gate, summary: summary(), configuration: configuration, now: now)
     }
 
     private func summary() -> RunnerSummary {

@@ -3,7 +3,7 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite("SwiftMutationTesting.writeReports", .serialized)
+@Suite("ReportWriter", .serialized)
 struct WriteReportsTests {
     @Test("Given no output paths configured, when writeReports called, then no files are created")
     func noOutputPathsProducesNoFiles() throws {
@@ -12,7 +12,7 @@ struct WriteReportsTests {
 
         let configuration = makeRunnerConfiguration(projectPath: dir.path)
 
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
 
         let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
         #expect(files.isEmpty)
@@ -26,7 +26,7 @@ struct WriteReportsTests {
         let outputPath = dir.appendingPathComponent("report.json").path
         let configuration = makeRunnerConfiguration(projectPath: dir.path, output: outputPath)
 
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
 
         #expect(FileManager.default.fileExists(atPath: outputPath))
     }
@@ -39,7 +39,7 @@ struct WriteReportsTests {
         let outputPath = dir.appendingPathComponent("report.html").path
         let configuration = makeRunnerConfiguration(projectPath: dir.path, htmlOutput: outputPath)
 
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
 
         #expect(FileManager.default.fileExists(atPath: outputPath))
     }
@@ -52,7 +52,7 @@ struct WriteReportsTests {
         let outputPath = dir.appendingPathComponent("sonar.json").path
         let configuration = makeRunnerConfiguration(projectPath: dir.path, sonarOutput: outputPath)
 
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
 
         #expect(FileManager.default.fileExists(atPath: outputPath))
     }
@@ -63,7 +63,7 @@ struct WriteReportsTests {
             projectPath: "/tmp",
             output: "/nonexistent/dir/report.json"
         )
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
     }
 
     @Test("Given invalid html output path, when writeReports called, then does not crash")
@@ -72,7 +72,7 @@ struct WriteReportsTests {
             projectPath: "/tmp",
             htmlOutput: "/nonexistent/dir/report.html"
         )
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
     }
 
     @Test("Given invalid sonar output path, when writeReports called, then does not crash")
@@ -81,7 +81,7 @@ struct WriteReportsTests {
             projectPath: "/tmp",
             sonarOutput: "/nonexistent/dir/sonar.json"
         )
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
     }
 
     @Test("Given all three output paths, when writeReports called, then all three files are written")
@@ -99,7 +99,7 @@ struct WriteReportsTests {
             sonarOutput: sonarPath
         )
 
-        SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+        ReportWriter(configuration: configuration).write(makeEmptySummary())
 
         #expect(FileManager.default.fileExists(atPath: jsonPath))
         #expect(FileManager.default.fileExists(atPath: htmlPath))
@@ -118,7 +118,7 @@ struct WriteReportsTests {
         )
 
         let output = captureOutputSync {
-            SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration)
+            ReportWriter(configuration: configuration).write(makeEmptySummary())
         }
 
         #expect(FileManager.default.fileExists(atPath: sarifPath))
@@ -137,7 +137,7 @@ struct WriteReportsTests {
         let gate = GateResult(checks: [.minScore(score: 100, minimum: 80)], newUndetected: [], fixedCount: nil)
 
         _ = captureOutputSync {
-            SwiftMutationTesting.writeReports(makeEmptySummary(), configuration: configuration, gate: gate)
+            ReportWriter(configuration: configuration).write(makeEmptySummary(), gate: gate)
         }
 
         let markdown = try String(contentsOfFile: markdownPath, encoding: .utf8)
@@ -147,7 +147,7 @@ struct WriteReportsTests {
 
     @Test("Given no gate settings, when the gate is evaluated, then there is no result")
     func inactiveGateHasNoResult() {
-        let result = SwiftMutationTesting.evaluateGate(
+        let result = RunConclusion.evaluateGate(
             makeEmptySummary(), configuration: makeRunnerConfiguration(), baseline: nil
         )
 
