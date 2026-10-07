@@ -165,12 +165,8 @@ struct MutantExecutor: Sendable {
             if let rerouted = rewriteForIncompatible(mutant, rewriter: rewriter, sourceCache: &sourceCache) {
                 reroutedToIncompatible.append(rerouted)
             } else {
-                let key = MutantCacheKey.make(for: mutant)
-                await deps.cacheStore.store(status: .unviable, for: key)
-                let index = await deps.counter.increment()
-                await deps.reporter.report(
-                    .mutantFinished(descriptor: mutant, status: .unviable, index: index, total: deps.counter.total))
-                results.append(ExecutionResult(descriptor: mutant, status: .unviable, testDuration: 0))
+                let recorder = ResultRecorder(deps: deps, keepLogsPath: configuration.reporting.keepLogsPath)
+                results.append(await recorder.record(mutant, status: .unviable))
             }
         }
 
@@ -221,14 +217,8 @@ struct MutantExecutor: Sendable {
 
         var results: [ExecutionResult] = []
         for mutant in mutants {
-            let key = MutantCacheKey.make(for: mutant)
-            guard let status = await cacheStore.result(for: key) else { return nil }
-            let killerTestFile = await cacheStore.killerTestFile(for: key)
-            results.append(
-                ExecutionResult(
-                    descriptor: mutant, status: status, testDuration: 0, killerTestFile: killerTestFile,
-                    activated: await cacheStore.activated(for: key), fromCache: true
-                ))
+            guard let result = await cacheStore.cachedResult(for: mutant) else { return nil }
+            results.append(result)
         }
 
         return results
