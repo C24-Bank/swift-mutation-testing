@@ -177,47 +177,34 @@ struct ProjectDetector: Sendable {
             return "platform=macOS"
         }
 
-        if content.range(of: #"SDKROOT\s*=\s*iphoneos"#, options: .regularExpression) != nil,
-            let device = await queryBestDevice(
-                for: "iOS",
-                selecting: {
-                    $0.first { $0.hasPrefix("iPhone") && $0.contains("Pro") }
-                        ?? $0.first { $0.hasPrefix("iPhone") }
-                }
-            )
-        {
-            return "platform=iOS Simulator,OS=latest,name=\(device)"
-        }
-
-        if content.range(of: #"SDKROOT\s*=\s*appletvos"#, options: .regularExpression) != nil,
-            let device = await queryBestDevice(
-                for: "tvOS",
-                selecting: { $0.first { $0.contains("Apple TV 4K") } ?? $0.first { $0.contains("Apple TV") } }
-            )
-        {
-            return "platform=tvOS Simulator,OS=latest,name=\(device)"
-        }
-
-        if content.range(of: #"SDKROOT\s*=\s*watchos"#, options: .regularExpression) != nil,
-            let device = await queryBestDevice(
-                for: "watchOS",
-                selecting: { $0.first { $0.contains("Apple Watch") } }
-            )
-        {
-            return "platform=watchOS Simulator,OS=latest,name=\(device)"
-        }
-
-        if content.range(of: #"SDKROOT\s*=\s*xros"#, options: .regularExpression) != nil,
-            let device = await queryBestDevice(
-                for: "visionOS",
-                selecting: { $0.first { $0.contains("Apple Vision Pro") } }
-            )
-        {
-            return "platform=visionOS Simulator,OS=latest,name=\(device)"
+        for simulator in Self.simulatorPlatforms
+        where content.range(of: #"SDKROOT\s*=\s*"# + simulator.sdkroot, options: .regularExpression) != nil {
+            if let device = await queryBestDevice(for: simulator.platform, selecting: simulator.selecting) {
+                return "platform=\(simulator.platform) Simulator,OS=latest,name=\(device)"
+            }
         }
 
         return "platform=macOS"
     }
+
+    /// The simulator platforms a project's `SDKROOT` can name, in the order they are tried, each with how to
+    /// pick its device among the available ones; adding a platform is one entry.
+    private struct SimulatorPlatform: Sendable {
+        let sdkroot: String
+        let platform: String
+        let selecting: @Sendable ([String]) -> String?
+    }
+
+    private static let simulatorPlatforms: [SimulatorPlatform] = [
+        SimulatorPlatform(sdkroot: "iphoneos", platform: "iOS") {
+            $0.first { $0.hasPrefix("iPhone") && $0.contains("Pro") } ?? $0.first { $0.hasPrefix("iPhone") }
+        },
+        SimulatorPlatform(sdkroot: "appletvos", platform: "tvOS") {
+            $0.first { $0.contains("Apple TV 4K") } ?? $0.first { $0.contains("Apple TV") }
+        },
+        SimulatorPlatform(sdkroot: "watchos", platform: "watchOS") { $0.first { $0.contains("Apple Watch") } },
+        SimulatorPlatform(sdkroot: "xros", platform: "visionOS") { $0.first { $0.contains("Apple Vision Pro") } },
+    ]
 
     private func queryBestDevice(for platform: String, selecting: ([String]) -> String?) async -> String? {
         guard
