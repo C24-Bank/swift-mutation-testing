@@ -50,7 +50,6 @@ struct XcodeWorkspaceIntegrationTests {
         #expect(values["test-target"] == nil)
 
         let launcher = CountingLauncher(wrapping: XcodeProcessLauncher())
-        // The generated file's `output:` is relative to the working directory; keep the report in the copy.
         let reportPath = fixture.url.appendingPathComponent("r.json").path
         let result = await SwiftMutationTesting.run(
             args: [fixture.url.path, "--no-cache", "--quiet", "--output", reportPath], launcher: launcher

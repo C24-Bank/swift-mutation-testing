@@ -27,8 +27,6 @@ struct InterruptedRunIntegrationTests {
         child.arguments = ["run", root, "--plan", planPath, "--no-cache", "--quiet", "--concurrency", "1"]
         child.standardOutput = FileHandle.nullDevice
         child.standardError = FileHandle.nullDevice
-        // `waitUntilExit()` blocks a thread of the concurrency pool and, under parallel scheduling, never hears
-        // of the exit; the handler runs on Foundation's own queue.
         let exited = Mutex(false)
         child.terminationHandler = { _ in exited.withLock { $0 = true } }
         try child.run()

@@ -458,7 +458,6 @@ struct ConfigurationResolverTests {
 
     @Test("Given empty project path, when resolved, then uses current directory")
     func emptyProjectPathUsesCurrentDirectory() throws {
-        // The working directory is this package: resolved as one, it needs no Xcode container.
         let result = try resolver.resolve(
             cliArguments: ParsedArguments(projectPath: ""),
             fileValues: [:]
