@@ -362,60 +362,13 @@ public struct SwiftMutationTesting {
         _ summary: RunnerSummary, configuration: RunnerConfiguration, gate: GateResult? = nil,
         identity: RunIdentity? = nil
     ) {
-        let reporting = configuration.reporting
-        let hasReports = [
-            reporting.output, reporting.htmlOutput, reporting.sonarOutput, reporting.sarifOutput,
-            reporting.markdownOutput,
-        ].contains { $0 != nil }
-        guard hasReports else { return }
-        StandardOutput.write("")
-
-        if let output = configuration.reporting.output {
-            writeReport(label: "JSON", to: output) {
-                try JsonReporter(outputPath: output, projectRoot: configuration.projectPath)
-                    .report(summary, identity: identity)
-            }
-        }
-
-        if let htmlOutput = configuration.reporting.htmlOutput {
-            writeReport(label: "HTML", to: htmlOutput) {
-                try HtmlReporter(outputPath: htmlOutput, projectRoot: configuration.projectPath).report(summary)
-            }
-        }
-
-        if let sonarOutput = configuration.reporting.sonarOutput {
-            writeReport(label: "Sonar", to: sonarOutput) {
-                try SonarReporter(outputPath: sonarOutput, projectRoot: configuration.projectPath).report(summary)
-            }
-        }
-
-        if let sarifOutput = reporting.sarifOutput {
-            writeReport(label: "SARIF", to: sarifOutput) {
-                try SarifReporter(outputPath: sarifOutput, projectRoot: configuration.projectPath).report(summary)
-            }
-        }
-
-        if let markdownOutput = reporting.markdownOutput {
-            writeReport(label: "Markdown", to: markdownOutput) {
-                try MarkdownReporter(outputPath: markdownOutput, projectRoot: configuration.projectPath)
-                    .report(summary, gate: gate)
-            }
-        }
+        ReportWriter(configuration: configuration).write(summary, gate: gate, identity: identity)
     }
 
     static func defaultLauncher(for projectType: ProjectType) -> any ProcessLaunching {
         switch projectType {
         case .xcode: XcodeProcessLauncher()
         case .spm: SPMProcessLauncher()
-        }
-    }
-
-    private static func writeReport(label: String, to path: String, _ write: () throws -> Void) {
-        do {
-            try write()
-            StandardOutput.write("  ✓ \(label) report: \(path)")
-        } catch {
-            StandardError.write("Warning: could not write \(label) report to '\(path)': \(error.localizedDescription)")
         }
     }
 }
