@@ -9,7 +9,7 @@ struct BuildStage: Sendable {
         destination: String,
         timeout: Double
     ) async throws -> BuildArtifact {
-        let derivedDataURL = sandbox.rootURL.appendingPathComponent(".xmr-derived-data")
+        let derivedDataURL = sandbox.derivedDataURL
 
         var arguments = [
             "build-for-testing",

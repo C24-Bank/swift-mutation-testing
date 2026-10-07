@@ -10,6 +10,7 @@ final class SandboxRegistry: Sendable {
     }
 
     func register(_ sandbox: Sandbox) {
+        guard !sandbox.isInPlace else { return }
         let path = sandbox.rootURL.path
         let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: path.utf8.count + 1)
         _ = path.withCString { strcpy(buffer, $0) }

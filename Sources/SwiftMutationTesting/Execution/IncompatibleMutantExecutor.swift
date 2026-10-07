@@ -306,8 +306,11 @@ struct IncompatibleMutantExecutor: Sendable {
         sandbox: Sandbox,
         configuration: RunnerConfiguration
     ) async throws -> TestLaunchResult {
-        let derivedDataPath = sandbox.rootURL.appendingPathComponent(".derived-data").path
-        let xcresultPath = sandbox.rootURL
+        let derivedDataPath =
+            sandbox.isInPlace
+            ? sandbox.derivedDataURL.path
+            : sandbox.rootURL.appendingPathComponent(".derived-data").path
+        let xcresultPath = sandbox.resultsURL
             .appendingPathComponent("\(UUID().uuidString).xcresult").path
 
         let start = Date()

@@ -296,7 +296,7 @@ struct TestExecutionStage: Sendable {
             context.artifact.xctestrunURL?.deletingLastPathComponent()
             ?? context.sandbox.rootURL
         let xctestrunURL = baseURL.appendingPathComponent("\(UUID().uuidString).xctestrun")
-        let xcresultPath = context.sandbox.rootURL
+        let xcresultPath = context.sandbox.resultsURL
             .appendingPathComponent("\(UUID().uuidString).xcresult").path
 
         defer { try? FileManager.default.removeItem(at: xctestrunURL) }

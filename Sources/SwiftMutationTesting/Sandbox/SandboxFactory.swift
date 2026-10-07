@@ -1,11 +1,23 @@
 import Foundation
 
 struct SandboxFactory: Sendable {
+    static var inPlace: Bool {
+        ProcessInfo.processInfo.environment["SMT_IN_PLACE"] == "1"
+    }
+
     func create(
         projectPath: String,
         schematizedFiles: [SchematizedFile],
         supportFileContent: String
     ) async throws -> Sandbox {
+        if Self.inPlace {
+            return try createInPlace(
+                projectPath: projectPath,
+                schematizedFiles: schematizedFiles,
+                supportFileContent: supportFileContent
+            )
+        }
+
         let sandboxURL = try makeSandboxRoot()
         let projectURL = URL(fileURLWithPath: projectPath).resolvingSymlinksInPath()
 
@@ -35,6 +47,10 @@ struct SandboxFactory: Sendable {
     }
 
     func createClean(projectPath: String) async throws -> Sandbox {
+        if Self.inPlace {
+            return Sandbox(rootURL: URL(fileURLWithPath: projectPath).resolvingSymlinksInPath(), isInPlace: true)
+        }
+
         let sandboxURL = try makeSandboxRoot()
         let projectURL = URL(fileURLWithPath: projectPath).resolvingSymlinksInPath()
 
@@ -53,6 +69,15 @@ struct SandboxFactory: Sendable {
         mutatedFilePath: String,
         mutatedContent: String
     ) async throws -> Sandbox {
+        if Self.inPlace {
+            let projectURL = URL(fileURLWithPath: projectPath).resolvingSymlinksInPath()
+            let fileURL = URL(fileURLWithPath: mutatedFilePath).resolvingSymlinksInPath()
+            var originals: [Sandbox.OriginalFile] = []
+            try writeTracking(Data(mutatedContent.utf8), to: fileURL, originals: &originals)
+            try disableSwiftLintBuildPhasesTracking(in: projectURL, originals: &originals)
+            return Sandbox(rootURL: projectURL, originals: originals, isInPlace: true)
+        }
+
         let sandboxURL = try makeSandboxRoot()
         let projectURL = URL(fileURLWithPath: projectPath).resolvingSymlinksInPath()
         let mutatedCanonical = URL(fileURLWithPath: mutatedFilePath).resolvingSymlinksInPath().path
@@ -65,6 +90,51 @@ struct SandboxFactory: Sendable {
         )
 
         return Sandbox(rootURL: sandboxURL)
+    }
+
+    private func createInPlace(
+        projectPath: String,
+        schematizedFiles: [SchematizedFile],
+        supportFileContent: String
+    ) throws -> Sandbox {
+        let projectURL = URL(fileURLWithPath: projectPath).resolvingSymlinksInPath()
+        var originals: [Sandbox.OriginalFile] = []
+
+        for file in schematizedFiles {
+            let fileURL = URL(fileURLWithPath: file.originalPath).resolvingSymlinksInPath()
+            let content = Data(fixEmptySwitchCaseBodies(file.schematizedContent).utf8)
+            try writeTracking(content, to: fileURL, originals: &originals)
+        }
+
+        try injectSupportFile(
+            content: supportFileContent,
+            into: projectURL,
+            schematizedFiles: schematizedFiles,
+            projectURL: projectURL
+        )
+
+        try disableSwiftLintBuildPhasesTracking(in: projectURL, originals: &originals)
+
+        return Sandbox(rootURL: projectURL, originals: originals, isInPlace: true)
+    }
+
+    private func writeTracking(_ content: Data, to url: URL, originals: inout [Sandbox.OriginalFile]) throws {
+        originals.append(Sandbox.OriginalFile(url: url, content: try? Data(contentsOf: url)))
+        try content.write(to: url, options: .atomic)
+    }
+
+    private func disableSwiftLintBuildPhasesTracking(
+        in projectURL: URL,
+        originals: inout [Sandbox.OriginalFile]
+    ) throws {
+        guard let xcodeprojURL = findXcodeproj(in: projectURL) else { return }
+        let pbxprojURL = xcodeprojURL.appendingPathComponent("project.pbxproj")
+        let before = try? Data(contentsOf: pbxprojURL)
+        try disableSwiftLintBuildPhases(in: projectURL)
+        let after = try? Data(contentsOf: pbxprojURL)
+        if before != after {
+            originals.append(Sandbox.OriginalFile(url: pbxprojURL, content: before))
+        }
     }
 
     private func makeSandboxRoot() throws -> URL {
