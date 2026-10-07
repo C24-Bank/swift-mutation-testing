@@ -176,7 +176,7 @@ struct ConfigurationResolver: Sendable {
         let fileDisabled = resolveList(cli: [], keys: ["disabled-mutators"], from: fileValues)
         let disabled = Set(cli.filter.disabledMutators + fileDisabled)
 
-        return DiscoveryPipeline.operatorNames(upTo: tier).filter { !disabled.contains($0) }
+        return OperatorRegistry.operatorNames(upTo: tier).filter { !disabled.contains($0) }
     }
 
     private func resolvedOperatorTier(cli: ParsedArguments, fileValues: [String: String]) throws -> OperatorTier {

@@ -20,7 +20,7 @@ struct BaselineScope: Sendable, Codable, Equatable {
         )
 
         self.init(
-            operators: operators.isEmpty ? DiscoveryPipeline.allOperatorNames : operators,
+            operators: operators.isEmpty ? OperatorRegistry.allOperatorNames : operators,
             sourcesPath: sourcesPath == root ? "." : ProjectRelativePath.make(for: sourcesPath, in: root),
             excludePatterns: configuration.filter.excludePatterns
         )

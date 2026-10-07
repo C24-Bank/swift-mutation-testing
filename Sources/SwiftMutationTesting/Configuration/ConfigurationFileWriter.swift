@@ -186,7 +186,7 @@ struct ConfigurationFileWriter: Sendable {
             "# Mutation operators — set active: false to disable",
             "mutators:",
         ]
-        for name in DiscoveryPipeline.allOperatorNames {
+        for name in OperatorRegistry.allOperatorNames {
             lines.append("  - name: \(name)")
             lines.append("    active: true")
         }

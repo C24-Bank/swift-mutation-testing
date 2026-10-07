@@ -1,11 +1,7 @@
 import SwiftSyntax
 
 struct InfiniteLoopFilter: MutationExclusion {
-
-    private static let riskyOperators: Set<String> = [
-        "ArithmeticOperatorReplacement",
-        "RemoveSideEffects",
-    ]
+    var riskyOperators: Set<String> = OperatorRegistry.loopRiskyNames
 
     private let extractor = InfiniteLoopBodyExtractor()
 
@@ -14,6 +10,6 @@ struct InfiniteLoopFilter: MutationExclusion {
     }
 
     func applies(to point: MutationPoint) -> Bool {
-        Self.riskyOperators.contains(point.operatorIdentifier)
+        riskyOperators.contains(point.operatorIdentifier)
     }
 }

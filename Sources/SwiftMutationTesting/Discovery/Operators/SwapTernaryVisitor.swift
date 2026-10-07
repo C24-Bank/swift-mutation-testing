@@ -1,6 +1,11 @@
 import SwiftSyntax
 
-final class SwapTernaryVisitor: MutationSyntaxVisitor {
+final class SwapTernaryVisitor: MutationSyntaxVisitor, OperatorVisitor {
+    static let operatorIdentifier = "SwapTernary"
+    static let summary = "Swap ternary"
+    static let explanation =
+        "Swaps the two results of a ternary expression. A survivor usually means they are never told apart."
+
     override func visit(_ node: UnresolvedTernaryExprSyntax) -> SyntaxVisitorContinueKind {
         guard let elements = node.parent?.as(ExprListSyntax.self).map(Array.init)
         else { return .visitChildren }
@@ -28,7 +33,7 @@ final class SwapTernaryVisitor: MutationSyntaxVisitor {
 
         mutations.append(
             MutationPoint(
-                operatorIdentifier: "SwapTernary",
+                operatorIdentifier: Self.operatorIdentifier,
                 filePath: filePath,
                 line: location.line,
                 column: location.column,
