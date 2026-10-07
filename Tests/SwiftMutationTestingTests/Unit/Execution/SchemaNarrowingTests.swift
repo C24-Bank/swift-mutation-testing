@@ -37,13 +37,6 @@ struct SchemaNarrowingTests {
         }
     }
 
-    private func executor(projectPath: String) -> MutantExecutor {
-        MutantExecutor(
-            configuration: makeRunnerConfiguration(projectPath: projectPath, projectType: .spm),
-            launcher: MockProcessLauncher(exitCode: 0)
-        )
-    }
-
     // MARK: - Tests
 
     @Test("Given a body holding a switch, when the schema is narrowed, then the result still parses")
@@ -61,8 +54,7 @@ struct SchemaNarrowingTests {
             $0.toDescriptor(mutatedContent: nil, sourceContentHash: "hash")
         }
 
-        let narrowed = executor(projectPath: dir.path)
-            .regeneratedSchema(originalPath: file.path, keeping: kept)
+        let narrowed = SchemaNarrower.regeneratedSchema(originalPath: file.path, keeping: kept)
 
         let source = try #require(narrowed)
         #expect(!Parser.parse(source: source).hasError)
@@ -82,8 +74,7 @@ struct SchemaNarrowingTests {
         }
 
         let source = try #require(
-            executor(projectPath: dir.path)
-                .regeneratedSchema(originalPath: file.path, keeping: kept)
+            SchemaNarrower.regeneratedSchema(originalPath: file.path, keeping: kept)
         )
 
         #expect(!source.contains(indexed[0].mutantID))
@@ -100,7 +91,7 @@ struct SchemaNarrowingTests {
         try codeWithSwitch.write(to: file, atomically: true, encoding: .utf8)
 
         let source = try #require(
-            executor(projectPath: dir.path).regeneratedSchema(originalPath: file.path, keeping: [])
+            SchemaNarrower.regeneratedSchema(originalPath: file.path, keeping: [])
         )
 
         #expect(source == codeWithSwitch)
@@ -118,8 +109,7 @@ struct SchemaNarrowingTests {
         let descriptor = makeMutantDescriptor(id: "m0", filePath: file.path, isSchematizable: true)
 
         #expect(
-            executor(projectPath: dir.path)
-                .regeneratedSchema(originalPath: file.path, keeping: [descriptor]) == nil
+            SchemaNarrower.regeneratedSchema(originalPath: file.path, keeping: [descriptor]) == nil
         )
     }
 
@@ -129,8 +119,7 @@ struct SchemaNarrowingTests {
         defer { FileHelpers.cleanup(dir) }
 
         #expect(
-            executor(projectPath: dir.path)
-                .regeneratedSchema(originalPath: dir.appendingPathComponent("Gone.swift").path, keeping: [])
+            SchemaNarrower.regeneratedSchema(originalPath: dir.appendingPathComponent("Gone.swift").path, keeping: [])
                 == nil
         )
     }

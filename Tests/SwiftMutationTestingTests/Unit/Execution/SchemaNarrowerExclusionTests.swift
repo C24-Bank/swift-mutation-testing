@@ -4,8 +4,8 @@ import Testing
 
 @testable import SwiftMutationTesting
 
-@Suite("MutantExecutor — excluding the mutants of a failing file")
-struct MutantExecutorExclusionTests {
+@Suite("SchemaNarrower — excluding the mutants of a failing file")
+struct SchemaNarrowerExclusionTests {
     @Test("Given the sandbox copy is gone, when its mutants are excluded, then all go and the original is restored")
     func aMissingSandboxCopyExcludesEveryMutantAndRestoresTheOriginal() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
@@ -20,10 +20,7 @@ struct MutantExecutorExclusionTests {
             makeMutantDescriptor(id: "swift-mutation-testing_0", filePath: original.path, isSchematizable: true)
         ]
 
-        let excluded = MutantExecutor(
-            configuration: makeRunnerConfiguration(projectPath: dir.path, projectType: .spm),
-            launcher: MockProcessLauncher(exitCode: 0)
-        ).excludeProblematicMutants(
+        let excluded = SchemaNarrower.excludeProblematicMutants(
             sandboxPath: sandboxCopy.path,
             originalPath: original.path,
             errorOutput: "\(sandboxCopy.path):1:5: error: cannot find 'y' in scope",
@@ -79,7 +76,6 @@ struct MutantExecutorExclusionTests {
         let sandboxCopy: URL
         let indexed: [IndexedMutationPoint]
         let schema: String
-        private let executor: MutantExecutor
 
         init() throws {
             directory = try FileHelpers.makeTemporaryDirectory()
@@ -100,12 +96,10 @@ struct MutantExecutorExclusionTests {
                     fingerprint: "fingerprint-\($0.offset)"
                 )
             }
-            executor = MutantExecutor(
-                configuration: makeRunnerConfiguration(projectPath: directory.path, projectType: .spm),
-                launcher: MockProcessLauncher(exitCode: 0)
-            )
             let all = indexed.map { $0.toDescriptor(mutatedContent: nil, sourceContentHash: "hash") }
-            let generated = try #require(executor.regeneratedSchema(originalPath: originalFile.path, keeping: all))
+            let generated = try #require(
+                SchemaNarrower.regeneratedSchema(originalPath: originalFile.path, keeping: all)
+            )
             try generated.write(to: sandboxCopy, atomically: true, encoding: .utf8)
             schema = generated
         }
@@ -122,7 +116,7 @@ struct MutantExecutorExclusionTests {
         }
 
         func exclude(errorLine: Int) -> [MutantDescriptor] {
-            executor.excludeProblematicMutants(
+            SchemaNarrower.excludeProblematicMutants(
                 sandboxPath: sandboxCopy.path,
                 originalPath: originalFile.path,
                 errorOutput: "\(sandboxCopy.path):\(errorLine):5: error: cannot find 'y' in scope",
