@@ -11,10 +11,10 @@ public struct SwiftMutationTesting {
         do {
             return try await execute(args: args, launcher: launcher)
         } catch let error as UsageError {
-            fputs(error.message + "\n", stderr)
+            StandardError.write(error.message)
             return .error
         } catch {
-            fputs("Error: \(error.localizedDescription)\n", stderr)
+            StandardError.write("Error: \(error.localizedDescription)")
             return .error
         }
     }
@@ -415,7 +415,7 @@ public struct SwiftMutationTesting {
             try write()
             StandardOutput.write("  ✓ \(label) report: \(path)")
         } catch {
-            fputs("Warning: could not write \(label) report to '\(path)': \(error.localizedDescription)\n", stderr)
+            StandardError.write("Warning: could not write \(label) report to '\(path)': \(error.localizedDescription)")
         }
     }
 }

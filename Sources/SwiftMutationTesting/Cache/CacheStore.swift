@@ -268,10 +268,9 @@ actor CacheStore {
         entries = [:]
         killerTestFiles = [:]
         let directory = URL(fileURLWithPath: storePath).deletingLastPathComponent().path
-        fputs(
+        StandardError.write(
             "Warning: ignoring the cache at '\(directory)', which this version cannot read; "
-                + "every mutant will be tested again.\n",
-            stderr
+                + "every mutant will be tested again."
         )
     }
 }

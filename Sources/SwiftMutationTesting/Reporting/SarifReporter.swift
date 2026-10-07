@@ -23,10 +23,9 @@ struct SarifReporter: Sendable {
         }
 
         if undetected.count > resultLimit {
-            fputs(
+            StandardError.write(
                 "Warning: the SARIF report lists the first \(resultLimit) of \(undetected.count) undetected mutants, "
-                    + "the most GitHub code scanning accepts\n",
-                stderr
+                    + "the most GitHub code scanning accepts"
             )
         }
 
