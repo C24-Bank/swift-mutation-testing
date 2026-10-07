@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 struct MutantCacheKey: Hashable, Sendable, Codable {
@@ -10,8 +9,7 @@ struct MutantCacheKey: Hashable, Sendable, Codable {
     let mutatedText: String
 
     static func hash(of content: String) -> String {
-        let digest = SHA256.hash(data: Data(content.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
+        VersionedJSON.sha256(of: Data(content.utf8))
     }
 
     static func make(for mutant: MutantDescriptor) -> MutantCacheKey {

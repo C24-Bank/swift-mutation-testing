@@ -41,32 +41,15 @@ struct PlanJournal: Sendable {
             fingerprint: fingerprint, status: status, killerTestFile: killerTestFile, activated: activated,
             duration: duration
         )
-        guard var line = try? JSONEncoder().encode(entry) else { return }
-        line.append(UInt8(ascii: "\n"))
-
-        let url = URL(fileURLWithPath: path)
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let handle = try? FileHandle(forWritingTo: url) {
-            defer { try? handle.close() }
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: line)
-        } else {
-            try? line.write(to: url)
-        }
+        JSONLines.append(entry, to: path)
     }
 
     /// The entries of the journal at `path`, the last one winning for a fingerprint; a line cut short by an
     /// interruption is skipped.
     static func entries(at path: String) -> [String: Entry] {
-        guard let data = FileManager.default.contents(atPath: path) else { return [:] }
-
-        var entries: [String: Entry] = [:]
-        for line in data.split(separator: UInt8(ascii: "\n")) {
-            if let entry = try? JSONDecoder().decode(Entry.self, from: line) {
-                entries[entry.fingerprint] = entry
-            }
-        }
-        return entries
+        Dictionary(
+            JSONLines.read(Entry.self, from: path).map { ($0.fingerprint, $0) }, uniquingKeysWith: { _, last in last }
+        )
     }
 
     static func remove(at path: String) {

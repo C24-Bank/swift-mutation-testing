@@ -132,28 +132,11 @@ actor CacheStore {
     }
 
     private func journaledEntries() -> [CacheEntry] {
-        guard let data = FileManager.default.contents(atPath: journalPath) else { return [] }
-
-        return data.split(separator: UInt8(ascii: "\n")).compactMap { line in
-            try? JSONDecoder().decode(CacheEntry.self, from: line)
-        }
+        JSONLines.read(CacheEntry.self, from: journalPath)
     }
 
     private func journal(_ entry: CacheEntry) {
-        guard var line = try? JSONEncoder().encode(entry) else { return }
-        line.append(UInt8(ascii: "\n"))
-
-        let url = URL(fileURLWithPath: journalPath)
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        if let handle = try? FileHandle(forWritingTo: url) {
-            defer { try? handle.close() }
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: line)
-        } else {
-            try? line.write(to: url)
-        }
+        JSONLines.append(entry, to: journalPath)
     }
 
     func persist() throws {
