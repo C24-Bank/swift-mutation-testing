@@ -2,15 +2,31 @@ import Foundation
 
 struct MutantExecutor: Sendable {
 
-    init(configuration: RunnerConfiguration, launcher: any ProcessLaunching, planJournal: PlanJournal? = nil) {
+    /// The collaborators a run works through, each the real one unless a test hands in another.
+    struct Environment: Sendable {
+        var sandboxFactory = SandboxFactory()
+        var verifier = ApplicationVerifier()
+        var testFilesHasher = TestFilesHasher()
+        /// The reporter progress goes to; without one, the console's, or none under `--quiet`.
+        var reporter: (any ProgressReporter)?
+    }
+
+    init(
+        configuration: RunnerConfiguration,
+        launcher: any ProcessLaunching,
+        planJournal: PlanJournal? = nil,
+        environment: Environment = Environment()
+    ) {
         self.configuration = configuration
         self.launcher = launcher
         self.planJournal = planJournal
+        self.environment = environment
     }
 
     private let configuration: RunnerConfiguration
     private let launcher: any ProcessLaunching
     private let planJournal: PlanJournal?
+    private let environment: Environment
 
     private struct MutantRunContext {
         let deps: ExecutionDeps
@@ -23,9 +39,8 @@ struct MutantExecutor: Sendable {
 
     func execute(_ input: RunnerInput) async throws -> [ExecutionResult] {
         let reporter: any ProgressReporter =
-            configuration.reporting.quiet
-            ? SilentProgressReporter()
-            : ConsoleProgressReporter()
+            environment.reporter
+            ?? (configuration.reporting.quiet ? SilentProgressReporter() : ConsoleProgressReporter())
 
         let (cacheStore, metadata, hasher) = try await prepareCacheStore(input: input)
         // Written now so that a run that ends before its results are persisted — its verdicts in the
@@ -43,7 +58,7 @@ struct MutantExecutor: Sendable {
             input: input, hasher: hasher, cacheStore: cacheStore, reporter: reporter
         )
 
-        let sandbox = try await SandboxFactory().create(
+        let sandbox = try await environment.sandboxFactory.create(
             projectPath: input.projectPath,
             schematizedFiles: input.schematizedFiles
         )
@@ -53,7 +68,7 @@ struct MutantExecutor: Sendable {
             SandboxCleaner.deregister()
         }
 
-        try ApplicationVerifier().verify(
+        try environment.verifier.verify(
             schematizedFiles: input.schematizedFiles, mutants: input.mutants,
             sandbox: sandbox, projectPath: input.projectPath
         )
@@ -106,7 +121,7 @@ struct MutantExecutor: Sendable {
             )
         }
 
-        let hasher = TestFilesHasher()
+        let hasher = environment.testFilesHasher
         let currentTestHashes = hasher.hashPerFile(projectPath: input.projectPath)
         let diff = try await cacheStore.changedTestFiles(current: currentTestHashes)
         await cacheStore.invalidate(diff: diff)
@@ -175,9 +190,7 @@ struct MutantExecutor: Sendable {
                 configuration: configuration,
                 bundles: bundles,
                 testFilter: testFilter,
-                targetedSuites: TargetedSuites.declared(
-                    in: TestFilesHasher().testFilePaths(projectPath: input.projectPath)
-                )
+                targetedSuites: TargetedSuites.declared(in: deps.killerTestFileResolver.testFilePaths)
             )
             results += try await runNormal(deps: deps, context: context, schematizable: testableSchematizable)
         } else if !testableSchematizable.isEmpty {
@@ -279,8 +292,10 @@ struct MutantExecutor: Sendable {
         pool: SimulatorPool,
         importStyle: ImportStyle
     ) async throws -> [ExecutionResult] {
-        try await IncompatibleMutantExecutor(deps: deps, sandboxFactory: SandboxFactory(), importStyle: importStyle)
-            .execute(mutants, configuration: configuration, pool: pool)
+        try await IncompatibleMutantExecutor(
+            deps: deps, sandboxFactory: environment.sandboxFactory, importStyle: importStyle
+        )
+        .execute(mutants, configuration: configuration, pool: pool)
     }
 
     private func rewriteForIncompatible(
