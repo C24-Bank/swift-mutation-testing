@@ -22,6 +22,37 @@ struct MutantExecutorTests {
         #expect(results.isEmpty)
     }
 
+    @Test("Given a reporter in the environment, when execute called, then the run's progress goes to it")
+    func progressGoesToTheReporterGiven() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+        let reporter = MockProgressReporter()
+
+        let results = try await MutantExecutor(
+            configuration: makeRunnerConfiguration(projectPath: dir.path),
+            launcher: MockProcessLauncher(exitCode: 1),
+            environment: MutantExecutor.Environment(reporter: reporter)
+        ).execute(
+            makeRunnerInput(
+                projectPath: dir.path,
+                schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = false")],
+                mutants: [
+                    makeMutantDescriptor(
+                        id: "m0", filePath: sourceFile.path, originalText: "true", mutatedText: "false",
+                        isSchematizable: true, sourceContentHash: "test-hash"
+                    )
+                ]
+            )
+        )
+
+        let events = await reporter.events
+        #expect(results.count == 1)
+        #expect(events.contains { if case .buildStarted = $0 { true } else { false } })
+        #expect(events.contains { if case .mutantFinished = $0 { true } else { false } })
+    }
+
     @Test("Given build failure and schematizable mutants, when execute called, then fallback marks them unviable")
     func buildFailureMakesSchematizableMutantsUnviable() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
