@@ -30,10 +30,8 @@ struct SchemataGenerator: Sendable {
             let statementsStart = edits.current(scope.statementsStartOffset)
 
             guard
-                let originalStatements = extract(
-                    from: content,
-                    start: statementsStart,
-                    end: edits.current(scope.statementsEndOffset)
+                let originalStatements = UTF8Splice.substring(
+                    of: content, from: statementsStart, to: edits.current(scope.statementsEndOffset)
                 )
             else {
                 discarded += group.mutations.map(\.point)
@@ -62,12 +60,13 @@ struct SchemataGenerator: Sendable {
             let switchBody = buildSwitchBody(
                 cases: cases, defaultStatements: originalStatements, shape: scope.shape, path: source.file.path
             )
-            content = replaceRange(
-                in: content,
-                start: edits.current(scope.bodyStartOffset),
-                end: edits.current(scope.bodyEndOffset),
-                with: switchBody
-            )
+            content =
+                UTF8Splice.replacing(
+                    from: edits.current(scope.bodyStartOffset),
+                    to: edits.current(scope.bodyEndOffset),
+                    in: content,
+                    with: switchBody
+                ) ?? content
             edits.record(
                 start: scope.bodyStartOffset,
                 delta: switchBody.utf8.count - (scope.bodyEndOffset - scope.bodyStartOffset)
@@ -101,24 +100,13 @@ struct SchemataGenerator: Sendable {
         "swift-mutation-testing_\(index)"
     }
 
-    private func extract(from content: String, start: Int, end: Int) -> String? {
-        let data = content.data(using: .utf8)!
-        guard start >= 0, end <= data.count, start <= end
-        else { return nil }
-        return String(data: data.subdata(in: start ..< end), encoding: .utf8)!
-    }
-
     private func apply(_ mutation: MutationPoint, to statementsText: String, at relativeOffset: Int) -> String? {
-        let statementsData = statementsText.data(using: .utf8)!
-        let originalData = mutation.originalText.data(using: .utf8)!
-        let mutatedData = mutation.mutatedText.data(using: .utf8)!
-
-        guard relativeOffset >= 0, relativeOffset + originalData.count <= statementsData.count
-        else { return nil }
-
-        var result = statementsData
-        result.replaceSubrange(relativeOffset ..< relativeOffset + originalData.count, with: mutatedData)
-        return String(data: result, encoding: .utf8)!
+        UTF8Splice.replacing(
+            from: relativeOffset,
+            to: relativeOffset + mutation.originalText.utf8.count,
+            in: statementsText,
+            with: mutation.mutatedText
+        )
     }
 
     private func buildSwitchBody(
@@ -156,20 +144,5 @@ struct SchemataGenerator: Sendable {
 
     private func defaultBody(_ statements: String, shape: FunctionBodyShape) -> String {
         shape == .conditional(returnsValue: true) ? "return \(statements)" : statements
-    }
-
-    private func replaceRange(
-        in content: String, start: Int, end: Int, with replacement: String
-    )
-        -> String
-    {
-        let contentData = content.data(using: .utf8)!
-        let replacementData = replacement.data(using: .utf8)!
-        guard start >= 0, end <= contentData.count
-        else { return content }
-
-        var result = contentData
-        result.replaceSubrange(start ..< end, with: replacementData)
-        return String(data: result, encoding: .utf8)!
     }
 }
