@@ -54,12 +54,7 @@ struct MarkdownReporter: Sendable {
     private func gateSection(_ gate: GateResult) -> [String] {
         var lines = ["", "### Quality gate: \(gate.passed ? "passed ✅" : "failed ❌")", ""]
         lines.append(contentsOf: gate.checks.map { "- \($0.passed ? "✓" : "✗") \($0.summary)" })
-        if !gate.checksNewUndetected, !gate.newUndetected.isEmpty {
-            lines.append("- ℹ \(gate.newUndetectedSummary) since the baseline")
-        }
-        if let fixed = gate.fixedCount, fixed > 0 {
-            lines.append("- ℹ \(GateResult.count(fixed, "mutant")) detected now that were undetected in the baseline")
-        }
+        lines.append(contentsOf: gate.notes.map { "- ℹ \($0)" })
         if !gate.newUndetected.isEmpty {
             lines.append("")
             lines.append("New undetected mutants:")
@@ -76,8 +71,7 @@ struct MarkdownReporter: Sendable {
             "| File | Score | Killed | Survived | Timeout | Unviable | No coverage |",
             "|---|---:|---:|---:|---:|---:|---:|",
         ]
-        for (filePath, results) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
-            let file = RunnerSummary(results: results, totalDuration: 0)
+        for (filePath, file) in summary.files {
             lines.append(
                 "| \(cell(relative(filePath))) | \(String(format: "%.1f", file.score))%"
                     + " | \(file.killed.count) | \(file.survived.count) | \(file.timeouts.count)"
@@ -88,7 +82,7 @@ struct MarkdownReporter: Sendable {
     }
 
     private func undetectedSection(_ summary: RunnerSummary) -> [String] {
-        let undetected = sorted(summary.undetected)
+        let undetected = RunnerSummary.byLocation(summary.undetected)
         guard !undetected.isEmpty else { return [] }
         let heading =
             undetected.count > Self.listedLimit
@@ -99,7 +93,7 @@ struct MarkdownReporter: Sendable {
 
     private func mutantTable(_ results: [ExecutionResult]) -> [String] {
         var lines = ["| Location | Operator | Mutation | Status |", "|---|---|---|---|"]
-        for result in sorted(results).prefix(Self.listedLimit) {
+        for result in RunnerSummary.byLocation(results).prefix(Self.listedLimit) {
             let descriptor = result.descriptor
             let status = result.status == .noCoverage ? "no coverage" : "survived"
             lines.append(
@@ -112,13 +106,6 @@ struct MarkdownReporter: Sendable {
             lines.append("…and \(results.count - Self.listedLimit) more — see the full report.")
         }
         return lines
-    }
-
-    private func sorted(_ results: [ExecutionResult]) -> [ExecutionResult] {
-        results.sorted {
-            ($0.descriptor.filePath, $0.descriptor.line, $0.descriptor.column)
-                < ($1.descriptor.filePath, $1.descriptor.line, $1.descriptor.column)
-        }
     }
 
     private func relative(_ path: String) -> String {

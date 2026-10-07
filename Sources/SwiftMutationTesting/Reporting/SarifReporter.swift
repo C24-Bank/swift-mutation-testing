@@ -17,10 +17,7 @@ struct SarifReporter: Sendable {
     }
 
     func buildLog(_ summary: RunnerSummary) -> SarifLog {
-        let undetected = summary.undetected.sorted {
-            ($0.descriptor.filePath, $0.descriptor.line, $0.descriptor.column)
-                < ($1.descriptor.filePath, $1.descriptor.line, $1.descriptor.column)
-        }
+        let undetected = RunnerSummary.byLocation(summary.undetected)
 
         if undetected.count > resultLimit {
             StandardError.write(

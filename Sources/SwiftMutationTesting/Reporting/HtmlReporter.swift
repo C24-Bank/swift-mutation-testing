@@ -24,8 +24,7 @@ struct HtmlReporter: Sendable {
 
     private func buildRows(_ summary: RunnerSummary) -> String {
         var rows = ""
-        for (filePath, results) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
-            let file = RunnerSummary(results: results, totalDuration: 0)
+        for (filePath, file) in summary.files {
             let fileScore = String(format: "%.1f", file.score)
             let colorClass = scoreColorClass(file.score)
             let relativePath = String(filePath.dropFirst(projectRoot.count))

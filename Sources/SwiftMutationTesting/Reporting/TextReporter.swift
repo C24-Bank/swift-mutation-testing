@@ -19,8 +19,7 @@ struct TextReporter: Sendable {
 
         lines.append("")
         lines.append("Results by file:")
-        for (filePath, fileResults) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
-            let file = RunnerSummary(results: fileResults, totalDuration: 0)
+        for (filePath, file) in summary.files {
             let score = String(format: "%.1f", file.score)
             let stats = [
                 "killed: \(file.killed.count)",
@@ -35,10 +34,7 @@ struct TextReporter: Sendable {
         if !unkilledMutants.isEmpty {
             lines.append("")
             lines.append("Survived mutants:")
-            let sorted = unkilledMutants.sorted {
-                ($0.descriptor.filePath, $0.descriptor.line) < ($1.descriptor.filePath, $1.descriptor.line)
-            }
-            for result in sorted {
+            for result in RunnerSummary.byLocation(unkilledMutants) {
                 let desc = result.descriptor
                 lines.append(
                     "  \(relative(desc.filePath)):\(desc.line):\(desc.column)"
@@ -73,9 +69,7 @@ struct TextReporter: Sendable {
     static let integrityWarningsListed = 10
 
     private func integritySection(_ summary: RunnerSummary) -> [String] {
-        let warnings = summary.integrityWarnings.sorted {
-            ($0.descriptor.filePath, $0.descriptor.line) < ($1.descriptor.filePath, $1.descriptor.line)
-        }
+        let warnings = RunnerSummary.byLocation(summary.integrityWarnings)
         guard !warnings.isEmpty else { return [] }
 
         var lines = [""]
