@@ -9,92 +9,126 @@ struct TimeoutEscalationTests {
     @Test("Given an armed escalation, when the process terminates, then descendants die without waiting")
     func killsDescendantsImmediatelyOnTermination() async throws {
         let target = try spawnGroupLeader()
-        defer { kill(target, SIGKILL) }
+        defer { stop(target) }
         let child = try spawnSleeper()
-        defer { kill(child, SIGKILL) }
+        defer { stop(child) }
 
         let escalation = TimeoutEscalation(gracePeriod: 30)
-        escalation.arm(pid: target, descendants: [child])
+        escalation.arm(pid: target.pid, descendants: [child.pid])
 
         escalation.processTerminated()
-        try await Task.sleep(for: .milliseconds(300))
+        await exit(of: child)
 
-        #expect(kill(child, 0) != 0, "the descendant should not have outlived the run")
+        #expect(wasKilled(child), "the descendant should not have outlived the run")
     }
 
     @Test("Given the grace period elapses, when the process is still alive, then descendants are killed")
     func killsDescendantsWhenGracePeriodElapses() async throws {
         let target = try spawnGroupLeader()
-        defer { kill(target, SIGKILL) }
+        defer { stop(target) }
         let child = try spawnSleeper()
-        defer { kill(child, SIGKILL) }
+        defer { stop(child) }
 
         let escalation = TimeoutEscalation(gracePeriod: 0.2)
-        escalation.arm(pid: target, descendants: [child])
+        escalation.arm(pid: target.pid, descendants: [child.pid])
 
-        let deadline = ContinuousClock.now + .seconds(5)
-        while kill(child, 0) == 0 || kill(target, 0) == 0, ContinuousClock.now < deadline {
-            try await Task.sleep(for: .milliseconds(20))
-        }
+        await exit(of: child)
+        await exit(of: target)
+        withExtendedLifetime(escalation) {}
 
-        #expect(kill(child, 0) != 0, "the descendant should have been killed once the grace period ran out")
-        #expect(kill(target, 0) != 0, "the process group should have been killed too")
+        #expect(wasKilled(child), "the descendant should have been killed once the grace period ran out")
+        #expect(wasKilled(target), "the process group should have been killed too")
     }
 
     @Test("Given termination before the grace period, when it would have elapsed, then nothing is signalled again")
     func doesNotSignalAfterTermination() async throws {
         let target = try spawnGroupLeader()
-        defer { kill(target, SIGKILL) }
+        defer { stop(target) }
         let child = try spawnSleeper()
-        defer { kill(child, SIGKILL) }
+        defer { stop(child) }
 
         let escalation = TimeoutEscalation(gracePeriod: 0.3)
-        escalation.arm(pid: target, descendants: [child])
+        escalation.arm(pid: target.pid, descendants: [child.pid])
         escalation.processTerminated()
 
         let later = try spawnSleeper()
-        defer { kill(later, SIGKILL) }
+        defer { stop(later) }
 
         try await Task.sleep(for: .milliseconds(600))
 
-        #expect(kill(later, 0) == 0, "a process started after termination must not be reached")
-        #expect(kill(target, 0) == 0, "the group must not be killed once the process has terminated")
+        #expect(later.isRunning, "a process started after termination must not be reached")
+        #expect(target.isRunning, "the group must not be killed once the process has terminated")
     }
 
     @Test("Given no descendants, when the process terminates, then nothing happens")
     func handlesEmptySnapshot() throws {
         let target = try spawnGroupLeader()
-        defer { kill(target, SIGKILL) }
+        defer { stop(target) }
 
         let escalation = TimeoutEscalation(gracePeriod: 0.1)
-        escalation.arm(pid: target, descendants: [])
+        escalation.arm(pid: target.pid, descendants: [])
 
         escalation.processTerminated()
 
-        #expect(kill(target, 0) == 0)
+        #expect(target.isRunning)
     }
 
     // MARK: - Private
 
-    private func spawnGroupLeader() throws -> Int32 {
-        let pid = try spawnSleeper()
-        setpgid(pid, pid)
+    private func spawnGroupLeader() throws -> Sleeper {
+        let sleeper = try spawnSleeper()
+        setpgid(sleeper.pid, sleeper.pid)
 
         try #require(
-            getpgid(pid) == pid,
+            getpgid(sleeper.pid) == sleeper.pid,
             "refusing to signal a group the test runner belongs to"
         )
 
-        return pid
+        return sleeper
     }
 
-    private func spawnSleeper() throws -> Int32 {
+    /// Waits until the sleeper has exited and been reaped, however long a loaded machine takes to get there:
+    /// a dead process that is not yet reaped still answers `kill(pid, 0)`. A sleeper nobody signals exits by
+    /// itself after 30 seconds, so a broken escalation fails instead of hanging.
+    private func exit(of sleeper: Sleeper) async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                sleeper.exited.wait()
+                continuation.resume()
+            }
+        }
+    }
+
+    /// Only a process still running is signalled: once reaped, its pid may already belong to another.
+    private func stop(_ sleeper: Sleeper) {
+        if sleeper.process.isRunning {
+            kill(sleeper.pid, SIGKILL)
+        }
+    }
+
+    private func wasKilled(_ sleeper: Sleeper) -> Bool {
+        sleeper.process.terminationReason == .uncaughtSignal && sleeper.process.terminationStatus == SIGKILL
+    }
+
+    /// A `sleep 30` whose exit is signalled by its termination handler, installed before it starts so that
+    /// no exit can be missed.
+    private struct Sleeper: @unchecked Sendable {
+        let process: Process
+        let exited: DispatchSemaphore
+
+        var pid: Int32 { process.processIdentifier }
+        var isRunning: Bool { process.isRunning }
+    }
+
+    private func spawnSleeper() throws -> Sleeper {
         let process = Process()
+        let exited = DispatchSemaphore(value: 0)
         process.executableURL = URL(fileURLWithPath: "/bin/sleep")
         process.arguments = ["30"]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { _ in exited.signal() }
         try process.run()
-        return process.processIdentifier
+        return Sleeper(process: process, exited: exited)
     }
 }
