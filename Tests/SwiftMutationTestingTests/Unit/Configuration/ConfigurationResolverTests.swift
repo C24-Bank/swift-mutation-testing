@@ -484,7 +484,7 @@ struct ConfigurationResolverTests {
             fileValues: ["output": "/tmp/report.txt"]
         )
 
-        #expect(result.reporting.output == "/tmp/report.txt")
+        #expect(result.reporting.outputs[.json] == "/tmp/report.txt")
     }
 
     @Test("Given no testingFramework anywhere, when resolved, then defaults to swiftTesting")
@@ -623,8 +623,8 @@ struct ConfigurationResolverTests {
             fileValues: ["sarif-output": "file.sarif", "markdown-output": "file.md"]
         )
 
-        #expect(result.reporting.sarifOutput == "file.sarif")
-        #expect(result.reporting.markdownOutput == "file.md")
+        #expect(result.reporting.outputs[.sarif] == "file.sarif")
+        #expect(result.reporting.outputs[.markdown] == "file.md")
     }
 
     @Test("Given SARIF and Markdown paths in both places, when resolved, then the command line wins")
@@ -632,13 +632,13 @@ struct ConfigurationResolverTests {
         let result = try resolver.resolve(
             cliArguments: ParsedArguments(
                 build: .init(scheme: "App", destination: "platform=macOS"),
-                reporting: .init(sarifOutput: "cli.sarif", markdownOutput: "cli.md")
+                reporting: .init(outputs: [.sarif: "cli.sarif", .markdown: "cli.md"])
             ),
             fileValues: ["sarif-output": "file.sarif", "markdown-output": "file.md"]
         )
 
-        #expect(result.reporting.sarifOutput == "cli.sarif")
-        #expect(result.reporting.markdownOutput == "cli.md")
+        #expect(result.reporting.outputs[.sarif] == "cli.sarif")
+        #expect(result.reporting.outputs[.markdown] == "cli.md")
     }
 }
 

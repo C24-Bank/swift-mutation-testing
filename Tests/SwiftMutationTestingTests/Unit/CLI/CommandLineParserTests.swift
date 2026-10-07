@@ -40,7 +40,7 @@ struct CommandLineParserTests {
         #expect(result.command == .plan)
         #expect(result.projectPath == "/my/project")
         #expect(result.plan.path == "plans/p.json")
-        #expect(result.reporting.output == nil)
+        #expect(result.reporting.outputs[.json] == nil)
         #expect(result.filter.operatorTier == "experimental")
     }
 
@@ -51,7 +51,7 @@ struct CommandLineParserTests {
         #expect(result.command == .run)
         #expect(result.plan.path == "p.json")
         #expect(result.plan.shard == Shard(parsing: "2/4"))
-        #expect(result.reporting.output == "r.json")
+        #expect(result.reporting.outputs[.json] == "r.json")
     }
 
     @Test("Given a shard that is not i/n, when parsed, then it is a usage error")
@@ -69,7 +69,7 @@ struct CommandLineParserTests {
         #expect(result.command == .merge)
         #expect(result.plan.results == ["a.json", "b.json"])
         #expect(result.plan.path == "p.json")
-        #expect(result.reporting.output == "m.json")
+        #expect(result.reporting.outputs[.json] == "m.json")
         #expect(throws: UsageError.self) { try parser.parse(["merge", "--plan", "p.json"]) }
     }
 
@@ -159,11 +159,11 @@ struct CommandLineParserTests {
         ])
 
         #expect(result.build.testTarget == "AppTests")
-        #expect(result.reporting.output == "out.json")
-        #expect(result.reporting.htmlOutput == "report.html")
-        #expect(result.reporting.sonarOutput == "sonar.json")
-        #expect(result.reporting.sarifOutput == "report.sarif")
-        #expect(result.reporting.markdownOutput == "summary.md")
+        #expect(result.reporting.outputs[.json] == "out.json")
+        #expect(result.reporting.outputs[.html] == "report.html")
+        #expect(result.reporting.outputs[.sonar] == "sonar.json")
+        #expect(result.reporting.outputs[.sarif] == "report.sarif")
+        #expect(result.reporting.outputs[.markdown] == "summary.md")
         #expect(result.reporting.keepLogsPath == "logs")
     }
 
