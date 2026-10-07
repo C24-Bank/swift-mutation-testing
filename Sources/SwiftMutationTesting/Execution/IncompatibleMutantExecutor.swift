@@ -300,6 +300,18 @@ struct IncompatibleMutantExecutor: Sendable {
         )
     }
 
+    private static var buildScopeArguments: [String] {
+        var arguments: [String] = []
+        let environment = ProcessInfo.processInfo.environment
+        if let testPlan = environment["SMT_TEST_PLAN"], !testPlan.isEmpty {
+            arguments += ["-testPlan", testPlan]
+        }
+        if let onlyTesting = environment["SMT_BUILD_ONLY_TESTING"], !onlyTesting.isEmpty {
+            arguments += ["-only-testing", onlyTesting]
+        }
+        return arguments
+    }
+
     private func launchXcode(
         scheme: String,
         slot: SimulatorSlot,
@@ -322,7 +334,7 @@ struct IncompatibleMutantExecutor: Sendable {
                     "-scheme", scheme,
                     "-destination", slot.destination,
                     "-derivedDataPath", derivedDataPath,
-                ],
+                ] + Self.buildScopeArguments,
                 sandbox: sandbox,
                 timeout: configuration.build.buildTimeout
             )

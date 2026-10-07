@@ -22,6 +22,10 @@ struct BuildStage: Sendable {
             arguments += ["-testPlan", testPlan]
         }
 
+        if let onlyTesting = ProcessInfo.processInfo.environment["SMT_BUILD_ONLY_TESTING"], !onlyTesting.isEmpty {
+            arguments += ["-only-testing", onlyTesting]
+        }
+
         if let workspaceURL = findXcworkspace(in: sandbox.rootURL) {
             arguments += ["-workspace", workspaceURL.path]
         } else if let projectURL = findXcodeproj(in: sandbox.rootURL) {
