@@ -341,6 +341,7 @@ struct IncompatibleMutantExecutor: Sendable {
             "-derivedDataPath", derivedDataPath,
             "-resultBundlePath", xcresultPath,
             "-parallel-testing-enabled", "NO",
+            "-collect-test-diagnostics", "never",
         ]
 
         if let testTarget = configuration.build.testTarget {

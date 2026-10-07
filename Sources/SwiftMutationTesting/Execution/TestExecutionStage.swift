@@ -309,6 +309,7 @@ struct TestExecutionStage: Sendable {
             "-destination", slot.destination,
             "-resultBundlePath", xcresultPath,
             "-derivedDataPath", context.artifact.derivedDataPath,
+            "-collect-test-diagnostics", "never",
         ]
 
         if let testTarget = context.configuration.build.testTarget {
