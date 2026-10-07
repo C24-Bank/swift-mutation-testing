@@ -381,19 +381,24 @@ struct SandboxFactory: Sendable {
             return
         }
 
-        guard let firstFile = schematizedFiles.first else { return }
-
-        let originalPath = URL(fileURLWithPath: firstFile.originalPath).resolvingSymlinksInPath().path
+        let perFileContent = content.replacingOccurrences(
+            of: "nonisolated(unsafe) var __swiftMutationTestingID",
+            with: "fileprivate nonisolated(unsafe) var __swiftMutationTestingID"
+        )
         let projectPath = projectURL.path
 
-        guard originalPath.hasPrefix(projectPath) else { return }
+        for file in schematizedFiles {
+            let originalPath = URL(fileURLWithPath: file.originalPath).resolvingSymlinksInPath().path
 
-        let relative = String(originalPath.dropFirst(projectPath.count + 1))
-        let sandboxFileURL = sandboxURL.appendingPathComponent(relative)
-        let resolvedURL = sandboxFileURL.resolvingSymlinksInPath()
-        let existing = (try? String(contentsOf: resolvedURL, encoding: .utf8)) ?? ""
+            guard originalPath.hasPrefix(projectPath) else { continue }
 
-        try (existing + "\n" + content).write(to: sandboxFileURL, atomically: true, encoding: .utf8)
+            let relative = String(originalPath.dropFirst(projectPath.count + 1))
+            let sandboxFileURL = sandboxURL.appendingPathComponent(relative)
+            let resolvedURL = sandboxFileURL.resolvingSymlinksInPath()
+            let existing = (try? String(contentsOf: resolvedURL, encoding: .utf8)) ?? ""
+
+            try (existing + "\n" + perFileContent).write(to: sandboxFileURL, atomically: true, encoding: .utf8)
+        }
     }
 
     private func firstSourcesTargetDirectory(in sourcesURL: URL) -> URL? {
