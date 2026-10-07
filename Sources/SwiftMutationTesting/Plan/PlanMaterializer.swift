@@ -61,7 +61,7 @@ struct PlanMaterializer: Sendable {
 
         let (schematizedFiles, schematizable) = SchematizationStage().run(indexed: indexed, sources: sources)
         let incompatible = IncompatibleRewritingStage().run(indexed: indexed, sources: sources)
-        let descriptors = (schematizable + incompatible).sorted { Self.index(of: $0.id) < Self.index(of: $1.id) }
+        let descriptors = MutantID.ordered(schematizable + incompatible, by: \.id)
 
         guard let projectType = plan.project.projectType else {
             throw PlanError.unknownProjectType(plan.project.type)
@@ -115,7 +115,7 @@ struct PlanMaterializer: Sendable {
         of mutant: Plan.Mutant, at index: Int, in plan: Plan, projectPath: String
     ) -> MutantDescriptor {
         MutantDescriptor(
-            id: Plan.mutantID(at: index),
+            id: MutantID.make(index: index),
             filePath: absolute(mutant.file, in: projectPath),
             line: mutant.line,
             column: mutant.column,
@@ -135,9 +135,5 @@ struct PlanMaterializer: Sendable {
     static func absolute(_ relativePath: String, in projectPath: String) -> String {
         let root = URL(fileURLWithPath: CanonicalPath.make(for: projectPath))
         return relativePath == "." ? root.path : root.appendingPathComponent(relativePath).path
-    }
-
-    private static func index(of id: String) -> Int {
-        Int(id.replacingOccurrences(of: "swift-mutation-testing_", with: "")) ?? 0
     }
 }

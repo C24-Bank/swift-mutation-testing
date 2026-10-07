@@ -129,7 +129,7 @@ public struct SwiftMutationTesting {
                 configuration: configuration, launcher: executionLauncher, planJournal: discovered.journal
             ).execute(input)
         }
-        results.sort { Self.planIndex(of: $0.descriptor.id) < Self.planIndex(of: $1.descriptor.id) }
+        results = MutantID.ordered(results, by: \.descriptor.id)
         if let journal = discovered.journal {
             PlanJournal.remove(at: journal.path)
         }
@@ -287,10 +287,6 @@ public struct SwiftMutationTesting {
         /// `input`.
         var resumed: [ExecutionResult] = []
         var journal: PlanJournal?
-    }
-
-    private static func planIndex(of id: String) -> Int {
-        Int(id.replacingOccurrences(of: "swift-mutation-testing_", with: "")) ?? 0
     }
 
     /// The run's input and identity: from the plan given, a slice of it under `--shard`, less what an

@@ -560,17 +560,11 @@ struct MutantExecutor: Sendable {
         var entries: [(index: Int, point: MutationPoint)] = []
 
         for descriptor in mutants {
-            guard let index = mutantIndex(from: descriptor.id) else { return nil }
+            guard let index = MutantID.index(of: descriptor.id) else { return nil }
             entries.append((index: index, point: MutationPoint(descriptor)))
         }
 
         return SchemataGenerator().generate(source: source, mutations: entries, importStyle: importStyle).content
-    }
-
-    private func mutantIndex(from id: String) -> Int? {
-        let prefix = "swift-mutation-testing_"
-        guard id.hasPrefix(prefix) else { return nil }
-        return Int(id.dropFirst(prefix.count))
     }
 
     private func restoreOriginal(sandboxPath: String, originalPath: String) {
@@ -583,7 +577,7 @@ struct MutantExecutor: Sendable {
         let caseSuffix = "\":"
         guard trimmedLine.hasPrefix(casePrefix), trimmedLine.hasSuffix(caseSuffix) else { return nil }
         let id = String(trimmedLine.dropFirst(casePrefix.count).dropLast(caseSuffix.count))
-        return id.hasPrefix("swift-mutation-testing_") ? id : nil
+        return id.hasPrefix(MutantID.prefix) ? id : nil
     }
 
     private func rewriteForIncompatible(

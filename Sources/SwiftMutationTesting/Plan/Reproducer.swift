@@ -28,7 +28,7 @@ struct Reproducer: Sendable {
             mutants: [mutant]
         )
 
-        let id = Plan.mutantID(at: index)
+        let id = MutantID.make(index: index)
         StandardOutput.write(
             "Reproducing \(id) (\(mutant.fingerprint)): \(mutant.operatorIdentifier) at \(mutant.file):\(mutant.line)"
         )
@@ -61,8 +61,7 @@ struct Reproducer: Sendable {
 
     /// A report id (`swift-mutation-testing_12`), a full fingerprint, or a prefix of one that fits one mutant.
     static func mutant(matching reference: String, in plan: Plan) throws -> (Int, Plan.Mutant) {
-        let prefix = "swift-mutation-testing_"
-        if reference.hasPrefix(prefix), let index = Int(reference.dropFirst(prefix.count)) {
+        if let index = MutantID.index(of: reference) {
             guard plan.mutants.indices.contains(index) else { throw PlanError.unknownMutant(reference) }
             return (index, plan.mutants[index])
         }

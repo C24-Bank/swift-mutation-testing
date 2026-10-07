@@ -52,7 +52,7 @@ struct SchemataGenerator: Sendable {
                     discarded.append(entry.point)
                     continue
                 }
-                cases.append((id: mutantID(entry.index), statements: mutated))
+                cases.append((id: MutantID.make(index: entry.index), statements: mutated))
             }
 
             guard !cases.isEmpty else { continue }
@@ -94,10 +94,6 @@ struct SchemataGenerator: Sendable {
         mutating func record(start: Int, delta: Int) {
             deltas.append((start: start, delta: delta))
         }
-    }
-
-    private func mutantID(_ index: Int) -> String {
-        "swift-mutation-testing_\(index)"
     }
 
     private func apply(_ mutation: MutationPoint, to statementsText: String, at relativeOffset: Int) -> String? {

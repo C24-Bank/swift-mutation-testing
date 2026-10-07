@@ -83,11 +83,6 @@ struct Plan: Sendable, Codable, Equatable {
         let description: String
         let schematizable: Bool
     }
-
-    /// The report id of the mutant at `index` of `mutants`, the same id the direct flow gives it.
-    static func mutantID(at index: Int) -> String {
-        "swift-mutation-testing_\(index)"
-    }
 }
 
 extension Plan.Mutant {

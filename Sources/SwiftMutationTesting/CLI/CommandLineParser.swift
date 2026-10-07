@@ -115,7 +115,7 @@ struct CommandLineParser: Sendable {
         case .reproduce:
             guard let mutant = positionals.first else {
                 throw UsageError(
-                    message: "reproduce needs a mutant: a fingerprint or an id such as swift-mutation-testing_12")
+                    message: "reproduce needs a mutant: a fingerprint or an id such as \(MutantID.make(index: 12))")
             }
             guard positionals.count <= 2 else {
                 throw UsageError(message: "unexpected argument '\(positionals[2])'")
