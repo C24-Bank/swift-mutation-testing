@@ -1,0 +1,57 @@
+# C24 fork of swift-mutation-testing
+
+Fork of [ericodx/swift-mutation-testing](https://github.com/ericodx/swift-mutation-testing) at v1.5.1.
+Upstream assumes a small project run from a developer's checkout. We run it against a large iOS
+app (Xcode project, 34 local Swift packages, signed binary frameworks, ~35,000 unit tests) from a
+disposable checkout. These changes make that work and make it fast.
+
+Branch `prototype/bank-ios-trial` holds them as one commit per fix, unpolished. Options are
+environment variables for now; they should become config keys before anything goes upstream.
+
+## Changes and why
+
+| # | Change | Problem it solves |
+| --- | --- | --- |
+| 1 | Copy project files into the sandbox instead of symlinking them | Xcode rejects signed `.xcframework`s whose files are symlinks, so every build failed |
+| 2 | Skip the project's `.git`; give each sandbox an empty throwaway repository | A worktree's `.git` points at the real repository, so build scripts in the sandbox rewrote its shared config (e.g. `core.hooksPath`). With no repository at all, scripts that call git fail and stop the build |
+| 3 | `-collect-test-diagnostics never` on every test run | After a failing run, xcodebuild may run `simctl diagnose` for up to 600 s, turning killed mutants into timeouts |
+| 4 | Pin the test plan (`SMT_TEST_PLAN`); find the `.xctestrun` under custom build locations; prefer the pinned plan, else the newest | With a custom Xcode build location, products land outside `-derivedDataPath`. A scheme with several plans produces several `.xctestrun` files and the first one found was used |
+| 5 | In-place mode (`SMT_IN_PLACE=1`) | Every sandbox started with empty DerivedData, so each build was cold (10+ min). In place, mutated files are written into the checkout and restored afterwards, and builds reuse its warm DerivedData |
+| 6 | One `fileprivate` mutant-ID variable per schematized file | The single internal global changed the module's interface (testability), so every importer recompiled. It also broke the build when an out-of-body mutant replaced the file holding it |
+| 7 | `SMT_BUILD_ONLY_TESTING` adds `-only-testing` to `build-for-testing` | Does not shrink the build in practice; use a package scheme for that. Kept for completeness |
+| 8 | Treat shorthand getters (`var x: T { … }`) as schematizable scopes | They have no `AccessorDecl`, so every mutation in them needed its own build. On our app this cut out-of-body mutants from 33% to 0.7% |
+| 9 | `SMT_SKIP_TESTING_FILE`: one test identifier per line, passed as `-skip-testing` | Keeps known-failing or flaky tests from turning survivors into kills |
+
+## Usage
+
+```sh
+SMT_IN_PLACE=1 \
+SMT_TEST_PLAN=<plan> \
+SMT_SKIP_TESTING_FILE=skip-testing.txt \
+swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
+  --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 120 \
+  --exclude Page.swift --exclude View.swift --no-cache
+```
+
+- **In-place mode is only for disposable checkouts.** An interrupted run leaves mutated files
+  behind (`git checkout .` restores them) plus `.xmr-derived-data/` and `.xmr-results/`.
+- `--sources-path` must be a folder; a single file discovers nothing (upstream bug).
+- Use only the conservative operators (`NegateConditional`, `LogicalOperatorReplacement`,
+  `SwapTernary`). `init` enables all seven, and some arithmetic and boolean mutants don't compile,
+  which breaks the shared build for every mutant.
+- Exclude SwiftUI views: their `body` is a result builder and the generated `switch` there is risky.
+- Never kill a run: simulator clones (`XMR-*`) are deleted only on normal exit, and the default
+  concurrency is CPU count − 1.
+
+## Known gaps
+
+- No baseline check on the Xcode path: if the unmutated suite is red, every mutant counts as killed
+  and the score reads 100%.
+- Fixed timeout only. A hanging mutant costs 3× the timeout (2× in the first pass, 1× on retry).
+- One `--target` for all mutants; no per-mutant test selection yet.
+- The killer is only the first failing test, and a flaky test can fake a kill.
+
+## Candidates for upstream
+
+1, 2, 3, 4, 6 and 8 are general fixes. 5 (in-place) and 9 (skip list) fit as opt-in config keys.
+Single-file `--sources-path` is a separate small bug.
