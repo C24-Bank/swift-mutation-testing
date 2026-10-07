@@ -95,6 +95,38 @@ struct FallbackExecutorTests {
         #expect(await deps.cacheStore.result(for: MutantCacheKey.make(for: mutant)) == nil)
     }
 
+    @Test("Given the fallback build fails, when execute called with a log directory, then each mutant's log says why")
+    func aFailedFallbackBuildIsLogged() async throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sourceFile = dir.appendingPathComponent("Foo.swift")
+        try "let x = true".write(to: sourceFile, atomically: true, encoding: .utf8)
+        let logs = dir.appendingPathComponent("logs")
+
+        let config = makeRunnerConfiguration(projectPath: dir.path, projectType: .spm, keepLogsPath: logs.path)
+        let deps = makeExecutionDeps(
+            launcher: MockProcessLauncher(exitCode: 1), cacheStorePath: dir.appendingPathComponent("cache.json").path
+        )
+        let pool = makeSimulatorPool()
+        try await pool.setUp()
+        let mutant = makeMutantDescriptor(id: "m0", filePath: sourceFile.path, isSchematizable: true)
+
+        let results = try await FallbackExecutor(deps: deps, configuration: config).execute(
+            input: makeRunnerInput(
+                projectPath: dir.path,
+                projectType: .spm,
+                schematizedFiles: [SchematizedFile(originalPath: sourceFile.path, schematizedContent: "let x = 1 -")],
+                mutants: [mutant]
+            ),
+            pool: pool
+        )
+
+        #expect(results.map(\.status) == [.unviable])
+        let log = try String(contentsOf: logs.appendingPathComponent("m0.log"), encoding: .utf8)
+        #expect(log.contains("Build failed"))
+    }
+
     @Test(
         "Given a per-file fallback build, when execute called, then it is bounded by the build timeout",
         arguments: [
