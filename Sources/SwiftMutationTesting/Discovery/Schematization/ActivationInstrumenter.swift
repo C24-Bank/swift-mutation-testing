@@ -30,13 +30,9 @@ struct ActivationInstrumenter: Sendable {
             )
         }
 
-        guard let instrumented else { return nil }
-
-        var support = SupportDeclarations.perFile(for: mutant.filePath)
-        if !ImportStyle.importsFoundation(syntax) {
-            support = SupportDeclarations.importLine(importStyle) + "\n\n" + support
+        return instrumented.map {
+            SupportDeclarations.appended(to: $0, path: mutant.filePath, syntax: syntax, style: importStyle)
         }
-        return instrumented + "\n\n" + support + "\n"
     }
 
     // MARK: - Private

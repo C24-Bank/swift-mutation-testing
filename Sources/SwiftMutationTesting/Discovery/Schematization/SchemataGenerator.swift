@@ -77,11 +77,12 @@ struct SchemataGenerator: Sendable {
             return SchemaGeneration(content: content, discarded: discarded)
         }
 
-        var support = SupportDeclarations.perFile(for: source.file.path)
-        if !ImportStyle.importsFoundation(source.syntax) {
-            support = SupportDeclarations.importLine(importStyle) + "\n\n" + support
-        }
-        return SchemaGeneration(content: content + "\n\n" + support + "\n", discarded: discarded)
+        return SchemaGeneration(
+            content: SupportDeclarations.appended(
+                to: content, path: source.file.path, syntax: source.syntax, style: importStyle
+            ),
+            discarded: discarded
+        )
     }
 
     private struct Edits {
