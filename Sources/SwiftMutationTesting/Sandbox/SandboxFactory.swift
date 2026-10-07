@@ -70,7 +70,25 @@ struct SandboxFactory: Sendable {
     private func makeSandboxRoot() throws -> URL {
         let url = SandboxName.directory.appendingPathComponent(SandboxName.make())
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try initializeIsolatedRepository(at: url)
         return url
+    }
+
+    private func initializeIsolatedRepository(at url: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["init", "--quiet", url.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+
+        let exclude = url.appendingPathComponent(".git/info/exclude")
+        try FileManager.default.createDirectory(
+            at: exclude.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try "/.xmr-*\n/.derived-data/\n/DerivedData/\n".write(to: exclude, atomically: true, encoding: .utf8)
     }
 
     private func populateDirectory(
@@ -86,6 +104,9 @@ struct SandboxFactory: Sendable {
 
         for item in items {
             let name = item.lastPathComponent
+            if name == ".git" {
+                continue
+            }
             let dest = destination.appendingPathComponent(name)
             let values = try item.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
             let isDirectory = values.isDirectory == true
