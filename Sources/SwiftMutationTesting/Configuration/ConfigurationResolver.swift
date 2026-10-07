@@ -47,11 +47,9 @@ struct ConfigurationResolver: Sendable {
                 testingFramework: testingFramework
             ),
             reporting: .init(
-                output: cliArguments.reporting.output ?? fileValues["output"],
-                htmlOutput: cliArguments.reporting.htmlOutput ?? fileValues["html-output"],
-                sonarOutput: cliArguments.reporting.sonarOutput ?? fileValues["sonar-output"],
-                sarifOutput: cliArguments.reporting.sarifOutput ?? fileValues["sarif-output"],
-                markdownOutput: cliArguments.reporting.markdownOutput ?? fileValues["markdown-output"],
+                outputs: ReportFormat.allCases.reduce(into: [:]) { outputs, format in
+                    outputs[format] = cliArguments.reporting.outputs[format] ?? fileValues[format.fileKey]
+                },
                 keepLogsPath: cliArguments.reporting.keepLogsPath ?? fileValues["keep-logs"],
                 quiet: cliArguments.reporting.quiet || fileValues["quiet"]?.lowercased() == "true"
             ),

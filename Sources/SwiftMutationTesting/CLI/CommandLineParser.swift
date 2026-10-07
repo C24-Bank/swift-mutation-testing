@@ -42,8 +42,8 @@ struct CommandLineParser: Sendable {
         projectPath = try apply(positionals, of: command, to: &flags)
 
         if command == .plan {
-            flags.plan.path = flags.reporting.output
-            flags.reporting.output = nil
+            flags.plan.path = flags.reporting.outputs[.json]
+            flags.reporting.outputs[.json] = nil
         }
         if flags.plan.shard != nil, command != .run {
             throw UsageError(message: "--shard only applies to run")
@@ -202,22 +202,12 @@ struct CommandLineParser: Sendable {
         at index: inout Int,
         in arguments: [String]
     ) throws -> Bool {
+        if let format = ReportFormat.named(flag: flag) {
+            values.reporting.outputs[format] = try nextValue(for: flag, at: &index, in: arguments)
+            return true
+        }
+
         switch flag {
-        case "--output":
-            values.reporting.output = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--html-output":
-            values.reporting.htmlOutput = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--sonar-output":
-            values.reporting.sonarOutput = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--sarif-output":
-            values.reporting.sarifOutput = try nextValue(for: flag, at: &index, in: arguments)
-
-        case "--markdown-output":
-            values.reporting.markdownOutput = try nextValue(for: flag, at: &index, in: arguments)
-
         case "--keep-logs":
             values.reporting.keepLogsPath = try nextValue(for: flag, at: &index, in: arguments)
 

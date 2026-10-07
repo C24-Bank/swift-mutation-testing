@@ -31,11 +31,7 @@ struct ParsedArguments: Sendable {
     }
 
     struct ReportingOptions: Sendable {
-        var output: String?
-        var htmlOutput: String?
-        var sonarOutput: String?
-        var sarifOutput: String?
-        var markdownOutput: String?
+        var outputs: [ReportFormat: String] = [:]
         var keepLogsPath: String?
         var quiet: Bool = false
     }
