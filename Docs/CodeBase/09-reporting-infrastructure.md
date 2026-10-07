@@ -622,6 +622,8 @@ struct ProcessRunner: Sendable {
 
 Low-level process execution engine. Uses `withTaskCancellationHandler` + `withCheckedThrowingContinuation` to bridge `Process.terminationHandler` into the Swift Concurrency runtime.
 
+**Reading the capture back:** `readCapturedOutput` defaults to reading the file as bytes and decoding them with `String(decoding:as: UTF8.self)`, which replaces an invalid byte rather than failing — the way `OutputWatcher` reads the same file. A run stopped at its first failure or at a timeout is killed mid-write, and Swift Testing prints multi-byte symbols (`✘`, `✔`); a strict decode would turn the whole log into `""` over one cut character, and the mutant into a crash with no killer test. Only a file that cannot be read at all yields empty output.
+
 Both launch paths share their plumbing: the private `awaitTermination(of:killedByUs:start:)` wraps the continuation and its cancellation handler, and the private `run(_:timeoutTask:continuation:onLaunchFailure:result:)` installs the `terminationHandler`, starts the process, sets its group and tracks it — or, when `process.run()` throws, cancels the timeout task, runs `onLaunchFailure` (for `launchCapturing`, closing and removing the capture file) and resumes with the error. Each path only supplies its timeout task and the `result` closure that turns the terminated process into its return value.
 
 **Timeout handling:** a `Task` sleeping for `timeout` seconds marks a `KilledByUsFlag` and calls `onTimeout(pid)`. The `terminationHandler` checks the flag and returns `-1` instead of the actual exit code.

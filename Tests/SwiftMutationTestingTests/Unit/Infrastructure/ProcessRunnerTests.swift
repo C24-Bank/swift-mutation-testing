@@ -27,6 +27,26 @@ struct ProcessRunnerTests {
         #expect(result.output == "hello\n")
     }
 
+    @Test("Given output cut in the middle of a character, when the process ends, then everything before it is kept")
+    func anOutputCutMidCharacterIsKept() async throws {
+        let runner = ProcessRunner(onTimeout: { _ in })
+        let failure = "Test Case '-[MySuite myTest]' failed (0.001 seconds)."
+
+        let result = try await runner.launchCapturing(
+            ProcessRequest(
+                executableURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: ["-c", "printf '%s\\n\\342\\234' \"$0\"; exit 1", failure],
+                environment: nil,
+                additionalEnvironment: [:],
+                workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+                timeout: 10
+            )
+        )
+
+        #expect(result.output.hasPrefix(failure + "\n"))
+        #expect(TestOutputParser().parse(result.output) == .killed(by: "MySuite.myTest"))
+    }
+
     private func echo(_ text: String) -> ProcessRequest {
         ProcessRequest(
             executableURL: URL(fileURLWithPath: "/bin/echo"),
