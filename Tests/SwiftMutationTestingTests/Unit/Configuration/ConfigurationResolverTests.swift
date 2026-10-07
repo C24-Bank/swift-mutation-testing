@@ -642,10 +642,6 @@ struct ConfigurationResolverTests {
     }
 }
 
-/// Resolves as `ConfigurationResolver` does, from an empty root when the arguments name none.
-///
-/// These tests leave the project path at `.`, the working directory — this repository, whose fixtures hold
-/// Xcode projects below the root, which an Xcode run now refuses to guess between.
 private struct IsolatedResolver {
     static let emptyRoot: String = {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("swift-mutation-testing-empty-root")

@@ -79,7 +79,6 @@ struct InterruptedRunIntegrationTests {
         #expect(!FileManager.default.fileExists(atPath: journalPath))
     }
 
-    /// The executable SwiftPM built next to this test bundle, under either layout of its build directory.
     static func builtTool() -> URL? {
         let build = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

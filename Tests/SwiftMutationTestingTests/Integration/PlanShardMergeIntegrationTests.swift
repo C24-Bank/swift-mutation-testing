@@ -36,7 +36,6 @@ struct PlanShardMergeIntegrationTests {
         #expect(Set(try Self.statuses(at: single)).isSuperset(of: ["Killed", "Survived"]))
     }
 
-    /// One shard, or the whole plan, on a copy of its own — another machine as far as paths go.
     private func run(planPath: String, shard: String?) async throws -> String {
         let machine = try FixtureCopy.make("CalcLibrary")
         let output = FileManager.default.temporaryDirectory
@@ -50,8 +49,6 @@ struct PlanShardMergeIntegrationTests {
         return output
     }
 
-    /// The report as a comparable value: every field of every mutant except its duration, every file's key
-    /// and source, the schema fields and `config`. `projectRoot` is left out, since each copy has its own.
     static func comparableReport(at path: String) throws -> NSDictionary {
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
         var json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
