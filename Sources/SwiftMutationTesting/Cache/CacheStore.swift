@@ -2,10 +2,13 @@ import Foundation
 
 actor CacheStore {
 
-    init(storePath: String, noCache: Bool = false, planJournal: PlanJournal? = nil) {
+    init(
+        storePath: String, noCache: Bool = false, planJournal: PlanJournal? = nil, fileSystem: FileSystem = FileSystem()
+    ) {
         self.storePath = storePath
         self.noCache = noCache
         self.planJournal = planJournal
+        self.fileSystem = fileSystem
         self.entries = [:]
         self.killerTestFiles = [:]
         self.activations = [:]
@@ -18,6 +21,7 @@ actor CacheStore {
     private let storePath: String
     private let noCache: Bool
     private let planJournal: PlanJournal?
+    private let fileSystem: FileSystem
     private var entries: [MutantCacheKey: ExecutionStatus]
     private var killerTestFiles: [MutantCacheKey: String]
     private var activations: [MutantCacheKey: Bool]
@@ -108,12 +112,12 @@ actor CacheStore {
 
     func load() throws {
         guard !noCache else { return }
-        guard FileManager.default.fileExists(atPath: storePath) else {
+        guard fileSystem.fileExists(storePath) else {
             apply(journaledEntries())
             return
         }
 
-        if FileManager.default.fileExists(atPath: metadataPath), try loadMetadata() == nil {
+        if fileSystem.fileExists(metadataPath), try loadMetadata() == nil {
             discardUnreadable()
             return
         }
@@ -159,19 +163,16 @@ actor CacheStore {
         }
         let data = try JSONEncoder().encode(cacheEntries)
         let url = URL(fileURLWithPath: storePath)
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        try fileSystem.createDirectory(url.deletingLastPathComponent())
         try data.write(to: url, options: .atomic)
-        try? FileManager.default.removeItem(atPath: journalPath)
+        fileSystem.removeItem(journalPath)
     }
 
     func loadMetadata() throws -> CacheMetadata? {
         guard !noCache else { return nil }
 
         let url = URL(fileURLWithPath: metadataPath)
-        guard FileManager.default.fileExists(atPath: metadataPath) else { return nil }
+        guard fileSystem.fileExists(metadataPath) else { return nil }
         let data = try Data(contentsOf: url)
         guard
             let metadata = try? JSONDecoder().decode(CacheMetadata.self, from: data),
@@ -185,10 +186,7 @@ actor CacheStore {
 
         let data = try JSONEncoder().encode(metadata)
         let url = URL(fileURLWithPath: metadataPath)
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        try fileSystem.createDirectory(url.deletingLastPathComponent())
         try data.write(to: url, options: .atomic)
     }
 
@@ -235,7 +233,7 @@ actor CacheStore {
         entries = [:]
         killerTestFiles = [:]
         activations = [:]
-        try? FileManager.default.removeItem(atPath: journalPath)
+        fileSystem.removeItem(journalPath)
         return true
     }
 

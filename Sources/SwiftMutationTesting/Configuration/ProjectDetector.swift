@@ -2,24 +2,23 @@ import Foundation
 
 struct ProjectDetector: Sendable {
     let launcher: any ProcessLaunching
+    var fileSystem = FileSystem()
 
     func detect(at projectPath: String) async -> DetectedProject {
-        let projectURL = resolvedURL(for: projectPath)
+        let projectURL = URL(fileURLWithPath: fileSystem.projectPath(projectPath))
 
-        let found = XcodeContainerLocator.candidates(in: projectURL)
+        let found = XcodeContainerLocator.candidates(in: projectURL, fileSystem: fileSystem)
         if !found.workspaces.isEmpty || !found.projects.isEmpty {
             return await detectXcode(at: projectURL, candidates: found)
         }
 
-        let hasPackage = FileManager.default.fileExists(
-            atPath: projectURL.appendingPathComponent("Package.swift").path
-        )
-        let nested = XcodeContainerLocator.nestedCandidates(in: projectURL)
+        let hasPackage = fileSystem.fileExists(projectURL.appendingPathComponent("Package.swift").path)
+        let nested = XcodeContainerLocator.nestedCandidates(in: projectURL, fileSystem: fileSystem)
         if !hasPackage, !nested.workspaces.isEmpty || !nested.projects.isEmpty {
             return await detectXcode(at: projectURL, candidates: nested)
         }
 
-        if FileManager.default.fileExists(atPath: projectURL.appendingPathComponent("Package.swift").path) {
+        if hasPackage {
             let testTargets = await listSPMTestTargets(in: projectURL)
             return DetectedProject(
                 kind: .spm(testTargets: testTargets),
@@ -31,14 +30,6 @@ struct ProjectDetector: Sendable {
         return .empty
     }
 
-    private func resolvedURL(for path: String) -> URL {
-        if path == "." || path.isEmpty {
-            return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        }
-
-        return URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
-    }
-
     /// The container the locator would choose, its schemes and its platform; when it would choose none,
     /// the reason and the candidates instead, and no `xcodebuild -list` of a container picked at random.
     private func detectXcode(at projectURL: URL, candidates: XcodeContainerLocator.Candidates) async -> DetectedProject
@@ -46,7 +37,8 @@ struct ProjectDetector: Sendable {
         let container: XcodeContainer?
         var note: String?
         do {
-            container = try XcodeContainerLocator.locate(in: projectURL, workspace: nil, project: nil)
+            container = try XcodeContainerLocator.locate(
+                in: projectURL, workspace: nil, project: nil, fileSystem: fileSystem)
         } catch {
             container = nil
             note = (error as? UsageError)?.message ?? error.localizedDescription
@@ -165,7 +157,7 @@ struct ProjectDetector: Sendable {
             switch container {
             case .project(let path): path
             case .workspace(let path): XcodeContainerLocator.projects(referencedBy: path, in: projectURL).first
-            case nil: XcodeContainerLocator.candidates(in: projectURL).projects.first
+            case nil: XcodeContainerLocator.candidates(in: projectURL, fileSystem: fileSystem).projects.first
             }
         guard
             let projectPath,
@@ -244,7 +236,7 @@ struct ProjectDetector: Sendable {
         let searchURL: URL
         if let testTarget {
             let targetURL = projectURL.appendingPathComponent(testTarget)
-            searchURL = FileManager.default.fileExists(atPath: targetURL.path) ? targetURL : projectURL
+            searchURL = fileSystem.fileExists(targetURL.path) ? targetURL : projectURL
         } else {
             searchURL = projectURL
         }
