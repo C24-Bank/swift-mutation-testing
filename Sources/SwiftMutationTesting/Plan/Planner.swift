@@ -1,9 +1,5 @@
 import Foundation
 
-/// Discovery up to the plan: the files, their hashes, and every mutant with its position and fingerprint.
-///
-/// The parsed sources come out with the plan so that the direct flow, which materializes the plan right
-/// away, does not parse the files twice.
 struct Planner: Sendable {
     struct Planned: Sendable {
         let plan: Plan

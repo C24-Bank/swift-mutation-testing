@@ -45,15 +45,10 @@ struct ParsedArguments: Sendable {
     }
 
     struct PlanOptions: Sendable {
-        /// `plan`: where the plan is written. `run`, `merge`, `reproduce`: the plan to work from.
         var path: String?
         var shard: Shard?
-        /// `merge`: the result files to join.
         var results: [String] = []
-        /// `reproduce`: the fingerprint or report id of the mutant.
         var mutant: String?
-        /// `merge`: the project whose sources the reports embed and whose configuration applies; its
-        /// positionals are the results, so the project path is a flag.
         var projectPath: String?
     }
 

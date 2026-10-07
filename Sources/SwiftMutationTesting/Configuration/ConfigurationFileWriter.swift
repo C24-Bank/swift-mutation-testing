@@ -74,8 +74,6 @@ struct ConfigurationFileWriter: Sendable {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    /// `workspace:` or `project:`, the container the run builds; when none could be chosen, why, and every
-    /// candidate commented out for the user to pick.
     private func containerLines(_ project: DetectedProject) -> [String] {
         if let container = project.xcodeContainer {
             return ["\(container.key): \(container.path)", ""]

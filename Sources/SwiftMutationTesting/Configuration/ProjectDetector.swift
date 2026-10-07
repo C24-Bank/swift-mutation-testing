@@ -30,8 +30,6 @@ struct ProjectDetector: Sendable {
         return .empty
     }
 
-    /// The container the locator would choose, its schemes and its platform; when it would choose none,
-    /// the reason and the candidates instead, and no `xcodebuild -list` of a container picked at random.
     private func detectXcode(at projectURL: URL, candidates: XcodeContainerLocator.Candidates) async -> DetectedProject
     {
         let container: XcodeContainer?
@@ -150,8 +148,6 @@ struct ProjectDetector: Sendable {
         return schemes.first { $0 == projectName } ?? schemes.first
     }
 
-    /// The platform from the SDK of the project the container builds: the project itself, or the first one a
-    /// workspace references, or else the first at the root.
     private func detectDestination(in projectURL: URL, container: XcodeContainer?) async -> String {
         let projectPath: String? =
             switch container {

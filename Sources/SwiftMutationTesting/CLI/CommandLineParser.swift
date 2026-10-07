@@ -69,7 +69,6 @@ struct CommandLineParser: Sendable {
         }
     }
 
-    /// What the words before the flags mean for each command; returns the project path.
     private func apply(
         _ positionals: [String], of command: ParsedArguments.Command, to flags: inout ParsedArguments
     ) throws -> String {

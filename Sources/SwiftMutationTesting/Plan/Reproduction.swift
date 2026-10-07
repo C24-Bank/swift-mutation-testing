@@ -1,7 +1,5 @@
 import Synchronization
 
-/// What a `reproduce` run kept: the sandboxes the executors left in place instead of removing, so that the
-/// reproducer can name exactly its own, whatever else the process is running.
 final class Reproduction: Sendable {
     private let sandboxes = Mutex<[String]>([])
 
@@ -15,7 +13,6 @@ final class Reproduction: Sendable {
 }
 
 extension Sandbox {
-    /// Removes the sandbox, unless the run reproduces a mutant: then it is kept and recorded.
     func release(keepingFor reproduction: Reproduction?) {
         if let reproduction {
             reproduction.keep(self)

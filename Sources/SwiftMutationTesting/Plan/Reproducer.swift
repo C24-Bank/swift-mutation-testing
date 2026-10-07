@@ -1,8 +1,5 @@
 import Foundation
 
-/// Runs one mutant of a plan the way someone investigating a verdict needs it: the whole suite, no stop at
-/// the first failure, the sandbox left in place, and everything printed — where the sandbox is, what the
-/// mutation changed, what the tests said, and the verdict with its reason.
 struct Reproducer: Sendable {
     func reproduce(
         _ reference: String,
@@ -59,7 +56,6 @@ struct Reproducer: Sendable {
         return ("Verdict: \(describe(result.status))" + (reason.map { " (\($0))" } ?? ""), .success)
     }
 
-    /// A report id (`swift-mutation-testing_12`), a full fingerprint, or a prefix of one that fits one mutant.
     static func mutant(matching reference: String, in plan: Plan) throws -> (Int, Plan.Mutant) {
         if let index = MutantID.index(of: reference) {
             guard plan.mutants.indices.contains(index) else { throw PlanError.unknownMutant(reference) }

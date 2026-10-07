@@ -18,7 +18,6 @@ struct RunnerConfiguration: Sendable {
 
     struct BuildOptions: Sendable {
         var projectType: ProjectType
-        /// The workspace or project `xcodebuild` builds; `nil` for a package, or an Xcode root with none.
         var xcodeContainer: XcodeContainer?
         var testTarget: String?
         var timeout: Double
@@ -26,8 +25,6 @@ struct RunnerConfiguration: Sendable {
         var concurrency: Int
         var noCache: Bool
         var testingFramework: TestingFramework = .swiftTesting
-        /// `reproduce`: one mutant, the whole suite with no stop at the first failure, the sandbox kept and
-        /// recorded here.
         var reproduction: Reproduction?
 
         var reproducing: Bool { reproduction != nil }

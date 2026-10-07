@@ -1,5 +1,3 @@
-/// What a cached verdict was tested against. Verdicts from one test target say nothing about another, so a
-/// cache made with a different selection is discarded.
 struct CacheTestSelection: Codable, Sendable, Equatable {
     let scheme: String?
     let destination: String?

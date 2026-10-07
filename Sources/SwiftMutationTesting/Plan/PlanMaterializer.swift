@@ -1,10 +1,5 @@
 import Foundation
 
-/// Plan → `RunnerInput`: the schematized content regenerated from the plan's mutants, the incompatible
-/// ones rewritten, every descriptor rebuilt with the id and fingerprint the plan gives it.
-///
-/// This is the one path from mutants to an executable input. The direct flow hands over the sources it has
-/// just parsed; a `run --plan` reads them from disk and refuses to go on if any differs from the plan.
 struct PlanMaterializer: Sendable {
     struct ExecutionOptions: Sendable {
         let timeout: Double
@@ -79,7 +74,6 @@ struct PlanMaterializer: Sendable {
         )
     }
 
-    /// The plan's files as they are on disk now, or the reason the plan can no longer be trusted.
     func load(plan: Plan, projectPath: String) throws -> [SourceFile] {
         var sources: [SourceFile] = []
         for file in plan.files {
@@ -108,9 +102,6 @@ struct PlanMaterializer: Sendable {
         return sources
     }
 
-    /// The path discovery would have seen: the file enumerator yields the root's real path, so this does too.
-    /// The descriptor a plan's mutant has in a run, for a verdict that comes from elsewhere than this run:
-    /// a merged shard's report, or the journal of an interrupted run.
     static func descriptor(
         of mutant: Plan.Mutant, at index: Int, in plan: Plan, projectPath: String
     ) -> MutantDescriptor {

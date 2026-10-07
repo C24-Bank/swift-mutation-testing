@@ -102,7 +102,6 @@ struct ConfigurationResolver: Sendable {
         return .xcode(scheme: scheme, destination: destination)
     }
 
-    /// The command line's container wins over the file's, as a whole: `--project` replaces a `workspace` key.
     private static func containerFlags(
         cli: ParsedArguments, fileValues: [String: String]
     ) -> (workspace: String?, project: String?) {

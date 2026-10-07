@@ -31,9 +31,6 @@ actor CacheStore {
         return url.deletingLastPathComponent().appendingPathComponent("metadata.json").path
     }
 
-    /// One verdict per line, appended as soon as it is known. A run that ends before `persist()` — a
-    /// `Ctrl+C`, a crash, a lost machine — leaves its verdicts here, and the next `load()` replays them, so
-    /// the run continues where it stopped. `persist()` folds the journal into the results file and removes it.
     private var journalPath: String {
         let url = URL(fileURLWithPath: storePath)
         return url.deletingLastPathComponent().appendingPathComponent(Self.journalName).path
@@ -221,8 +218,6 @@ actor CacheStore {
         activations.removeValue(forKey: key)
     }
 
-    /// Forgets every verdict when the cache was made against another test selection — another target, testing
-    /// library, scheme, destination or container — and returns whether it did.
     @discardableResult
     func discard(unlessMadeWith selection: CacheTestSelection) throws -> Bool {
         guard let stored = try loadMetadata(), stored.testSelection != selection, !entries.isEmpty else {

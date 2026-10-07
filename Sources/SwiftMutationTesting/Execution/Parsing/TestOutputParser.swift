@@ -5,8 +5,6 @@ struct TestOutputParser: Sendable {
         case unviable
     }
 
-    /// A failing test anywhere in the output names the kill; a crash marker counts only when no test
-    /// failed, since a test's own name or arguments may mention one.
     func parse(_ output: String) -> Result {
         var hasTestOutput = false
         var crashed = false

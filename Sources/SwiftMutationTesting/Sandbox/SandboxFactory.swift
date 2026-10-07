@@ -166,8 +166,6 @@ struct SandboxFactory: Sendable {
         try FileManager.default.createSymbolicLink(at: destination, withDestinationURL: source)
     }
 
-    /// Every project of the sandbox, the root's and the workspace's alike: a SwiftLint phase left in any
-    /// of them lints the schematized code and fails the build.
     private func disableSwiftLintBuildPhases(in sandboxURL: URL) throws {
         for xcodeprojURL in Self.xcodeprojs(in: sandboxURL) {
             try disableSwiftLintBuildPhases(inProject: xcodeprojURL)
@@ -221,8 +219,6 @@ struct SandboxFactory: Sendable {
         try xmlData.write(to: pbxprojURL, options: .atomic)
     }
 
-    /// The `.xcodeproj` directories under `directory`, at any depth, in path order; build products,
-    /// derived data and `Pods/` are not looked into.
     static func xcodeprojs(in directory: URL) -> [URL] {
         let skipped: Set<String> = [".build", "DerivedData", "Pods", ".xmr-derived-data", ".derived-data"]
         var found: [URL] = []

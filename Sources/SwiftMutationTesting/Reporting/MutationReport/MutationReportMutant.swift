@@ -10,6 +10,5 @@ struct MutationReportMutant: Sendable, Codable {
     let killedBy: [String]?
     let duration: Int?
     let fingerprint: String
-    /// Whether the mutated code ran, when it was measured; outside the schema, like `fingerprint`.
     let activated: Bool?
 }

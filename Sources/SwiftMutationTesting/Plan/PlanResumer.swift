@@ -8,8 +8,6 @@ struct PlanResumer: Sendable {
         let input: RunnerInput
         let identity: RunIdentity
         let duration: TimeInterval
-        /// Verdicts an interrupted run of the same plan and shard already reached; their mutants are not in
-        /// `input`.
         var resumed: [ExecutionResult] = []
         var journal: PlanJournal?
     }

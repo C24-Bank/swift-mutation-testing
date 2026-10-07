@@ -1,11 +1,5 @@
 import Foundation
 
-/// Decides which workspace or project a run builds, the same way for `init` and for every run.
-///
-/// An explicit `--workspace` or `--project` is checked and taken. Without one, the root decides: a single
-/// `.xcworkspace` is the container, else a single `.xcodeproj`; more than one candidate is an error that
-/// lists them, never a choice by directory order. A workspace whose projects lie outside the root is an
-/// error too, since the sandbox only holds the root.
 enum XcodeContainerLocator {
     struct Candidates: Sendable, Equatable {
         let workspaces: [String]
@@ -63,7 +57,6 @@ enum XcodeContainerLocator {
         }
     }
 
-    /// The workspaces and projects at the root, in name order.
     static func candidates(in root: URL, fileSystem: FileSystem = FileSystem()) -> Candidates {
         let names = fileSystem.contentsOfDirectory(root.path).sorted()
         return Candidates(
@@ -72,9 +65,6 @@ enum XcodeContainerLocator {
         )
     }
 
-    /// The workspaces and projects below the root, a few levels down, as paths relative to it: what to suggest
-    /// when the root itself has none. Never chosen on their own — which one a subdirectory holds is the user's
-    /// call. Bundles, hidden directories, build products, derived data and dependency checkouts are not searched.
     static func nestedCandidates(in root: URL, depth: Int = 3, fileSystem: FileSystem = FileSystem()) -> Candidates {
         let skipped: Set<String> = ["DerivedData", "Pods", "Carthage", "node_modules", "Build"]
         var workspaces: [String] = []
@@ -101,8 +91,6 @@ enum XcodeContainerLocator {
         return Candidates(workspaces: workspaces.sorted(), projects: projects.sorted())
     }
 
-    /// The projects a workspace references, as paths relative to the root; `self:` references (a project's
-    /// own embedded workspace) are not projects.
     static func projects(referencedBy workspace: String, in root: URL) -> [String] {
         references(of: workspace, in: root)
             .filter { $0.hasSuffix(".xcodeproj") }
@@ -134,7 +122,6 @@ enum XcodeContainerLocator {
         }
     }
 
-    /// Absolute paths of the workspace's file references, groups resolved.
     private static func references(of workspace: String, in root: URL) -> [String] {
         let workspaceURL = root.appendingPathComponent(workspace)
         let contents = workspaceURL.appendingPathComponent("contents.xcworkspacedata")
