@@ -51,7 +51,7 @@ struct CommandLineParserTests {
 
         #expect(result.command == .run)
         #expect(result.plan.path == "p.json")
-        #expect(result.plan.shard == "2/4")
+        #expect(result.plan.shard == Shard(parsing: "2/4"))
         #expect(result.reporting.output == "r.json")
     }
 
