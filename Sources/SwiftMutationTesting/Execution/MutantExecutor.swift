@@ -41,8 +41,6 @@ struct MutantExecutor: Sendable {
             ?? (configuration.reporting.quiet ? SilentProgressReporter() : ConsoleProgressReporter())
 
         let (cacheStore, metadata, hasher) = try await prepareCacheStore(input: input)
-        // Written now so that a run that ends before its results are persisted — its verdicts in the
-        // cache's journal — is read back against the test files it ran with, not against none.
         try await cacheStore.persistMetadata(metadata)
 
         if let cached = await allCached(mutants: input.mutants, cacheStore: cacheStore) {

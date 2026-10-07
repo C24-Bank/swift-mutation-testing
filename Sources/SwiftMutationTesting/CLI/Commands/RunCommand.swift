@@ -32,8 +32,6 @@ struct RunCommand: Command {
         let discovered = try await discover(configuration: configuration, planned: planned)
         let input = discovered.input
 
-        // Zero mutants is not a perfect score: nothing was measured. A shard is the exception — splitting a
-        // plan by file can leave one empty, and the merge accounts for every mutant anyway.
         if input.mutants.isEmpty, discovered.resumed.isEmpty, planned?.shard == nil {
             throw FileDiscoveryError.noMutants(for: configuration)
         }
@@ -57,8 +55,6 @@ struct RunCommand: Command {
 
         let start = Date()
         var results = discovered.resumed
-        // A run whose every mutant was resumed has nothing to build; any other run goes through the
-        // executor, even with no mutant, as it always has.
         if !input.mutants.isEmpty || discovered.resumed.isEmpty {
             results += try await MutantExecutor(
                 configuration: configuration, launcher: executionLauncher, planJournal: discovered.journal

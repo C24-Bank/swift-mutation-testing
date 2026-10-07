@@ -4,7 +4,6 @@ struct ReproduceCommand: Command {
     let launcher: (any ProcessLaunching)?
 
     func execute() async throws -> ExitCode {
-        // The parser refuses `reproduce` without a mutant, so the reference is always there.
         let reference = options.mutant ?? ""
         var configuration = configuration
         let plan: Plan

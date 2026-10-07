@@ -16,7 +16,6 @@ struct InactiveRegionExtractor: Sendable {
             .filter { $0.diagMessage.severity == .error }
             .map(\.position)
 
-        // `nil` when an error lies outside every condition: then no clause is dropped.
         let undecidable = Self.undecidableDeclarations(at: errorPositions, among: clauses)
 
         return regions.compactMap { clause, state in

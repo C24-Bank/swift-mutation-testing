@@ -25,8 +25,6 @@ struct PlanMaterializer: Sendable {
         mutants selection: [Plan.Mutant]? = nil
     ) throws -> RunnerInput {
         let selected = Set((selection ?? plan.mutants).map(\.fingerprint))
-        // The sources carry the paths discovery saw, symlinks resolved or not; the plan's relative paths
-        // are matched to them, never rebuilt, so every later lookup by path agrees.
         let sourceByRelativePath = Dictionary(
             sources.map { (Planner.relative($0.file.path, to: projectPath), $0) },
             uniquingKeysWith: { first, _ in first }
