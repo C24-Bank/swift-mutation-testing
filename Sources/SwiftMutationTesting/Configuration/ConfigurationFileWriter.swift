@@ -145,11 +145,9 @@ struct ConfigurationFileWriter: Sendable {
         lines.append("# no-cache: true")
         lines.append("")
         lines.append("# Report output paths")
-        lines.append("output: mutation-report.json")
-        lines.append("# html-output: mutation-report.html")
-        lines.append("# sonar-output: sonar-mutation-report.json")
-        lines.append("# sarif-output: mutation-report.sarif")
-        lines.append("# markdown-output: mutation-summary.md")
+        for format in ReportFormat.allCases {
+            lines.append("\(format == .json ? "" : "# ")\(format.fileKey): \(format.exampleFile)")
+        }
         lines.append("")
         lines.append("# Files to leave out: a glob (**/Generated/**) or a fragment of the path (/Generated/)")
         if let testTarget {
