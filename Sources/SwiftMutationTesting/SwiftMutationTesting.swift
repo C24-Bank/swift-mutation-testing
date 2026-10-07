@@ -63,7 +63,7 @@ public struct SwiftMutationTesting {
         if let path = parsed.plan.path {
             let plan = try PlanStore().read(from: path)
             configuration = try configuration.applying(plan)
-            planned = PlannedRun(plan: plan, shard: parsed.plan.shard.flatMap(Shard.init(parsing:)))
+            planned = PlannedRun(plan: plan, shard: parsed.plan.shard)
         }
 
         let baseline = try loadBaseline(for: configuration)

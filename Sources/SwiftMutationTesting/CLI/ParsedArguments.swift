@@ -51,7 +51,7 @@ struct ParsedArguments: Sendable {
     struct PlanOptions: Sendable {
         /// `plan`: where the plan is written. `run`, `merge`, `reproduce`: the plan to work from.
         var path: String?
-        var shard: String?
+        var shard: Shard?
         /// `merge`: the result files to join.
         var results: [String] = []
         /// `reproduce`: the fingerprint or report id of the mutant.
