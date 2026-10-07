@@ -18,11 +18,10 @@ struct Plan: Sendable, Codable, Equatable {
     let files: [File]          // path, sha256 — every source file in scope, in path order
     let mutants: [Mutant]      // fingerprint, file, utf8Start, utf8End, line, column, operator,
                                // replacementKind, original, replacement, description, schematizable
-    static func mutantID(at index: Int) -> String   // "swift-mutation-testing_<index>"
 }
 ```
 
-In Swift the mutant's operator is `Mutant.operatorIdentifier`, encoded under the key `operator` so the plan's bytes, and its hash, stay the same. `Project.projectType` turns the strings back into a `ProjectType`, `nil` for a type this version does not know. The mutant at index `i` of `mutants` has the report id `mutantID(at: i)`, the same id a plain run gives it, since both order mutants by file and offset.
+In Swift the mutant's operator is `Mutant.operatorIdentifier`, encoded under the key `operator` so the plan's bytes, and its hash, stay the same. `Project.projectType` turns the strings back into a `ProjectType`, `nil` for a type this version does not know. The mutant at index `i` of `mutants` has the report id `MutantID.make(index: i)` (`swift-mutation-testing_<i>`), the same id a plain run gives it, since both order mutants by file and offset. `MutantID` (`Discovery/Pipeline/MutantID.swift`) owns the format; `MutantID.index(of:)` reads it back and `MutantID.ordered(_:by:)` sorts by it.
 
 ## Plan/PlanStore.swift
 
@@ -35,7 +34,7 @@ struct PlanStore: Sendable {
 }
 ```
 
-`read` checks the `formatVersion` header first, like `BaselineStore`, and throws `PlanError.notFound`, `.unreadable` or `.unsupportedVersion`. `encode` is the one encoding — sorted keys, no escaped slashes, a trailing newline — and `sha256(of:)` over it is the plan's identity.
+`read` is `VersionedJSON.read`, shared with `BaselineStore`: it checks the `formatVersion` header first and throws `PlanError.notFound`, `.unreadable` or `.unsupportedVersion`. `encode` is `VersionedJSON.encode` — sorted keys, no escaped slashes, a trailing newline — and `sha256(of:)` is `VersionedJSON.sha256` over those bytes, the plan's identity.
 
 ## Plan/PlanError.swift
 
@@ -46,12 +45,12 @@ struct PlanStore: Sendable {
 ```swift
 struct Planner: Sendable {
     struct Planned { let plan: Plan; let sources: [ParsedSource] }
-    func plan(input: DiscoveryInput, testTarget: String? = nil) async throws -> Planned
+    func plan(input: DiscoveryInput, testTarget: String? = nil, container: XcodeContainer? = nil) async throws -> Planned
     static func relative(_ path: String, to projectPath: String) -> String
 }
 ```
 
-`FileDiscoveryStage` → `ParsingStage` → `MutantDiscoveryStage` → `MutantIndexingStage`, then the plan: files with `MutantCacheKey.hash` of their content, mutants from the indexed points. The parsed sources come out too, for the direct flow. `relative` is `ProjectRelativePath.make`, with `"."` for the root itself.
+`FileDiscoveryStage` → `ParsingStage` → `MutantDiscoveryStage` (with `OperatorRegistry.operators(named:)`) → `MutantIndexingStage`, then the plan: files with `MutantCacheKey.hash` of their content, mutants from the indexed points. The parsed sources come out too, for the direct flow. The commands call it through `plan(for: RunnerConfiguration)` in `CLI/CommandSupport.swift`. `relative` is `ProjectRelativePath.make`, with `"."` for the root itself.
 
 ## Plan/PlanMaterializer.swift
 
@@ -67,9 +66,9 @@ struct PlanMaterializer: Sendable {
 }
 ```
 
-The first form reads the plan's files from disk through `load` — which throws `stale` or `missingFile` on any hash that differs and `corrupt` on a mutant whose text is not at its range — parses them and calls the second. The second rebuilds an `IndexedMutationPoint` per selected mutant (index = position in the plan; the file path taken from the matching source, matched by relative path, so later lookups by path agree), runs `SchematizationStage` and `IncompatibleRewritingStage`, and assembles the `RunnerInput` with `ImportStyle.of(sources)`. `absolute` uses the root's real path (`CanonicalPath`), the way the file enumerator reports paths.
+The first form reads the plan's files from disk through `load` — which throws `stale` or `missingFile` on any hash that differs and `corrupt` on a mutant whose text is not at its range — parses them and calls the second. The second rebuilds an `IndexedMutationPoint` per selected mutant (index = position in the plan; the file path taken from the matching source, matched by relative path, so later lookups by path agree), runs `SchematizationStage` and `IncompatibleRewritingStage`, and assembles the `RunnerInput` with `ImportStyle.of(sources)`, its descriptors in id order (`MutantID.ordered`). `absolute` uses the root's real path (`CanonicalPath`), the way the file enumerator reports paths.
 
-`DiscoveryPipeline.run` is `Planner` then the second form; `run --plan` is `PlanStore.read` then the first.
+`DiscoveryPipeline.run` and a plain `run` are `Planner` then the second form; `run --plan` is `PlanStore.read` then the first, through `PlanResumer`. `ExecutionOptions(_ configuration:)` in `CLI/CommandSupport.swift` builds the options from a configuration.
 
 ## Plan/Shard.swift
 
@@ -101,7 +100,28 @@ struct PlanJournal: Sendable {
 }
 ```
 
-The progress of one run of a plan or shard. `record` maps the cache key to the mutant's fingerprint and appends one line; `entries` reads them back, the last line winning and a cut-short line skipped. `MutantExecutor(configuration:launcher:planJournal:)` hands it to `CacheStore`, whose `store(…, duration:)` records into it before its `noCache` and timeout guards. `SwiftMutationTesting.discover` reads it for `run --plan`, leaves the journaled mutants out of the materialized input and rebuilds their results; the run removes it when it has its results.
+The progress of one run of a plan or shard. `record` maps the cache key to the mutant's fingerprint and appends one line with `JSONLines.append`; `entries` reads them back with `JSONLines.read`, the last line winning and a cut-short line skipped. `MutantExecutor(configuration:launcher:planJournal:)` hands it to `CacheStore`, whose `store(…, duration:)` records into it before its `noCache` and timeout guards. `PlanResumer` reads it for `run --plan`; `RunCommand` removes it when it has its results.
+
+## Plan/PlanResumer.swift
+
+```swift
+struct PlanResumer: Sendable {
+    let plan: Plan
+    let shard: Shard?
+
+    struct Discovered {
+        let input: RunnerInput
+        let identity: RunIdentity
+        let duration: TimeInterval
+        var resumed: [ExecutionResult] = []
+        var journal: PlanJournal?
+    }
+
+    func discover(configuration: RunnerConfiguration) async throws -> Discovered
+}
+```
+
+The input of `run --plan`. `discover` computes the `RunIdentity` (plan hash and shard), selects the shard's mutants (`ShardSelector`) or all of them, reads the journal at `PlanJournal.path(…)`, and materializes only the mutants with no journaled verdict. The journaled ones come back in `resumed` as `ExecutionResult`s — the descriptor rebuilt from the plan, the status, duration, killer test file and activation from the entry — and `journal` is a new `PlanJournal` over the materialized mutants for the run to record into. `RunCommand` builds a `Discovered` itself for a plain run, with nothing resumed and no journal.
 
 ## Plan/RunIdentity.swift
 
@@ -113,7 +133,7 @@ What `JsonReporter` writes under `config`. Every run has one.
 
 ## Plan/RunnerConfiguration+Plan.swift
 
-`RunnerConfiguration.applying(_ plan:)`: the project type, test target and scope from the plan; everything else untouched. Used by `run --plan`, `merge` and `reproduce --plan`, before the baseline is loaded, so the gate's scope is the plan's.
+`RunnerConfiguration.applying(_ plan:)`: the project type, test target and scope from the plan; everything else untouched. Used by `run --plan`, `merge` and `reproduce --plan` — through `applyingPlan(at:)` in `CLI/CommandSupport.swift`, which reads the plan and applies it — before the baseline is loaded, so the gate's scope is the plan's.
 
 ## Plan/ResultMerger.swift and Plan/MergeError.swift
 
@@ -136,6 +156,6 @@ struct Reproducer: Sendable {
 }
 ```
 
-Sets `build.reproducing`, `noCache` and one worker, materializes the one mutant, runs `MutantExecutor`, then prints the kept sandboxes, the diff, the log and the verdict. `mutant(matching:)` takes a report id, a full fingerprint, or a prefix of at least six characters that fits exactly one mutant.
+Sets `build.reproducing`, `noCache` and one worker, materializes the one mutant, runs `MutantExecutor`, then prints the kept sandboxes, the diff, the log and the verdict. `mutant(matching:)` takes a report id (read with `MutantID.index(of:)`), a full fingerprint, or a prefix of at least six characters that fits exactly one mutant.
 
 `build.reproducing` is read in `TestExecutionStage` (no targeted-suite run, no stop rule on the requests) and in the three executors' `defer` blocks (the sandbox is not removed).

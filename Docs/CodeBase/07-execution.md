@@ -8,12 +8,28 @@
 
 ```swift
 struct MutantExecutor: Sendable {
-    init(configuration: RunnerConfiguration, launcher: any ProcessLaunching)
+    struct Environment: Sendable {
+        var sandboxFactory = SandboxFactory()
+        var verifier = ApplicationVerifier()
+        var testFilesHasher = TestFilesHasher()
+        var reporter: (any ProgressReporter)?
+    }
+
+    init(
+        configuration: RunnerConfiguration,
+        launcher: any ProcessLaunching,
+        planJournal: PlanJournal? = nil,
+        environment: Environment = Environment()
+    )
     func execute(_ input: RunnerInput) async throws -> [ExecutionResult]
 }
 ```
 
 Entry point for the execution pipeline. Orchestrates sandbox creation, build, simulator pool setup, and test execution for both schematizable and incompatible mutants. Supports both Xcode and SPM project types.
+
+`Environment` holds the collaborators a run works through, each the real one unless a test hands in another. With no `reporter`, progress goes to a `ConsoleProgressReporter`, or a `SilentProgressReporter` under `--quiet`. The `sandboxFactory` is also the one `IncompatibleMutantExecutor` is given.
+
+The work that used to live inline here is split across types of its own: `SchemaNarrower` retries a schematized SPM build that does not compile, `BaselineProbe` runs the unmutated suite, `SimulatorPool.make(for:launcher:)` picks the pool, and every verdict goes through `ResultRecorder`.
 
 ```mermaid
 flowchart TD
@@ -25,13 +41,14 @@ flowchart TD
     REG --> VERIFY[ApplicationVerifier.verify]
     VERIFY -- a mutant is missing --> ABORTI[throw IntegrityError\nrun ends]
     VERIFY -- every mutant present --> BUILD[BuildStage.build / buildSPM]
-    BUILD -- success --> POOL[SimulatorPool.setUp]
+    BUILD -- success --> POOL[SimulatorPool.make\nsetUp]
     BUILD -- timedOut --> ABORT[throw BuildError\nrun ends]
-    BUILD -- compilationFailed --> RETRY[retryExcludingErrors\nregenerate the schema without\nthe mutants the compiler blamed]
+    BUILD -- compilationFailed --> RETRY[SchemaNarrower.narrow\nregenerate the schema without\nthe mutants the compiler blamed]
     RETRY -- rebuilt --> POOL
-    RETRY -- nothing to exclude --> FALLBACK[FallbackExecutor\none build per schematized file]
-    FALLBACK --> POOL
-    POOL --> PROBE{SPM: run each testing library\nonce on the unmutated sandbox}
+    RETRY -- nothing to exclude --> POOLF[SimulatorPool.make\nsetUp]
+    POOLF --> FALLBACK[FallbackExecutor\none build per schematized file]
+    FALLBACK --> INCOMPAT
+    POOL --> PROBE{SPM: BaselineProbe runs each\ntesting library once on the\nunmutated sandbox}
     PROBE -- a library fails, crashes or hangs --> ABORTB[throw BaselineError\nrun ends]
     PROBE -- passes --> NORMAL[TestExecutionStage\nschematizable mutants]
     NORMAL --> INCOMPAT[IncompatibleMutantExecutor\nincompatible mutants]
@@ -41,15 +58,89 @@ flowchart TD
     TEARDOWN --> RESULTS[["[ExecutionResult]"]]
 ```
 
-**Baseline validation (SPM only):** before any mutant runs, `validateSPMBaseline` runs the suite once with no mutant selected — the schema falls through to its `default` branch, so this is the original code. A kill verdict only means something if the same tests pass unmutated: a suite that already fails kills every mutant it reaches and produces a flattering score with nothing in the report to show it. Anything other than a passing suite throws `BaselineError` and ends the run. The Xcode path has no equivalent yet.
+**Baseline validation (SPM only):** before any mutant runs, `BaselineProbe` runs the suite once with no mutant selected — the schema falls through to its `default` branch, so this is the original code. A kill verdict only means something if the same tests pass unmutated: a suite that already fails kills every mutant it reaches and produces a flattering score with nothing in the report to show it. Anything other than a passing suite throws `BaselineError` and ends the run. The Xcode path has no equivalent yet.
 
 **Normal path:** builds once, runs `TestExecutionStage` for all schematizable mutants in parallel, then re-runs any mutant that timed out on its own before reporting it.
 
-**Fallback path:** triggered when `BuildStage` throws `compilationFailed`. Delegates to `FallbackExecutor`, which rebuilds one schematized file at a time. Mutants in files that still fail to compile are marked `.unviable`.
+**Fallback path:** triggered when `BuildStage` throws `compilationFailed` on the Xcode path, or on the SPM path when `SchemaNarrower` finds no mutant to blame. Delegates to `FallbackExecutor`, which rebuilds one schematized file at a time. Mutants in files that still fail to compile are marked `.unviable`.
 
-**Incompatible path:** always runs after the schematizable path. Delegates to `IncompatibleMutantExecutor`.
+**Incompatible path:** always runs after the schematizable path. Delegates to `IncompatibleMutantExecutor`. Mutants `SchemaNarrower` took out of the schema join it, rewritten with `MutationRewriter` from the original file; one whose rewrite leaves the source unchanged is recorded `.unviable` through `ResultRecorder`.
 
 **Integrity:** `ApplicationVerifier` runs right after the sandbox is created and before anything is built, and `requireObservedActivation(in:)` runs over the results: when at least one measured mutant was killed and no measured mutant recorded activation, the run ends with `IntegrityError.activationNeverObserved` — the marker cannot be written here, or the suite fails on its own, and either way no verdict can be trusted. Both are static so a test can call them on their own.
+
+---
+
+## Execution/SchemaNarrower.swift
+
+```swift
+struct SchemaNarrower: Sendable {
+    let stage: BuildStage
+    let reporter: any ProgressReporter
+    let buildTimeout: Double
+
+    func narrow(
+        after output: String,
+        sandbox: Sandbox,
+        input: RunnerInput,
+        start: Date,
+        alreadyExcluded: [MutantDescriptor] = []
+    ) async throws -> (BuildArtifact?, [MutantDescriptor])
+
+    static func excludeProblematicMutants(
+        sandboxPath: String,
+        originalPath: String,
+        errorOutput: String,
+        mutantsInFile: [MutantDescriptor],
+        importStyle: ImportStyle
+    ) -> [MutantDescriptor]
+
+    static func regeneratedSchema(
+        originalPath: String, keeping mutants: [MutantDescriptor], importStyle: ImportStyle = .implicit
+    ) -> String?
+}
+```
+
+Narrows a schematized SPM build that does not compile. `narrow` reads the sandbox files the compiler blamed (`<sandbox>/….swift:<line>:`), and for each one that maps back to a project file holding schematizable mutants calls `excludeProblematicMutants`: from every error line it walks up to the nearest `case "<mutant id>":` — stopping at `default:` or `switch` — and takes those mutants out. `regeneratedSchema` rebuilds the file's schema from the original source with the mutants kept (reading each one's index with `MutantID.index(of:)`) and writes it over the sandbox copy. When no error line lands in a mutant's `case`, or the schema cannot be regenerated, the sandbox file goes back to a symlink to the original and every mutant of the file is excluded. It then reports `.schemaNarrowed`, builds again and recurses with what it has excluded so far, until a build compiles or no new mutant is blamed — then it answers no artifact, and `MutantExecutor` falls back to `FallbackExecutor`.
+
+---
+
+## Execution/BaselineProbe.swift
+
+```swift
+struct BaselineProbe: Sendable {
+    let configuration: RunnerConfiguration
+    let launcher: any ProcessLaunching
+
+    func probeTestBundles(in sandbox: Sandbox) async throws -> (bundles: [TestBundle], filter: String?)
+}
+```
+
+Runs the unmutated suite on the SPM path before any mutant: each test bundle with each testing library, or `swift test --skip-build` (`ToolRequests.swiftTest`) when the build left no bundle. A library that reports no tests is dropped from the bundle; one that has tests must pass them, or the run ends with a `BaselineError` (the output goes to the logs directory when `--keep-logs` is set). Returns the probed bundles and the filter `TestTargetSelection` settled on; when no bundle reported any test, every bundle is kept with both libraries. See the probe under `TestExecutionStage` below for why it exists.
+
+---
+
+## Execution/ResultRecorder.swift
+
+```swift
+struct ResultRecorder: Sendable {
+    let deps: ExecutionDeps
+    let keepLogsPath: String?
+
+    func cached(_ mutant: MutantDescriptor) async -> ExecutionResult?
+    func record(
+        _ mutant: MutantDescriptor,
+        status: ExecutionStatus,
+        duration: Double = 0,
+        output: String = "",
+        activated: Bool? = nil
+    ) async -> ExecutionResult
+    func finish(_ result: ExecutionResult) async
+}
+```
+
+Where every verdict of a run goes, whichever path reached it. `record` writes the mutant's log (`MutantLogWriter`, when `--keep-logs` is set), resolves the killer test file for a kill, stores the verdict in the cache — which journals it, and the plan journal with it — then counts it and reports `.mutantFinished`. `cached` answers the cache's verdict through `CacheStore.cachedResult(for:)`, counted and reported as finished, or `nil`. `finish` only counts and reports.
+
+`TestExecutionStage`, `FallbackExecutor`, `IncompatibleMutantExecutor` and `MutantExecutor` (for rerouted mutants that cannot be rewritten) all go through it; each used to repeat those steps, and not all of them. Since it, a fallback build failure and a mutant whose rewrite could not be applied leave a mutant log too — the fallback one carries the build error's description.
 
 ---
 
@@ -177,7 +268,7 @@ Before that pass, when the package was built to test bundles — one per test ta
 
 `--target` on this path names a test target: when a bundle carries that name, `TestTargetSelection` keeps only that bundle and passes no filter; when none does, every bundle runs with the name as the libraries' filter, as before. The probe runs the suite to the end; every mutant's run stops at its first failing test. See `ProcessRunner` in [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) for how, and why it is safe.
 
-**Targeted tests first.** On the SPM path a mutant in `Foo.swift` is first run against `FooTests` alone — `--filter FooTests` for Swift Testing, `-XCTest FooTests` for XCTest — and only if that does not kill it does the whole suite run. A kill in the targeted run is a kill in the full run, since the same test would fail there too, so the verdict is the full suite's by construction; everything else — survived, no tests matched, a timeout — falls through to the full run, which decides. `TargetedSuites.declared(in:)` reads the test files once, before the pass, and keeps only the names whose file declares a type of that name (`struct FooTests`, `final class FooTests: XCTestCase`, …), so a file named after a convention the project does not follow costs nothing: without that check every mutant would pay the helper's start-up — 1.7s on `swift-cpd` — to run zero tests. Measured on `swift-cpd` from the `killedBy` of a full run, 62% of kills (479 of 772) come from the file's own suite.
+**Targeted tests first.** On the SPM path a mutant in `Foo.swift` is first run against `FooTests` alone — `--filter FooTests` for Swift Testing, `-XCTest FooTests` for XCTest — and only if that does not kill it does the whole suite run. A kill in the targeted run is a kill in the full run, since the same test would fail there too, so the verdict is the full suite's by construction; everything else — survived, no tests matched, a timeout — falls through to the full run, which decides. `TargetedSuites.declared(in:)` reads the test files once, before the pass — the paths `KillerTestFileResolver` already holds, not a second listing — and keeps only the names whose file declares a type of that name (`struct FooTests`, `final class FooTests: XCTestCase`, …), so a file named after a convention the project does not follow costs nothing: without that check every mutant would pay the helper's start-up — 1.7s on `swift-cpd` — to run zero tests. Measured on `swift-cpd` from the `killedBy` of a full run, 62% of kills (479 of 772) come from the file's own suite.
 
 The targeted run goes to the bundle of the test target that declares the suite, read from the test file's `Tests/<Target>/` directory. When that cannot be told — a test file outside `Tests/<Target>/` — every bundle gets the filter, and the ones without the suite report no tests and cost one process launch each. The full run goes through every bundle in name order and stops at the first failing test, whichever bundle it is in.
 
@@ -193,8 +284,8 @@ flowchart TD
     LAUNCH --> RELEASE[pool.release slot]
     RELEASE --> PARSE[ResultParser.parse]
     PARSE --> CLEANUP[delete .xcresult]
-    CLEANUP --> STORE[cacheStore.store]
-    STORE --> REPORT2[report progress → return ExecutionResult]
+    CLEANUP --> STORE[ResultRecorder.record\nlog · cache · progress]
+    STORE --> REPORT2[return ExecutionResult]
 ```
 
 A fresh `.xctestrun` file is written for each mutant (UUID-named, deleted after launch). The `.xcresult` bundle is deleted after `ResultParser` extracts failure details.
@@ -229,8 +320,8 @@ flowchart TD
     SUITE -- no --> FULL
     FULL --> PARSE
     PARSE --> RELEASE[pool.release]
-    RELEASE --> STORE[MutantLogWriter · cacheStore.store]
-    STORE --> REPORT2[report progress → ExecutionResult]
+    RELEASE --> STORE[ResultRecorder.record\nlog · cache · progress]
+    STORE --> REPORT2[ExecutionResult]
 ```
 
 ## Execution/TestExecutionContext.swift
@@ -322,7 +413,7 @@ Builds the process requests that run a package's test bundle directly, skipping 
 
 `bundleURLs(in:)` lists every `.xctest` under `.build/out/Products/Debug` in name order, one per test target; the order is what makes a run's output and its first failing test reproducible.
 
-`reportsNoTests` recognises a library that has nothing to run — exit code 69 from SwiftPM's helper, or `Executed 0 tests` from `xctest` — which is what the probe in `MutantExecutor` uses to drop a library from every mutant's run. `stoppingAtFirstFailure` attaches `OutputStopRule.firstTestFailure` to each request; the probe passes `false`, because its job is to run the suite to the end.
+`reportsNoTests` recognises a library that has nothing to run — exit code 69 from SwiftPM's helper, or `Executed 0 tests` from `xctest` — which is what `BaselineProbe` uses to drop a library from every mutant's run. `stoppingAtFirstFailure` attaches `OutputStopRule.firstTestFailure` to each request; the probe passes `false`, because its job is to run the suite to the end.
 
 **`DeveloperToolchain`** — resolves the active developer directory once per process:
 
@@ -412,7 +503,7 @@ flowchart TD
     BS -- failed --> UNVIABLE[Mark all mutants in file as .unviable]
 ```
 
-For each schematized file, creates a sandbox containing only that file's schematization, builds it (Xcode or SPM), and runs the test suite against its mutants. Files whose builds fail have all their mutants marked as `.unviable`. Results are cached via `CacheStore`.
+For each schematized file, creates a sandbox containing only that file's schematization, builds it (Xcode or SPM), and runs the test suite against its mutants. Files whose builds fail have all their mutants marked as `.unviable`, each with a mutant log carrying the build error's description. Cached verdicts are read through `CacheStore.cachedResult(for:)` and every verdict is recorded through `ResultRecorder`.
 
 ---
 
@@ -436,7 +527,9 @@ Handles mutants that cannot be schematized. Behaviour differs by project type.
 
 **Activation.** Both paths first build the copy `ActivationInstrumenter(importStyle:)` returns, and test it with an activation marker: the environment variable on the SPM path, the same name behind `TEST_RUNNER_` (`testRunnerPrefix`) on the Xcode path, since `xcodebuild` hands those to the test runner without the prefix. The result is classified like a schematized mutant's (`TestExecutionStage.classify`), and a kill without activation is tested once more, without a rebuild, and judged by that run. When the instrumented copy fails to build — not a timeout — the plain `mutatedSourceContent` is built and tested instead, unmeasured (`activated == nil`); the same holds when the instrumenter returns `nil`. `MutantExecutor` passes the input's `importStyle`, so the import the instrumenter adds matches the project's. The activation is cached with the verdict.
 
-**Xcode path:** Each mutant creates its own sandbox via `SandboxFactory.create(projectPath:mutatedFilePath:mutatedContent:)`. Runs sequentially with a full build + test cycle per mutant.
+**Xcode path:** Each mutant creates its own sandbox via `SandboxFactory.create(projectPath:mutatedFilePath:mutatedContent:)`. Runs sequentially with a full build + test cycle per mutant. The build and the `test-without-building` run come from `ToolRequests` and share its derived data directory, `.xmr-derived-data` (this path used `.derived-data` before).
+
+Cache hits come from `ResultRecorder.cached(_:)`, and every verdict — including a mutation that could not be applied and a failed build — is recorded through `ResultRecorder.record`.
 
 ```mermaid
 flowchart TD
@@ -450,7 +543,7 @@ flowchart TD
     SLOT --> LAUNCH[xcodebuild test-without-building]
     LAUNCH --> RELEASE[pool.release]
     RELEASE --> PARSE[TestResultResolver]
-    PARSE --> STORE[cacheStore.store]
+    PARSE --> STORE[ResultRecorder.record]
     PT -- .spm --> WARM[warmSandboxes\nconcurrency ÷ 4 clean sandboxes\nbuilt in parallel, once]
     WARM --> DEAL[deal mutants round-robin\nover the sandboxes that built]
     DEAL --> WRITE[write mutated file\nincremental rebuild → tests]
@@ -458,7 +551,7 @@ flowchart TD
     WARM -- none built --> ALLUNVIABLE[every mutant .unviable\nwith that build's output]
 ```
 
-**SPM path:** Uses warm sandboxes created via `SandboxFactory.createClean(projectPath:)`, each built once with `swift build --build-tests` so that every mutant after the first costs an incremental rebuild rather than a cold one. For each mutant, writes the mutated source content (`mutant.mutatedSourceContent!`) directly into its sandbox, rebuilds, runs the tests, and restores the original file. Pipeline invariants guarantee `mutatedSourceContent` is always non-nil for incompatible mutants.
+**SPM path:** Uses warm sandboxes created via `SandboxFactory.createClean(projectPath:)`, each built once with `swift build --build-tests` (`ToolRequests.swiftBuildTests`) so that every mutant after the first costs an incremental rebuild rather than a cold one. For each mutant, writes the mutated source content (`mutant.mutatedSourceContent!`) directly into its sandbox, rebuilds, runs the tests, and restores the original file. Pipeline invariants guarantee `mutatedSourceContent` is always non-nil for incompatible mutants.
 
 The number of sandboxes is a quarter of `--concurrency` (`TestExecutionStage.retryWorkerShare`, never fewer than one, never more than there are mutants), the same share the second test pass uses: a rebuild and a test run each spread over several cores, so four of them is a load the machine notices and eight is not worth it. Mutants are dealt round-robin over the sandboxes that built; a sandbox whose warm build failed is left out, and only when none built are the mutants reported unviable with that build's output. Results come back in input order whatever the completion order. Measured on `swift-cpd`, nine incompatible mutants took 118s of a 176s subset run when they ran one after another in a single sandbox — the first 26s for the cold build, then 9s each — which is what made this worth parallelising.
 
@@ -491,6 +584,8 @@ Manages a fixed-size pool of simulator slots for parallel test execution.
 `acquire()` returns an available slot immediately or suspends the caller until one is released. The suspension is wrapped with `withTaskCancellationHandler` — if the owning task is cancelled, the slot is released to prevent permanent deadlock.
 
 `release(_:)` resumes the oldest pending `acquire()` waiter, or returns the slot to the available pool if no waiters exist.
+
+**`Simulator/SimulatorPool+Make.swift`** — `static func make(for configuration: RunnerConfiguration, launcher: any ProcessLaunching) async throws -> SimulatorPool` builds the pool a run's destination needs: the Xcode destination, or `platform=macOS` for a package; plain slots (`baseUDID: nil`) when `SimulatorManager.requiresSimulatorPool(for:)` says no, otherwise clones of the base simulator `resolveBaseUDID(for:)` finds. `size` is the configured concurrency.
 
 ---
 

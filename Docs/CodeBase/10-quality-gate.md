@@ -23,7 +23,7 @@ flowchart TD
     STORE --> CODE[.success or .gateFailed]
 ```
 
-The baseline is read and its scope checked before discovery, so a run that could never be compared stops before it spends any time.
+The baseline is read and its scope checked before discovery, so a run that could never be compared stops before it spends any time. The steps live in `RunConclusion` (`CLI/RunConclusion.swift`): `loadBaseline` before the run, then `conclude` — text report, `evaluateGate`, `ReportWriter`, `applyGate` — after it, for `run` and `merge` alike. See [01 — Entry Point](01-entry-point.md#clirunconclusionswift).
 
 ---
 
@@ -124,7 +124,7 @@ struct BaselineEntry: Sendable, Codable, Equatable {
 
 A baseline is the undetected mutants of one run, meant to be committed. Entries are sorted by file, line and fingerprint, and `BaselineStore` writes sorted keys, so its diff in a pull request is stable and readable. The gate reads only `fingerprint`; `file`, `line`, `operator`, `original` and `replacement` are there for the people reviewing the diff.
 
-`BaselineScope(configuration:)` records what the run covered: the operators (all of them when none is selected), the sources path relative to the project (`.` for the project itself), and the `exclude` patterns, with both lists sorted. `differences(from:)` names every field that differs, and a non-empty result stops the run: a different scope turns out-of-scope mutants into "new survivors", or hides real ones.
+`BaselineScope(configuration:)` records what the run covered: the operators (all of them, `OperatorRegistry.allOperatorNames`, when none is selected), the sources path relative to the project (`.` for the project itself), and the `exclude` patterns, with both lists sorted. `differences(from:)` names every field that differs, and a non-empty result stops the run: a different scope turns out-of-scope mutants into "new survivors", or hides real ones.
 
 ---
 
@@ -137,7 +137,7 @@ struct BaselineStore: Sendable {
 }
 ```
 
-Writes pretty-printed JSON with sorted keys, ISO 8601 dates and a trailing newline, atomically. Reading follows the same versioning discipline as `CacheStore`: it decodes `formatVersion` first, and throws `GateError.unsupportedBaselineVersion` for any version but `Baseline.formatVersion`, before trying the rest of the file.
+Both halves go through `VersionedJSON`, which `PlanStore` shares. `write` encodes with `VersionedJSON.encode(_:dates: .iso8601)` — pretty-printed JSON with sorted keys, no escaped slashes, ISO 8601 dates and a trailing newline — and writes it atomically. `read` is `VersionedJSON.read`: it decodes `formatVersion` first, and throws `GateError.unsupportedBaselineVersion` for any version but `Baseline.formatVersion`, before trying the rest of the file; a missing file is `baselineNotFound`, an undecodable one `unreadableBaseline`.
 
 ---
 
@@ -179,7 +179,7 @@ Quality gate: FAILED
   ℹ 3 mutants detected now that were undetected in the baseline
 ```
 
-The wording of each check comes from `GateResult+Summary`, which `MarkdownReporter` shares. New undetected mutants are listed under their check, at most `listedLimit` of them, followed by `and N more — see the report`. With a baseline but no `maxNewSurvivors`, they are reported as an `ℹ` count instead.
+The wording of each check comes from `GateResult+Summary`, which `MarkdownReporter` shares. New undetected mutants are listed under their check, at most `listedLimit` of them, followed by `and N more — see the report`. The `ℹ` lines are `GateResult.notes`, also shared with `MarkdownReporter`: with a baseline but no `maxNewSurvivors`, the new undetected mutants as a count, and the count of baseline mutants detected now.
 
 ---
 

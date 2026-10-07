@@ -8,9 +8,6 @@
 
 ```swift
 struct DiscoveryPipeline: Sendable {
-    static let allOperatorNames: [String]
-    static func operatorNames(upTo tier: OperatorTier) -> [String]
-    static func operators(named identifiers: [String]) -> [any MutationOperator]
     func run(input: DiscoveryInput) async throws -> RunnerInput
 }
 ```
@@ -29,7 +26,21 @@ flowchart TD
     IR --> OUT
 ```
 
-`allOperatorNames` is the ordered list of all registered operator identifiers. `ConfigurationFileWriter` uses it to populate the operators section of the generated YAML. `operatorNames(upTo:)` is the same list cut at a tier: the identifiers whose `OperatorTier` is at most the given one, in registry order.
+## Discovery/OperatorRegistry.swift
+
+```swift
+enum OperatorRegistry {
+    static let allOperatorNames: [String]
+    static let loopRiskyNames: Set<String>
+    static func operatorNames(upTo tier: OperatorTier) -> [String]
+    static func operators(named identifiers: [String]) -> [any MutationOperator]
+    static func `operator`(named identifier: String) -> (any MutationOperator)?
+}
+```
+
+Every mutation operator, in the order discovery runs them, with the tier it belongs to. The names are the operators' own `identifier`s, so the registry holds no second copy of them.
+
+`allOperatorNames` is the ordered list of all registered operator identifiers. `ConfigurationFileWriter` uses it to populate the operators section of the generated YAML, and `Planner` and `BaselineScope` record it when the operator list is empty. `operatorNames(upTo:)` is the same list cut at a tier: the identifiers whose `OperatorTier` is at most the given one, in registry order. `loopRiskyNames` is the set of operators whose `isLoopRisky` is `true`, the default `InfiniteLoopFilter` leaves out of loop bodies. `operators(named:)` returns the operators to run, and `operator(named:)` the one with an identifier — `SarifRuleCatalog` reads each rule's name and description from it.
 
 **Operator registry** (registration order is fixed; the tier comes from the campaign in `Docs/OPERATORS.md`):
 
@@ -143,16 +154,22 @@ Parses each `SourceFile` into a SwiftSyntax AST using `withTaskGroup` for concur
 
 ```swift
 struct MutantDiscoveryStage: Sendable {
-    init(operators: [any MutationOperator])
+    static let standardExclusions: [any MutationExclusion]  // SuppressionFilter, InfiniteLoopFilter, InactiveRegionFilter
+
+    let operators: [any MutationOperator]
+    let exclusions: [any MutationExclusion]
+
+    init(operators: [any MutationOperator], exclusions: [any MutationExclusion] = Self.standardExclusions)
     func run(sources: [ParsedSource]) async -> [MutationPoint]
 }
 ```
 
 Applies all active operators concurrently across sources via `withTaskGroup`. For each source:
 
-1. Extracts suppressed ranges via `SuppressionAnnotationExtractor`, `while`/`repeat` bodies via `InfiniteLoopBodyExtractor` and the `#if` clauses the host build leaves out via `InactiveRegionExtractor`
-2. Collects mutation points from every operator
-3. Removes suppressed points via `SuppressionFilter`, then the loop-risking points via `InfiniteLoopFilter`, then the points in inactive clauses via `InactiveRegionFilter`
+1. Collects mutation points from every operator
+2. Hands them to each exclusion in turn, which drops the points inside its ranges: by default the suppressed declarations (`SuppressionFilter`), then the `while`/`repeat` bodies for loop-risky operators (`InfiniteLoopFilter`), then the `#if` clauses the host build leaves out (`InactiveRegionFilter`)
+
+A test can give the stage exclusions of its own.
 
 Results are sorted by `filePath` then `utf8Offset`.
 
@@ -166,9 +183,42 @@ struct MutantIndexingStage: Sendable {
 }
 ```
 
-Assigns a globally unique sequential index to each mutation point (sorted by file path, then UTF-8 offset) and classifies them as schematizable or incompatible using `TypeScopeVisitor`. The index becomes the mutant ID suffix in `"swift-mutation-testing_<index>"`.
+Assigns a globally unique sequential index to each mutation point (sorted by file path, then UTF-8 offset) and classifies them as schematizable or incompatible using `TypeScopeVisitor`. The index becomes the mutant ID, `MutantID.make(index:)`.
 
 It also computes each mutant's `MutantFingerprint`. The index is renumbered by any mutant added earlier in any file, so it cannot identify a mutant across runs of different code; the fingerprint can. Among mutants that share a file, declaration, operator and change, the ordinal is their position in offset order.
+
+---
+
+## Discovery/Pipeline/MutantID.swift
+
+```swift
+enum MutantID {
+    static let prefix = "swift-mutation-testing_"
+    static func make(index: Int) -> String
+    static func index(of id: String) -> Int?
+    static func ordered<Item>(_ items: [Item], by id: (Item) -> String) -> [Item]
+}
+```
+
+The one owner of the mutant id format, `swift-mutation-testing_<index>`: the id a mutant carries in reports, schemata and the environment that activates it. `make(index:)` builds it (`IndexedMutationPoint`, `SchemataGenerator`, `PlanMaterializer`, `Reproducer`); `index(of:)` reads the position back, `nil` for a string that is not a mutant id (`Reproducer`, `SchemaNarrower`); `ordered(_:by:)` sorts items by their mutants' positions, reading each id once, an id that names no position sorting first (`PlanMaterializer`, `RunCommand`).
+
+---
+
+## Discovery/Pipeline/MutationExclusion.swift
+
+```swift
+protocol MutationExclusion: Sendable {
+    func ranges(in syntax: SourceFileSyntax) -> [Range<AbsolutePosition>]
+    func applies(to point: MutationPoint) -> Bool  // default: true
+}
+
+extension MutationExclusion {
+    func filter(_ mutationPoints: [MutationPoint], excluding ranges: [Range<AbsolutePosition>]) -> [MutationPoint]
+    func filter(_ mutationPoints: [MutationPoint], in syntax: SourceFileSyntax) -> [MutationPoint]
+}
+```
+
+A part of the source where some mutations must not be made. `ranges(in:)` finds the ranges; `applies(to:)` says whether a point inside them is left out — every one is, unless the exclusion narrows it. The shared `filter` keeps a point when the exclusion does not apply to it or its `utf8Offset` lies in no range, and returns the points untouched when there are no ranges. `SuppressionFilter`, `InfiniteLoopFilter` and `InactiveRegionFilter` conform — see [04 — Mutation Operators](04-mutation-operators.md).
 
 ---
 
@@ -222,7 +272,7 @@ struct IndexedMutationPoint: Sendable {
 |---|---|
 | `index` | Position in the run's ordering, assigned by `MutantIndexingStage` |
 | `mutation` | The original mutation point |
-| `mutantID` | `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID_<hash>` is compared against in the schema |
+| `mutantID` | `MutantID.make(index:)`, `"swift-mutation-testing_<index>"` — unique per run, and the value `__swiftMutationTestingID_<hash>` is compared against in the schema |
 | `isSchematizable` | `true` if the mutation falls inside a function body (determined by `TypeScopeVisitor`) |
 | `fingerprint` | The mutant's `MutantFingerprint`, stable across runs |
 
@@ -245,7 +295,7 @@ flowchart TD
     SCHEMA --> RESULT["([SchematizedFile], [MutantDescriptor])"]
 ```
 
-Every schematized file ends with `SupportDeclarations.perFile(for:)`, its own `__swiftMutationTestingID_<hash>`, appended by `SchemataGenerator` — see [05 — Schematization](05-schematization.md).
+Every schematized file ends with `SupportDeclarations.perFile(for:)`, its own `__swiftMutationTestingID_<hash>`, appended by `SchemataGenerator` through `SupportDeclarations.appended(to:path:syntax:style:)` — see [05 — Schematization](05-schematization.md).
 
 ---
 

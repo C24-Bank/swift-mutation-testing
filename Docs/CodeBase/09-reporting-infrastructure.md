@@ -82,19 +82,25 @@ struct RunnerSummary: Sendable {
     let results: [ExecutionResult]
     let totalDuration: Double
 
-    var killed: [ExecutionResult]
-    var survived: [ExecutionResult]
-    var unviable: [ExecutionResult]
-    var timeouts: [ExecutionResult]
-    var noCoverage: [ExecutionResult]
+    let killed: [ExecutionResult]
+    let survived: [ExecutionResult]
+    let unviable: [ExecutionResult]
+    let timeouts: [ExecutionResult]
+    let noCoverage: [ExecutionResult]
+
+    init(results: [ExecutionResult], totalDuration: Double)
+
     var detected: [ExecutionResult]
     var undetected: [ExecutionResult]
     var score: Double
     var resultsByFile: [String: [ExecutionResult]]
+    var files: [(path: String, summary: RunnerSummary)]
+
+    static func byLocation(_ results: [ExecutionResult]) -> [ExecutionResult]
 }
 ```
 
-Aggregates all `ExecutionResult` values and computes the mutation score. `killed` includes `.killedByCrash`.
+Aggregates all `ExecutionResult` values and computes the mutation score. `init` sorts the results into the five status buckets in one pass, so every report reads the same counts instead of filtering again. `killed` includes `.killedByCrash`.
 
 **Score formula:**
 
@@ -104,9 +110,9 @@ undetected = survived + noCoverage
 score      = detected / (detected + undetected) × 100
 ```
 
-`unviable` mutants are on neither side. When no mutant is detected or undetected the score is `100.0`. This is the formula the Stryker report schema applies to the statuses `JsonReporter` emits, so the JSON report scores the same in any Stryker-compatible viewer — see [Stryker Compatibility](../STRYKER-COMPATIBILITY.md). It is the only score formula: `TextReporter` and `HtmlReporter` build a `RunnerSummary` per file for their per-file scores.
+`unviable` mutants are on neither side. When no mutant is detected or undetected the score is `100.0`. This is the formula the Stryker report schema applies to the statuses `JsonReporter` emits, so the JSON report scores the same in any Stryker-compatible viewer — see [Stryker Compatibility](../STRYKER-COMPATIBILITY.md). It is the only score formula: the per-file scores are `RunnerSummary` values too, from `files`.
 
-`resultsByFile` groups results by `descriptor.filePath`, used by all reporters to produce per-file breakdowns.
+`resultsByFile` groups results by `descriptor.filePath`. `files` turns that into one `RunnerSummary` per file, in path order — the per-file tables of `TextReporter`, `HtmlReporter` and `MarkdownReporter` iterate it. `byLocation(_:)` sorts results by file, line and column; every report that lists mutants — the survived and integrity lists, the Markdown tables, the SARIF results — sorts through it.
 
 ### Reporting/RunnerSummary+Integrity.swift
 
@@ -155,7 +161,7 @@ Prints a human-readable summary to stdout. Always active (not gated by a CLI fla
 
 Output sections:
 1. Per-file table: relative path, score %, killed/survived/timeout/unviable counts
-2. Survived mutants list: `<file>:<line>:<col>  <operator>` sorted by file then line
+2. Survived mutants list: `<file>:<line>:<col>  <operator>` sorted by location (`RunnerSummary.byLocation`)
 3. Integrity warnings — kills and timeouts whose code never ran, the first `integrityWarningsListed` (10) with their reason, then a count — when there are any
 4. Overall score line
 5. Detection line (`RunnerSummary.detectionLine`)
@@ -242,11 +248,11 @@ Writes a SARIF 2.1.0 log, the format GitHub code scanning reads, with one `run` 
 | `partialFingerprints` | `swiftMutationTesting/v1` → the mutant's `MutantFingerprint`, so an alert survives unrelated edits and closes once the mutant is killed |
 | `properties` | `mutationStatus` (`survived` or `noCoverage`) and `replacement` |
 
-SwiftSyntax reports columns in UTF-8 bytes. The reporter reads each mutant's line from its file, once per file, and converts the column so an annotation after a non-ASCII character is not shifted; when the file cannot be read it keeps the recorded column. Beyond `resultLimit` results — code scanning's limit per upload — it keeps the first ones and prints a warning to stderr.
+SwiftSyntax reports columns in UTF-8 bytes. The reporter reads each mutant's line from its file, once per file, and converts the column so an annotation after a non-ASCII character is not shifted; when the file cannot be read it keeps the recorded column. Beyond `resultLimit` results — code scanning's limit per upload — it keeps the first ones and prints a warning through `StandardError`.
 
 ### Reporting/Sarif/
 
-`SarifLog`, `SarifRun`, `SarifTool`, `SarifDriver`, `SarifRule`, `SarifConfiguration`, `SarifMessage`, `SarifResult`, `SarifResultProperties`, `SarifLocation`, `SarifPhysicalLocation`, `SarifArtifactLocation` and `SarifRegion` are `Encodable` mirrors of the SARIF 2.1.0 objects of the same name. `SarifRuleCatalog.rule(for:)` gives each operator a short and a full description, with a `helpUri` to the operator reference in `Docs/USAGE.MD`; an unknown operator gets a generic description.
+`SarifLog`, `SarifRun`, `SarifTool`, `SarifDriver`, `SarifRule`, `SarifConfiguration`, `SarifMessage`, `SarifResult`, `SarifResultProperties`, `SarifLocation`, `SarifPhysicalLocation`, `SarifArtifactLocation` and `SarifRegion` are `Encodable` mirrors of the SARIF 2.1.0 objects of the same name. `SarifRuleCatalog.rule(for:)` looks the operator up in `OperatorRegistry` and uses its `summary` as the short description and its `explanation` as the full one, with a `helpUri` to the operator reference in `Docs/USAGE.MD`; an unknown operator gets its identifier as the name and a generic description.
 
 ---
 
@@ -265,7 +271,7 @@ struct MarkdownReporter: Sendable {
 Writes a Markdown summary for CI job summaries and merge request notes:
 
 1. The score, the detection line (`RunnerSummary.detectionLine`) and the totals
-2. The quality gate, when a result is given: its checks, the informational lines, and a table of its new undetected mutants
+2. The quality gate, when a result is given: its checks, the informational lines (`GateResult.notes`), and a table of its new undetected mutants
 3. A table per file, as in `TextReporter` — omitted for an empty run
 4. The first `listedLimit` undetected mutants, sorted by location, with a count of the rest
 
@@ -279,6 +285,7 @@ Table cells escape `|`, and the mutation is written as code with backticks repla
 extension GateResult {
     var checksNewUndetected: Bool
     var newUndetectedSummary: String
+    var notes: [String]
     static func count(_ value: Int, _ noun: String) -> String
 }
 
@@ -287,7 +294,21 @@ extension GateResult.Check {
 }
 ```
 
-The wording of the gate, shared by `GateReporter` and `MarkdownReporter` so the console and the job summary say the same thing.
+The wording of the gate, shared by `GateReporter` and `MarkdownReporter` so the console and the job summary say the same thing. `notes` are the informational lines beyond the checks: the new undetected mutants when no check counts them, and the mutants detected now that the baseline left undetected; each reporter only adds its own bullet.
+
+---
+
+## Reporting/ReportWriter.swift
+
+```swift
+struct ReportWriter: Sendable {
+    let configuration: RunnerConfiguration
+
+    func write(_ summary: RunnerSummary, gate: GateResult? = nil, identity: RunIdentity? = nil)
+}
+```
+
+Writes every report file the configuration asks for from one table of `(label, path, write)` entries — JSON, HTML, Sonar, SARIF, Markdown — each taking its path from `configuration.reporting`. Entries without a path are skipped; when any is requested it prints a blank line, then `  ✓ <label> report: <path>` per file written, and a failure becomes `Warning: could not write <label> report to '<path>': …` on `StandardError` rather than ending the run. Adding a format is one entry in the table.
 
 ---
 
@@ -542,7 +563,7 @@ struct ProcessRequest: Sendable {
     let environment: [String: String]?
     let additionalEnvironment: [String: String]
     let workingDirectoryURL: URL
-    let timeout: Double
+    var timeout: Double
     var stopRule: OutputStopRule? = nil
 
     func withTimeout(_ timeout: Double) -> ProcessRequest
@@ -559,6 +580,8 @@ struct ProcessRequest: Sendable {
 | `workingDirectoryURL` | Working directory for the process |
 | `timeout` | Maximum execution time in seconds |
 | `stopRule` | When set, the runner ends the process as soon as a line of its output is what the rule stops at, and reports the rule's exit code instead of the process's own |
+
+`withTimeout(_:)` and `stopping(at:)` return a copy with that one field changed.
 
 **`OutputStopRule`** (`Infrastructure/OutputStopRule.swift`) names the kind of line to stop at and the exit code to report when one is seen. `.firstTestFailure` stops at a line `TestOutputParser.failingTest(in:)` reads as a failed test — the XCTest `Test Case '-[…]' failed` line, at the start of the line, and Swift Testing's `✘ Test "…" recorded an issue` and `failed after` — with exit code 1, which is what both libraries exit with on a failure anyway. A line that merely quotes such text, such as the `started` line of a parameterized test whose argument is a failure line, does not stop the run: the rule asks the same parser that would name the kill, so a stop happens exactly where a kill would be read.
 
@@ -579,6 +602,8 @@ struct ProcessRunner: Sendable {
 ```
 
 Low-level process execution engine. Uses `withTaskCancellationHandler` + `withCheckedThrowingContinuation` to bridge `Process.terminationHandler` into the Swift Concurrency runtime.
+
+Both launch paths share their plumbing: the private `awaitTermination(of:killedByUs:start:)` wraps the continuation and its cancellation handler, and the private `run(_:timeoutTask:continuation:onLaunchFailure:result:)` installs the `terminationHandler`, starts the process, sets its group and tracks it — or, when `process.run()` throws, cancels the timeout task, runs `onLaunchFailure` (for `launchCapturing`, closing and removing the capture file) and resumes with the error. Each path only supplies its timeout task and the `result` closure that turns the terminated process into its return value.
 
 **Timeout handling:** a `Task` sleeping for `timeout` seconds marks a `KilledByUsFlag` and calls `onTimeout(pid)`. The `terminationHandler` checks the flag and returns `-1` instead of the actual exit code.
 
@@ -665,6 +690,69 @@ enum StandardOutput {
 Everything the tool prints to stdout goes through `write`, which prints the line — or, when the current task has a `capture` bound, appends it there instead. Task-locals are inherited by child tasks, so a capture bound around a whole run sees what the reporters print from inside task groups.
 
 It exists for the tests. They used to capture output by pointing file descriptor 1 at a pipe with `dup2`, which is process-wide: two tests doing it at once took each other's output, and when they finished in the wrong order one of them restored stdout to the other's pipe, so that pipe never saw end-of-file and the test waited on it forever. A capture bound to the task belongs to one test only.
+
+---
+
+## Infrastructure/StandardError.swift
+
+```swift
+enum StandardError {
+    @TaskLocal static var capture: StandardOutput.Capture?
+    static func write(_ line: String)
+}
+```
+
+The stderr counterpart of `StandardOutput`: every warning and error the tool prints goes through `write`, which appends a newline and writes to stderr — or, when the current task has a `capture` bound, to that capture. No code calls `fputs(…, stderr)` directly, so a test can check a warning (the SARIF result limit, a report that could not be written) the same way it checks stdout.
+
+---
+
+## Infrastructure/FileSystem.swift
+
+```swift
+struct FileSystem: Sendable {
+    var fileExists: @Sendable (String) -> Bool
+    var directoryExists: @Sendable (String) -> Bool
+    var contentsOfDirectory: @Sendable (String) -> [String]
+    var currentDirectory: @Sendable () -> String
+    var createDirectory: @Sendable (URL) throws -> Void
+    var removeItem: @Sendable (String) -> Void
+
+    func projectPath(_ path: String) -> String
+}
+```
+
+The file-system calls that `ConfigurationResolver`, `ProjectDetector`, `XcodeContainerLocator` and `CacheStore` make, each defaulting to the real `FileManager` call; a test hands in a value with the closures it needs replaced. `projectPath(_:)` is the one place a project given as `.`, as an empty string or as a path becomes an absolute, standardized path.
+
+---
+
+## Infrastructure/VersionedJSON.swift
+
+```swift
+enum VersionedJSON {
+    static func read<Document: Decodable>(
+        _ type: Document.Type, from path: String, version: Int, decoder: JSONDecoder = JSONDecoder(),
+        notFound: @autoclosure () -> any Error, unreadable: @autoclosure () -> any Error,
+        unsupported: (Int) -> any Error
+    ) throws -> Document
+    static func encode(_ document: some Encodable, dates: JSONEncoder.DateEncodingStrategy = .deferredToDate) throws -> Data
+    static func sha256(of data: Data) -> String
+}
+```
+
+The format shared by `PlanStore` and `BaselineStore`. `read` decodes a document carrying a `formatVersion` in two steps — the version first, then the whole document — so a file written by another version is refused with the caller's `unsupported` error rather than as unreadable; a missing file throws `notFound`. `encode` produces the same bytes wherever it runs: pretty-printed, sorted keys, no escaped slashes, one trailing newline. `sha256(of:)` is the lowercase hex digest the stores hash those bytes with.
+
+---
+
+## Infrastructure/JSONLines.swift
+
+```swift
+enum JSONLines {
+    static func append(_ value: some Encodable, to path: String)
+    static func read<Value: Decodable>(_ type: Value.Type, from path: String) -> [Value]
+}
+```
+
+A file of one JSON value per line, shared by `CacheStore`'s journal and `PlanJournal`. `append` encodes one value, creates the parent directory if needed and appends the line, so a run cut short keeps every line it wrote; failures are swallowed. `read` returns the values in order, skipping a line an interruption left incomplete, and an empty array when the file does not exist.
 
 ---
 

@@ -8,17 +8,17 @@ Type-level reference for every public and internal type in `swift-mutation-testi
 
 | Document | Coverage |
 |---|---|
-| [01 — Entry Point](01-entry-point.md) | `SwiftMutationTesting`, `ExitCode`, `HelpText`, `UsageError` |
+| [01 — Entry Point](01-entry-point.md) | `SwiftMutationTesting`, `Command` and its seven commands (`HelpCommand`, `VersionCommand`, `InitCommand`, `PlanCommand`, `MergeCommand`, `ReproduceCommand`, `RunCommand`), `RunConclusion`, `CommandSupport`, `ExitCode`, `HelpText`, `UsageError` |
 | [02 — Configuration](02-configuration.md) | `CommandLineParser`, `ParsedArguments`, `RunnerConfiguration`, `BuildOptions`, `ReportingOptions`, `FilterOptions`, `ProjectType`, `XcodeContainer`, `XcodeContainerLocator`, `TestingFramework`, `ConfigurationResolver`, `ConfigurationFileParser`, `ConfigurationFileWriter`, `ProjectDetector`, `DetectedProject`, `GateOptions` |
-| [03 — Discovery Pipeline](03-discovery-pipeline.md) | `DiscoveryPipeline`, `OperatorTier`, `DiscoveryInput`, `FileDiscoveryStage`, `FileDiscoveryError`, `ParsingStage`, `MutantDiscoveryStage`, `MutantIndexingStage`, `SchematizationStage`, `IncompatibleRewritingStage`, `SourceFile`, `ParsedSource`, `MutationPoint`, `IndexedMutationPoint`, `MutantDescriptor`, `DeclarationPath`, `MutantFingerprint` |
-| [04 — Mutation Operators](04-mutation-operators.md) | `MutationOperator`, `MutationSyntaxVisitor`, `ReplacementKind`, all 7 operator structs and visitors, `SuppressionAnnotationExtractor`, `SuppressionFilter`, `SuppressionVisitor`, `InfiniteLoopBodyVisitor`, `InfiniteLoopBodyExtractor`, `InfiniteLoopFilter`, `HostBuildConfiguration`, `InactiveRegionExtractor`, `InactiveRegionFilter` |
-| [05 — Schematization](05-schematization.md) | `SchemataGenerator`, `SupportDeclarations`, `ActivationInstrumenter`, `ImportStyle`, `FunctionBodyShape`, `MutationRewriter`, `TypeScopeVisitor`, `FunctionBodyScope`, `SchematizedFile` |
-| [06 — Sandbox & Build](06-sandbox-build.md) | `SandboxFactory`, `SandboxName`, `SandboxCleaner`, `OrphanedProcessReaper`, `SandboxRegistry`, `Sandbox`, `BuildStage`, `BuildArtifact`, `BuildError` |
-| [07 — Execution](07-execution.md) | `MutantExecutor`, `ExecutionDeps`, `ApplicationVerifier`, `IntegrityError`, `ActivationMarker`, `TestExecutionStage`, `TestExecutionContext`, `TestBundle`, `TestTargetSelection`, `TargetedSuite`, `TestLaunchResult`, `TestBundleInvocation`, `DeveloperToolchain`, `TargetedSuites`, `FallbackExecutor`, `IncompatibleMutantExecutor`, `SimulatorPool`, `SimulatorSlot`, `SimulatorManager`, `SimulatorError`, `MutationCounter`, `RunnerInput`, `ExecutionResult`, `ExecutionStatus`, `BaselineError` |
+| [03 — Discovery Pipeline](03-discovery-pipeline.md) | `DiscoveryPipeline`, `OperatorRegistry`, `OperatorTier`, `DiscoveryInput`, `FileDiscoveryStage`, `FileDiscoveryError`, `ParsingStage`, `MutantDiscoveryStage`, `MutantIndexingStage`, `SchematizationStage`, `IncompatibleRewritingStage`, `SourceFile`, `ParsedSource`, `MutationPoint`, `IndexedMutationPoint`, `MutantDescriptor`, `MutantID`, `MutationExclusion`, `DeclarationPath`, `MutantFingerprint` |
+| [04 — Mutation Operators](04-mutation-operators.md) | `MutationOperator`, `OperatorVisitor`, `VisitorOperator`, `MutationSyntaxVisitor`, `ReplacementKind`, all 7 operator typealiases and visitors, `SuppressionAnnotationExtractor`, `SuppressionFilter`, `SuppressionVisitor`, `InfiniteLoopBodyVisitor`, `InfiniteLoopBodyExtractor`, `InfiniteLoopFilter`, `HostBuildConfiguration`, `InactiveRegionExtractor`, `InactiveRegionFilter` |
+| [05 — Schematization](05-schematization.md) | `SchemataGenerator`, `SupportDeclarations`, `ActivationInstrumenter`, `ImportStyle`, `FunctionBodyShape`, `MutationRewriter`, `UTF8Splice`, `TypeScopeVisitor`, `FunctionBodyScope`, `SchematizedFile` |
+| [06 — Sandbox & Build](06-sandbox-build.md) | `SandboxFactory`, `SandboxName`, `SandboxCleaner`, `OrphanedProcessReaper`, `SandboxRegistry`, `Sandbox`, `BuildStage`, `ToolRequests`, `BuildArtifact`, `BuildError` |
+| [07 — Execution](07-execution.md) | `MutantExecutor`, `SchemaNarrower`, `BaselineProbe`, `ResultRecorder`, `ExecutionDeps`, `ApplicationVerifier`, `IntegrityError`, `ActivationMarker`, `TestExecutionStage`, `TestExecutionContext`, `TestBundle`, `TestTargetSelection`, `TargetedSuite`, `TestLaunchResult`, `TestBundleInvocation`, `DeveloperToolchain`, `TargetedSuites`, `FallbackExecutor`, `IncompatibleMutantExecutor`, `SimulatorPool`, `SimulatorSlot`, `SimulatorManager`, `SimulatorError`, `MutationCounter`, `RunnerInput`, `ExecutionResult`, `ExecutionStatus`, `BaselineError` |
 | [08 — Result Parsing & Cache](08-result-parsing-cache.md) | `TestResultResolver`, `ResultParser`, `SPMResultParser`, `TestRunOutcome`, `TestOutputParser`, `XCResultParser`, `CacheStore`, `CacheTestSelection`, `MutantCacheKey`, `KillerTestFileResolver` |
-| [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) | `ProgressReporter`, `ConsoleProgressReporter`, `SilentProgressReporter`, `RunnerEvent`, `RunnerSummary`, `RunnerSummary+DetectionLine`, `RunnerSummary+Integrity`, `ExecutionResult+ReportStatusReason`, `TextReporter`, `JsonReporter`, `HtmlReporter`, `SonarReporter`, `SarifReporter`, all `Sarif*` types, `MarkdownReporter`, `GateResult+Summary`, `MutantLogWriter`, all `MutationReport*` types, all `Sonar*` types, `ProcessLaunching`, `ProcessRunner`, `ProcessRequest`, `OutputStopRule`, `OutputWatcher`, `SPMProcessLauncher`, `XcodeProcessLauncher`, `SleepInhibitor`, `StandardOutput`, `SystemCalls`, `CanonicalPath`, `ProcessTree`, `ProcessArguments`, `TimeoutEscalation`, `ProcessGroupRegistry`, `XCTestRunPlist`, `TestFilesHasher`, `ProjectRelativePath` |
+| [09 — Reporting & Infrastructure](09-reporting-infrastructure.md) | `ProgressReporter`, `ConsoleProgressReporter`, `SilentProgressReporter`, `RunnerEvent`, `RunnerSummary`, `RunnerSummary+DetectionLine`, `RunnerSummary+Integrity`, `ExecutionResult+ReportStatusReason`, `ReportWriter`, `TextReporter`, `JsonReporter`, `HtmlReporter`, `SonarReporter`, `SarifReporter`, all `Sarif*` types, `MarkdownReporter`, `GateResult+Summary`, `MutantLogWriter`, all `MutationReport*` types, all `Sonar*` types, `ProcessLaunching`, `ProcessRunner`, `ProcessRequest`, `OutputStopRule`, `OutputWatcher`, `SPMProcessLauncher`, `XcodeProcessLauncher`, `SleepInhibitor`, `StandardOutput`, `StandardError`, `FileSystem`, `VersionedJSON`, `JSONLines`, `SystemCalls`, `CanonicalPath`, `ProcessTree`, `ProcessArguments`, `TimeoutEscalation`, `ProcessGroupRegistry`, `XCTestRunPlist`, `TestFilesHasher`, `ProjectRelativePath` |
 | [10 — Quality Gate](10-quality-gate.md) | `QualityGate`, `GatePolicy`, `GateResult`, `GateError`, `Baseline`, `BaselineScope`, `BaselineEntry`, `BaselineStore`, `GateReporter` |
-| [11 — Plans](11-plans.md) | `Plan`, `PlanStore`, `PlanError`, `Planner`, `PlanMaterializer`, `PlanJournal`, `Shard`, `ShardSelector`, `RunIdentity`, `RunnerConfiguration+Plan`, `ResultMerger`, `MergeError`, `Reproducer` |
+| [11 — Plans](11-plans.md) | `Plan`, `PlanStore`, `PlanError`, `Planner`, `PlanMaterializer`, `PlanJournal`, `PlanResumer`, `Shard`, `ShardSelector`, `RunIdentity`, `RunnerConfiguration+Plan`, `ResultMerger`, `MergeError`, `Reproducer` |
 
 ---
 
@@ -43,7 +43,7 @@ RunnerInput
   → FallbackExecutor (on build failure)     → [ExecutionResult]
   → IncompatibleMutantExecutor              → [ExecutionResult]
   → RunnerSummary
-  → Reporters
+  → ReportWriter → Reporters
 ```
 
 ### Actors
@@ -78,13 +78,12 @@ All ten are covered now, by the same move each time: the failing call is a param
 
 | file | line | why it cannot be reached |
 |---|---|---|
-| `Discovery/Pipeline/FileDiscoveryStage.swift` | 33 | `sourcesPath` was checked for existence five lines above, and the enumerator is never `nil` |
-| `Discovery/Schematization/SchemataGenerator.swift` | 109 | `replaceRange` is called with the offsets `extract` has already accepted |
-| `Discovery/Operators/ArithmeticOperatorVisitor.swift` | 50 | the operator is looked up by position in the list that contains it |
+| `Discovery/Pipeline/FileDiscoveryStage.swift` | 50 | `sourcesPath` was checked for existence at the top of `run`, and the enumerator is never `nil` |
+| `Discovery/Operators/ArithmeticOperatorVisitor.swift` | 57 | the operator is looked up by position in the list that contains it |
 | `Infrastructure/XCTestRunPlist.swift` | 23 | `init?` already refused data that is not a `[String: Any]` |
 | `Infrastructure/ProcessTree.swift` | 18 | the process table has no cycles, so no pid is visited twice |
 | `Build/BuildStage.swift` | 100, 109 | both helpers are only ever passed the sandbox root, which exists |
-| `Sandbox/SandboxFactory.swift` | 232 | same: `findXcodeproj` is only passed the sandbox root |
+| `Sandbox/SandboxFactory.swift` | 232 | same: `xcodeprojs(in:)` is only passed the sandbox root |
 
 These stay because removing them replaces a graceful degrade with a crash or a force-unwrap. They are not free — each is a line that can rot without anyone noticing — which is why they are written down rather than left to be rediscovered.
 
