@@ -6,19 +6,13 @@ struct ProcessRequest: Sendable {
     let environment: [String: String]?
     let additionalEnvironment: [String: String]
     let workingDirectoryURL: URL
-    let timeout: Double
+    var timeout: Double
     var stopRule: OutputStopRule? = nil
 
     func withTimeout(_ timeout: Double) -> ProcessRequest {
-        ProcessRequest(
-            executableURL: executableURL,
-            arguments: arguments,
-            environment: environment,
-            additionalEnvironment: additionalEnvironment,
-            workingDirectoryURL: workingDirectoryURL,
-            timeout: timeout,
-            stopRule: stopRule
-        )
+        var copy = self
+        copy.timeout = timeout
+        return copy
     }
 
     func stopping(at rule: OutputStopRule) -> ProcessRequest {
