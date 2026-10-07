@@ -298,6 +298,25 @@ The wording of the gate, shared by `GateReporter` and `MarkdownReporter` so the 
 
 ---
 
+## Reporting/ReportFormat.swift
+
+```swift
+enum ReportFormat: String, CaseIterable, Sendable {
+    case json, html, sonar, sarif, markdown
+
+    var flag: String         // "--output", "--html-output", "--sonar-output", "--sarif-output", "--markdown-output"
+    var fileKey: String      // the flag without its dashes: the `.swift-mutation-testing.yml` key
+    var label: String        // "JSON", "HTML", "Sonar", "SARIF", "Markdown"
+    var exampleFile: String  // the path `init` suggests
+    var helpLine: String     // the flag's line in `HelpText.usage`
+    static func named(flag: String) -> ReportFormat?
+}
+```
+
+The one description of each report file. `CommandLineParser` reads a format's path off `named(flag:)`, `ConfigurationResolver` takes the CLI path or else the file's `fileKey`, `RunnerConfiguration.ReportingOptions.outputs` keeps them by format, `HelpText` and `ConfigurationFileWriter` write their lines from `helpLine` and `exampleFile`, and `ReportWriter` writes them in case order. Adding a format is a case here and its reporter in `ReportWriter`'s exhaustive `switch`, which the compiler asks for.
+
+---
+
 ## Reporting/ReportWriter.swift
 
 ```swift
@@ -308,7 +327,7 @@ struct ReportWriter: Sendable {
 }
 ```
 
-Writes every report file the configuration asks for from one table of `(label, path, write)` entries — JSON, HTML, Sonar, SARIF, Markdown — each taking its path from `configuration.reporting`. Entries without a path are skipped; when any is requested it prints a blank line, then `  ✓ <label> report: <path>` per file written, and a failure becomes `Warning: could not write <label> report to '<path>': …` on `StandardError` rather than ending the run. Adding a format is one entry in the table.
+Writes every report file the configuration asks for, in `ReportFormat` order, each from its path in `configuration.reporting.outputs` through an exhaustive `switch` over the format. Formats without a path are skipped; when any is requested it prints a blank line, then `  ✓ <label> report: <path>` per file written, and a failure becomes `Warning: could not write <label> report to '<path>': …` on `StandardError` rather than ending the run.
 
 ---
 

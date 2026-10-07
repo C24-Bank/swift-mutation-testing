@@ -46,11 +46,7 @@ struct ParsedArguments: Sendable {
     }
 
     struct ReportingOptions: Sendable {
-        var output: String?
-        var htmlOutput: String?
-        var sonarOutput: String?
-        var sarifOutput: String?
-        var markdownOutput: String?
+        var outputs: [ReportFormat: String] = [:]
         var keepLogsPath: String?
         var quiet: Bool = false
     }
@@ -89,11 +85,7 @@ struct ParsedArguments: Sendable {
 | `build.noCache` | `false` | `--no-cache` |
 | `build.workspace` | `nil` | `--workspace <path>` |
 | `build.xcodeProject` | `nil` | `--project <path>` |
-| `reporting.output` | `nil` | `--output <path>` |
-| `reporting.htmlOutput` | `nil` | `--html-output <path>` |
-| `reporting.sonarOutput` | `nil` | `--sonar-output <path>` |
-| `reporting.sarifOutput` | `nil` | `--sarif-output <path>` |
-| `reporting.markdownOutput` | `nil` | `--markdown-output <path>` |
+| `reporting.outputs[format]` | none | each `ReportFormat`'s flag: `--output`, `--html-output`, `--sonar-output`, `--sarif-output`, `--markdown-output` `<path>` — read off `ReportFormat.named(flag:)`, so a new format needs no parser case |
 | `reporting.keepLogsPath` | `nil` | `--keep-logs <directory>` |
 | `reporting.quiet` | `false` | `--quiet` |
 | `filter.sourcesPath` | `nil` | `--sources-path <path>` |
@@ -138,11 +130,8 @@ struct RunnerConfiguration: Sendable {
     }
 
     struct ReportingOptions: Sendable {
-        var output: String?
-        var htmlOutput: String?
-        var sonarOutput: String?
-        var sarifOutput: String?
-        var markdownOutput: String?
+        var outputs: [ReportFormat: String] = [:]  // the CLI path, else the file's `format.fileKey`
+        var keepLogsPath: String?
         var quiet: Bool
     }
 

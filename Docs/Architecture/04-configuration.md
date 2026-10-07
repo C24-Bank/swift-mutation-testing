@@ -18,8 +18,8 @@ timeout: 60
 # concurrency: 4
 # noCache: true
 # output: mutation-report.json
-# htmlOutput: mutation-report.html
-# sonarOutput: sonar-report.json
+# html-output: mutation-report.html
+# sonar-output: sonar-mutation-report.json
 # sourcesPath: Sources/
 # exclude:
 #   - "**/Generated/**"
@@ -65,9 +65,8 @@ RunnerConfiguration
 │   ├── noCache           — disable result caching (default: false)
 │   └── testingFramework  — TestingFramework (.xctest or .swiftTesting, default: .swiftTesting)
 ├── reporting: ReportingOptions
-│   ├── output            — path for JSON report (optional)
-│   ├── htmlOutput        — path for HTML report (optional)
-│   ├── sonarOutput       — path for Sonar report (optional)
+│   ├── outputs           — report path per ReportFormat (JSON, HTML, Sonar, SARIF, Markdown)
+│   ├── keepLogsPath      — where each mutant's test output is written (optional)
 │   └── quiet             — suppress progress output (default: false)
 └── filter: FilterOptions
     ├── sourcesPath       — root directory for source file discovery (default: projectPath)
