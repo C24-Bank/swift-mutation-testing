@@ -28,6 +28,19 @@ final class TypeScopeVisitor: SyntaxVisitor {
         return .visitChildren
     }
 
+    override func visit(_ node: AccessorBlockSyntax) -> SyntaxVisitorContinueKind {
+        guard case .getter(let statements) = node.accessors else { return .visitChildren }
+        scopes.append(
+            FunctionBodyScope(
+                bodyStartOffset: node.leftBrace.position.utf8Offset,
+                bodyEndOffset: node.rightBrace.endPosition.utf8Offset,
+                statementsStartOffset: statements.position.utf8Offset,
+                statementsEndOffset: statements.endPosition.utf8Offset
+            )
+        )
+        return .visitChildren
+    }
+
     private func record(body: CodeBlockSyntax?) {
         guard let body else { return }
         scopes.append(
