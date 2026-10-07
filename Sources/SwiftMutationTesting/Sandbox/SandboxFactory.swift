@@ -143,7 +143,7 @@ struct SandboxFactory: Sendable {
             } else if isDir && name == "xcshareddata" {
                 try FileManager.default.copyItem(at: item, to: dest)
             } else {
-                try FileManager.default.createSymbolicLink(at: dest, withDestinationURL: item)
+                try FileManager.default.copyItem(at: item, to: dest)
             }
         }
     }
@@ -171,7 +171,7 @@ struct SandboxFactory: Sendable {
             return
         }
 
-        try FileManager.default.createSymbolicLink(at: destination, withDestinationURL: source)
+        try FileManager.default.copyItem(at: source, to: destination)
     }
 
     private func disableSwiftLintBuildPhases(in sandboxURL: URL) throws {
