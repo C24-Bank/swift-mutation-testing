@@ -208,8 +208,8 @@ struct SandboxFactoryTests {
         #expect(!FileManager.default.fileExists(atPath: userDataFile.path))
     }
 
-    @Test("Given file not in schematized list, when sandbox created, then file is a symlink to the original")
-    func nonSchematizedFileIsSymlink() async throws {
+    @Test("Given file not in schematized list, when sandbox created, then file is a copy of the original")
+    func nonSchematizedFileIsCopied() async throws {
         let projectDir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(projectDir) }
 
@@ -226,7 +226,7 @@ struct SandboxFactoryTests {
         let isSymlink = (try? sandboxFile.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
         let content = try String(contentsOf: sandboxFile, encoding: .utf8)
 
-        #expect(isSymlink)
+        #expect(isSymlink == false)
         #expect(content == "original content")
     }
 
@@ -579,6 +579,7 @@ struct SandboxFactoryTests {
         defer { try? sandbox.cleanup() }
 
         let entries = try FileManager.default.contentsOfDirectory(atPath: sandbox.rootURL.path)
+            .filter { $0 != ".git" }
 
         #expect(entries == ["File.swift"])
     }
