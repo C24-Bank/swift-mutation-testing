@@ -73,12 +73,14 @@ struct MutantExecutor: Sendable {
             )
         } catch {
             await pool.tearDown()
+            DerivedScheme.removeAll(in: sandbox.rootURL)
             try? sandbox.cleanup()
             SandboxCleaner.deregister()
             throw error
         }
 
         await pool.tearDown()
+        DerivedScheme.removeAll(in: sandbox.rootURL)
         try? sandbox.cleanup()
         SandboxCleaner.deregister()
         try await cacheStore.persist()

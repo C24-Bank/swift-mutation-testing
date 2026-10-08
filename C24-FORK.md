@@ -28,6 +28,7 @@ here).
 | 11 | Remove `TestRepetitionPolicy` from each mutant's `.xctestrun` copy | A test plan with "retry on failure" (ours: up to 3 runs) re-ran every test a mutant broke, so each kill cost its failing tests three times. The plan itself stays unchanged for CI |
 | 12 | The first mutant run on each simulator gets at least 5 min (5× the timeout), later runs the normal timeout | The first run on a fresh simulator clone also installs and first-launches the app (~45 s on our app), so with a 60 s timeout the first mutants timed out before any test ran, and a survivor counted as detected |
 | 13 | Stop an Xcode test run at the first failing test or crash | xcodebuild ran on after a test had failed, and relaunched the test runner after each crash (one mutant: ~20 relaunches, 530 s). Kills now end within seconds; on 61 mutants the run went from 11.6 to 6.4 min with the same verdicts |
+| 14 | With a pinned test plan, build and test with a derived `<scheme>-Mutation` user scheme that lists only that plan and its testables; removed after the run | `build-for-testing` builds every testable in a scheme, whichever plan is selected, so our app scheme built its snapshot and UI test targets on every run |
 
 ## Usage
 
@@ -47,9 +48,6 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
   `SwapTernary`). `init` enables all seven, and some arithmetic and boolean mutants don't compile,
   which breaks the shared build for every mutant.
 - Exclude SwiftUI views: their `body` is a result builder and the generated `switch` there is risky.
-- For an app scheme with snapshot or UI test targets, build with a dedicated scheme that lists only
-  the unit test plan and testables: `build-for-testing` builds every testable in the scheme,
-  whichever plan is selected.
 - Never kill a run: simulator clones (`XMR-*`) are deleted only on normal exit, and the default
   concurrency is CPU count − 1.
 

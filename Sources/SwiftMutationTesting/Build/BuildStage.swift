@@ -10,6 +10,7 @@ struct BuildStage: Sendable {
         timeout: Double
     ) async throws -> BuildArtifact {
         let derivedDataURL = sandbox.derivedDataURL
+        let scheme = DerivedScheme.prepare(in: sandbox.rootURL, scheme: scheme)
 
         var arguments = [
             "build-for-testing",

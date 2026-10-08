@@ -313,6 +313,7 @@ struct IncompatibleMutantExecutor: Sendable {
         sandbox: Sandbox,
         configuration: RunnerConfiguration
     ) async throws -> TestLaunchResult {
+        let scheme = DerivedScheme.prepare(in: sandbox.rootURL, scheme: scheme)
         let derivedDataPath =
             sandbox.isInPlace
             ? sandbox.derivedDataURL.path
