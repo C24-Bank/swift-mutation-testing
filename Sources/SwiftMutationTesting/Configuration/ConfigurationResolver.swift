@@ -54,6 +54,7 @@ struct ConfigurationResolver: Sendable {
                     from: fileValues
                 ),
                 diffBase: cliArguments.filter.diffBase ?? fileValues["diff"],
+                sonarPropertiesPath: cliArguments.filter.sonarPropertiesPath ?? fileValues["sonar-exclusions"],
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
             )
         )

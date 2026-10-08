@@ -29,6 +29,7 @@ here).
 | 12 | The first mutant run on each simulator gets at least 5 min (5× the timeout), later runs the normal timeout | The first run on a fresh simulator clone also installs and first-launches the app (~45 s on our app), so with a 60 s timeout the first mutants timed out before any test ran, and a survivor counted as detected |
 | 13 | Stop an Xcode test run at the first failing test or crash | xcodebuild ran on after a test had failed, and relaunched the test runner after each crash (one mutant: ~20 relaunches, 530 s). Kills now end within seconds; on 61 mutants the run went from 11.6 to 6.4 min with the same verdicts |
 | 14 | With a pinned test plan, build and test with a derived `<scheme>-Mutation` user scheme that lists only that plan and its testables; removed after the run | `build-for-testing` builds every testable in a scheme, whichever plan is selected, so our app scheme built its snapshot and UI test targets on every run |
+| 15 | `--sonar-exclusions <sonar-project.properties>` (config `sonar-exclusions`): skip files matched by `sonar.exclusions` and `sonar.coverage.exclusions`, with real glob matching relative to `sonar.projectBaseDir` | One definition of "code we test" for coverage and mutation testing. On our app it removes 18% of mutants (views, adapters, requests, DI, UI component module) without a hand-written exclude list |
 
 ## Usage
 
@@ -38,7 +39,7 @@ SMT_TEST_PLAN=<plan> \
 swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
   --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 60 \
   [--diff origin/develop] \
-  --exclude Page.swift --exclude View.swift --no-cache
+  --sonar-exclusions Sonarcube/sonar-project.properties --no-cache
 ```
 
 - **In-place mode is only for disposable checkouts.** An interrupted run leaves mutated files
@@ -47,7 +48,8 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
 - Use only the conservative operators (`NegateConditional`, `LogicalOperatorReplacement`,
   `SwapTernary`). `init` enables all seven, and some arithmetic and boolean mutants don't compile,
   which breaks the shared build for every mutant.
-- Exclude SwiftUI views: their `body` is a result builder and the generated `switch` there is risky.
+- Exclude SwiftUI views (e.g. via `--sonar-exclusions`): their `body` is a result builder and the
+  generated `switch` there is risky.
 - Never kill a run: simulator clones (`XMR-*`) are deleted only on normal exit, and the default
   concurrency is CPU count − 1.
 

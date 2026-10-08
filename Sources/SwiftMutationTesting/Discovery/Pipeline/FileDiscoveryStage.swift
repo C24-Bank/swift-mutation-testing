@@ -18,6 +18,8 @@ struct FileDiscoveryStage: Sendable {
     ]
 
     func run(input: DiscoveryInput) throws -> [SourceFile] {
+        let sonarExclusions = try input.sonarPropertiesPath.map { try SonarExclusions.load(propertiesPath: $0) }
+
         let url = URL(fileURLWithPath: input.sourcesPath)
 
         guard FileManager.default.fileExists(atPath: input.sourcesPath) else {
@@ -41,7 +43,9 @@ struct FileDiscoveryStage: Sendable {
 
             let path = fileURL.path
 
-            guard !isExcluded(path: path, excludePatterns: input.excludePatterns) else {
+            guard !isExcluded(path: path, excludePatterns: input.excludePatterns),
+                sonarExclusions?.excludes(path: path) != true
+            else {
                 continue
             }
 

@@ -94,6 +94,7 @@ public struct SwiftMutationTesting {
             sourcesPath: configuration.filter.sourcesPath ?? configuration.projectPath,
             excludePatterns: configuration.filter.excludePatterns,
             diffBase: configuration.filter.diffBase,
+            sonarPropertiesPath: configuration.filter.sonarPropertiesPath,
             operators: configuration.filter.operators
         )
         let input = try await DiscoveryPipeline().run(input: discoveryInput)

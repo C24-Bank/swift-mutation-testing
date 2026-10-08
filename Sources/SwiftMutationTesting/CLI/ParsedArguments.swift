@@ -30,6 +30,7 @@ struct ParsedArguments: Sendable {
         var sourcesPath: String?
         var excludePatterns: [String] = []
         var diffBase: String?
+        var sonarPropertiesPath: String?
         var operators: [String] = []
         var disabledMutators: [String] = []
     }
