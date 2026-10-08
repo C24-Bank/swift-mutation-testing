@@ -367,8 +367,6 @@ struct IncompatibleMutantExecutor: Sendable {
             testArguments += ["-only-testing", testTarget]
         }
 
-        testArguments += SkipTestingList.arguments
-
         let test = try await deps.launcher.launchCapturing(
             xcodebuildRequest(
                 arguments: testArguments,

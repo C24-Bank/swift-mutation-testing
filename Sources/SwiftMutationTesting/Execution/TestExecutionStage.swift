@@ -316,8 +316,6 @@ struct TestExecutionStage: Sendable {
             arguments += ["-only-testing", testTarget]
         }
 
-        arguments += SkipTestingList.arguments
-
         let start = Date()
         let captured = try await deps.launcher.launchCapturing(
             ProcessRequest(
@@ -336,17 +334,5 @@ struct TestExecutionStage: Sendable {
             xcresultPath: xcresultPath,
             duration: Date().timeIntervalSince(start)
         )
-    }
-}
-
-enum SkipTestingList {
-    static var arguments: [String] {
-        guard let path = ProcessInfo.processInfo.environment["SMT_SKIP_TESTING_FILE"],
-            let content = try? String(contentsOfFile: path, encoding: .utf8)
-        else { return [] }
-        return content.split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { $0.isEmpty == false }
-            .flatMap { ["-skip-testing", $0] }
     }
 }
