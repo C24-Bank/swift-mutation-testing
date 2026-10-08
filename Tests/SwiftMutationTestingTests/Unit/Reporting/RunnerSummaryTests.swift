@@ -39,6 +39,19 @@ struct RunnerSummaryTests {
         #expect(summary.score == 75.0)
     }
 
+    @Test("Given a timed-out mutant, when score computed, then it counts as detected")
+    func scoreCountsTimeoutsAsDetected() {
+        let results = [
+            makeExecutionResult(status: .killed(by: "Suite.test")),
+            makeExecutionResult(status: .timeout),
+            makeExecutionResult(status: .survived),
+            makeExecutionResult(status: .noCoverage),
+        ]
+        let summary = RunnerSummary(results: results, totalDuration: 1)
+
+        #expect(summary.score == 50.0)
+    }
+
     @Test("Given no scoreable mutants, when score computed, then score is 100")
     func scoreIsHundredWhenDenominatorIsZero() {
         let summary = RunnerSummary(results: [makeExecutionResult(status: .unviable)], totalDuration: 0)

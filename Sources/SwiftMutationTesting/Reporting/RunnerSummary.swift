@@ -28,7 +28,7 @@ struct RunnerSummary: Sendable {
     }
 
     var score: Double {
-        let numerator = killed.count
+        let numerator = killed.count + timeouts.count
         let denominator = killed.count + survived.count + timeouts.count + noCoverage.count
 
         guard denominator > 0 else { return 100.0 }
