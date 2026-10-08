@@ -472,6 +472,24 @@ struct TestExecutionStageTests {
         #expect(timeouts.values.flatMap { $0 }.allSatisfy { $0 > 29 && $0 <= 30 })
     }
 
+    @Test("Given two simulators, when each is claimed twice, then only the first claim per simulator is a first run")
+    func firstRunIsClaimedOncePerSimulator() async {
+        let tracker = FirstRunTracker()
+
+        let claims = [
+            await tracker.claim("A"), await tracker.claim("B"), await tracker.claim("A"), await tracker.claim("B"),
+        ]
+
+        #expect(claims == [true, true, false, false])
+    }
+
+    @Test("Given a timeout, when the first-run limit is computed, then it is five times the timeout but at least 300 s")
+    func firstRunLimitIsGenerous() {
+        #expect(TestExecutionStage.firstRunLimit(for: 30) == 300)
+        #expect(TestExecutionStage.firstRunLimit(for: 60) == 300)
+        #expect(TestExecutionStage.firstRunLimit(for: 120) == 600)
+    }
+
     @Test("Given a cached mutant, when the pass runs, then it is not run")
     func cachedMutantIsNotRun() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()

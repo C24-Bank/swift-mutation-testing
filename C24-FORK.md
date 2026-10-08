@@ -26,6 +26,7 @@ here).
 | 9 | One test pass with exactly the configured `--timeout`; no doubled first pass, no retry pass | A hanging mutant cost 3× the timeout (one cost 20 min). With selected tests a run takes 5–37 s, so a fixed 60 s is enough and a hang costs exactly that |
 | 10 | Timeouts count as detected in the score | A timeout means the tests reacted to the mutant, just slowly. On bank-ios all four timeouts at 60 s were real kills (assertions failing within 1 s while the run went on, or repeated crashes); counting them as undetected lowered the score from 93% to 87% |
 | 11 | Remove `TestRepetitionPolicy` from each mutant's `.xctestrun` copy | A test plan with "retry on failure" (ours: up to 3 runs) re-ran every test a mutant broke, so each kill cost its failing tests three times. The plan itself stays unchanged for CI |
+| 12 | The first mutant run on each simulator gets at least 5 min (5× the timeout), later runs the normal timeout | The first run on a fresh simulator clone also installs and first-launches the app (~45 s on our app), so with a 60 s timeout the first mutants timed out before any test ran, and a survivor counted as detected |
 
 ## Usage
 
@@ -45,6 +46,9 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
   `SwapTernary`). `init` enables all seven, and some arithmetic and boolean mutants don't compile,
   which breaks the shared build for every mutant.
 - Exclude SwiftUI views: their `body` is a result builder and the generated `switch` there is risky.
+- For an app scheme with snapshot or UI test targets, build with a dedicated scheme that lists only
+  the unit test plan and testables: `build-for-testing` builds every testable in the scheme,
+  whichever plan is selected.
 - Never kill a run: simulator clones (`XMR-*`) are deleted only on normal exit, and the default
   concurrency is CPU count − 1.
 

@@ -5,6 +5,13 @@ struct TestExecutionStage: Sendable {
 
     static let retryWorkerShare = 4
 
+    /// The first run on a simulator also installs and first-launches the app, so it gets more time.
+    static func firstRunLimit(for timeout: Double) -> Double {
+        max(300, timeout * 5)
+    }
+
+    private let firstRuns = FirstRunTracker()
+
     func execute(
         mutants: [MutantDescriptor],
         in context: TestExecutionContext
@@ -80,9 +87,11 @@ struct TestExecutionStage: Sendable {
 
         let plistData = plist.activating(mutant.id)
         let slot = try await context.pool.acquire()
+        let isFirstRunOnSlot = await firstRuns.claim(slot.udid)
+        let limit = isFirstRunOnSlot ? Self.firstRunLimit(for: timeout) : timeout
         let launched: TestLaunchResult
         do {
-            launched = try await launch(plistData: plistData, slot: slot, in: context, timeout: timeout)
+            launched = try await launch(plistData: plistData, slot: slot, in: context, timeout: limit)
         } catch {
             await context.pool.release(slot)
             throw error
@@ -94,7 +103,7 @@ struct TestExecutionStage: Sendable {
             exitCode: launched.exitCode,
             output: launched.output,
             xcresultPath: launched.xcresultPath,
-            timeout: timeout
+            timeout: limit
         )
         try? FileManager.default.removeItem(atPath: launched.xcresultPath)
 
@@ -299,5 +308,13 @@ struct TestExecutionStage: Sendable {
             xcresultPath: xcresultPath,
             duration: Date().timeIntervalSince(start)
         )
+    }
+}
+
+actor FirstRunTracker {
+    private var seen: Set<String> = []
+
+    func claim(_ id: String) -> Bool {
+        seen.insert(id).inserted
     }
 }
