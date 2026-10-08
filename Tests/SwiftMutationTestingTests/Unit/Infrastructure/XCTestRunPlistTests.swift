@@ -51,6 +51,35 @@ struct XCTestRunPlistTests {
         #expect(envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] == "id_0")
     }
 
+    @Test("Given a target with a retry policy, when activating mutant, then the retry policy is removed")
+    func activatingRemovesTestRepetitionPolicy() throws {
+        let plistDict: [String: Any] = [
+            "TestConfigurations": [
+                [
+                    "Name": "Config",
+                    "TestTargets": [
+                        [
+                            "BlueprintName": "AppTests",
+                            "TestRepetitionPolicy": ["XCTRepetitionMode": 2, "XCTMaximumIterations": 3],
+                        ] as [String: Any]
+                    ],
+                ] as [String: Any]
+            ]
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: plistDict, format: .xml, options: 0)
+        let plist = try #require(XCTestRunPlist(data))
+
+        let result = plist.activating("id_0")
+        let resultDict = try #require(
+            PropertyListSerialization.propertyList(from: result, options: [], format: nil) as? [String: Any]
+        )
+        let configs = try #require(resultDict["TestConfigurations"] as? [[String: Any]])
+        let targets = try #require(configs[0]["TestTargets"] as? [[String: Any]])
+
+        #expect(targets[0]["TestRepetitionPolicy"] == nil)
+        #expect(targets[0]["BlueprintName"] as? String == "AppTests")
+    }
+
     @Test("Given legacy-format plist, when activating mutant, then env var is injected into target dict")
     func activatingInjectsEnvVarInLegacyFormat() throws {
         let plistDict: [String: Any] = [

@@ -29,6 +29,7 @@ struct XCTestRunPlist: Sendable, Equatable {
                         var envVars = targets[targetIndex]["EnvironmentVariables"] as? [String: String] ?? [:]
                         envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] = mutantID
                         targets[targetIndex]["EnvironmentVariables"] = envVars
+                        targets[targetIndex].removeValue(forKey: "TestRepetitionPolicy")
                     }
                     configurations[index]["TestTargets"] = targets
                 }
@@ -40,6 +41,7 @@ struct XCTestRunPlist: Sendable, Equatable {
                     var envVars = targetDict["EnvironmentVariables"] as? [String: String] ?? [:]
                     envVars["__SWIFT_MUTATION_TESTING_ACTIVE"] = mutantID
                     targetDict["EnvironmentVariables"] = envVars
+                    targetDict.removeValue(forKey: "TestRepetitionPolicy")
                     dict[key] = targetDict
                 }
             }

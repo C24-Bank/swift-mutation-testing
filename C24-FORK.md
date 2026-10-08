@@ -25,6 +25,7 @@ here).
 | 8 | `--diff <git-ref>` (config `diff`): only mutate lines added or changed since the ref, compared with the working tree | Weekly or per-PR runs: last week's changes on our app are 130 mutants instead of 15,230. Without it, a full run as before |
 | 9 | One test pass with exactly the configured `--timeout`; no doubled first pass, no retry pass | A hanging mutant cost 3× the timeout (one cost 20 min). With selected tests a run takes 5–37 s, so a fixed 60 s is enough and a hang costs exactly that |
 | 10 | Timeouts count as detected in the score | A timeout means the tests reacted to the mutant, just slowly. On bank-ios all four timeouts at 60 s were real kills (assertions failing within 1 s while the run went on, or repeated crashes); counting them as undetected lowered the score from 93% to 87% |
+| 11 | Remove `TestRepetitionPolicy` from each mutant's `.xctestrun` copy | A test plan with "retry on failure" (ours: up to 3 runs) re-ran every test a mutant broke, so each kill cost its failing tests three times. The plan itself stays unchanged for CI |
 
 ## Usage
 
