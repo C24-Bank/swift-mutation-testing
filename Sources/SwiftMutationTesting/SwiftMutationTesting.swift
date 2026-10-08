@@ -93,6 +93,7 @@ public struct SwiftMutationTesting {
             noCache: configuration.build.noCache,
             sourcesPath: configuration.filter.sourcesPath ?? configuration.projectPath,
             excludePatterns: configuration.filter.excludePatterns,
+            diffBase: configuration.filter.diffBase,
             operators: configuration.filter.operators
         )
         let input = try await DiscoveryPipeline().run(input: discoveryInput)

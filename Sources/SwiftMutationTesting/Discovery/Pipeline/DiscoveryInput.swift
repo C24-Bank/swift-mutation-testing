@@ -6,5 +6,6 @@ struct DiscoveryInput: Sendable {
     let noCache: Bool
     let sourcesPath: String
     let excludePatterns: [String]
+    var diffBase: String? = nil
     let operators: [String]
 }

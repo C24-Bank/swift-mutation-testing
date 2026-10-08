@@ -15,6 +15,7 @@ struct CommandLineParser: Sendable {
         var quiet = false
         var sourcesPath: String?
         var excludePatterns: [String] = []
+        var diffBase: String?
         var operators: [String] = []
         var disabledMutators: [String] = []
     }
@@ -83,6 +84,7 @@ struct CommandLineParser: Sendable {
             filter: .init(
                 sourcesPath: flags.sourcesPath,
                 excludePatterns: flags.excludePatterns,
+                diffBase: flags.diffBase,
                 operators: flags.operators,
                 disabledMutators: flags.disabledMutators
             )
@@ -152,6 +154,9 @@ struct CommandLineParser: Sendable {
 
         case "--exclude":
             values.excludePatterns.append(try nextValue(for: flag, at: &index, in: arguments))
+
+        case "--diff":
+            values.diffBase = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--operator":
             values.operators.append(try nextValue(for: flag, at: &index, in: arguments))

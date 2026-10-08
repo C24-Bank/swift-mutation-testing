@@ -22,6 +22,7 @@ here).
 | 5 | In-place mode (`SMT_IN_PLACE=1`) | Every sandbox started with empty DerivedData, so each build was cold (10+ min). In place, mutated files are written into the checkout and restored afterwards, and builds reuse its warm DerivedData |
 | 6 | One `fileprivate` mutant-ID variable per schematized file | The single internal global changed the module's interface (testability), so every importer recompiled. It also broke the build when an out-of-body mutant replaced the file holding it |
 | 7 | Treat shorthand getters (`var x: T { … }`) as schematizable scopes | They have no `AccessorDecl`, so every mutation in them needed its own build. On our app this cut out-of-body mutants from 33% to 0.7% |
+| 8 | `--diff <git-ref>` (config `diff`): only mutate lines added or changed since the ref, compared with the working tree | Weekly or per-PR runs: last week's changes on our app are 130 mutants instead of 15,230. Without it, a full run as before |
 
 ## Usage
 
@@ -30,6 +31,7 @@ SMT_IN_PLACE=1 \
 SMT_TEST_PLAN=<plan> \
 swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
   --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 120 \
+  [--diff origin/develop] \
   --exclude Page.swift --exclude View.swift --no-cache
 ```
 
@@ -53,5 +55,5 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
 
 ## Candidates for upstream
 
-1, 2, 3, 4, 6 and 7 are general fixes. 5 (in-place) fits as an opt-in config key.
+1, 2, 3, 4, 6 and 7 are general fixes. 5 (in-place) and 8 (diff) fit as opt-in config keys.
 Single-file `--sources-path` is a separate small bug.

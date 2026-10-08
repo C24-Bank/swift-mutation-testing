@@ -53,6 +53,7 @@ struct ConfigurationResolver: Sendable {
                     keys: ["exclude", "exclude-patterns"],
                     from: fileValues
                 ),
+                diffBase: cliArguments.filter.diffBase ?? fileValues["diff"],
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
             )
         )

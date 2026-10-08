@@ -1,3 +1,5 @@
+import Foundation
+
 struct DiscoveryPipeline: Sendable {
     private static let registry: [(name: String, operator: any MutationOperator)] = [
         (name: "RelationalOperatorReplacement", operator: RelationalOperatorReplacement()),
@@ -12,10 +14,17 @@ struct DiscoveryPipeline: Sendable {
     static let allOperatorNames: [String] = registry.map(\.name)
 
     func run(input: DiscoveryInput) async throws -> RunnerInput {
-        let sourceFiles = try FileDiscoveryStage().run(input: input)
+        let changedLines = try input.diffBase.map { try ChangedLines.load(projectPath: input.projectPath, base: $0) }
+        var sourceFiles = try FileDiscoveryStage().run(input: input)
+        if let changedLines {
+            sourceFiles = sourceFiles.filter { changedLines.files.contains(canonical($0.path)) }
+        }
         let parsedSources = await ParsingStage().run(sourceFiles: sourceFiles)
         let ops = resolvedOperators(from: input.operators)
-        let mutationPoints = await MutantDiscoveryStage(operators: ops).run(sources: parsedSources)
+        var mutationPoints = await MutantDiscoveryStage(operators: ops).run(sources: parsedSources)
+        if let changedLines {
+            mutationPoints = mutationPoints.filter { changedLines.contains(filePath: $0.filePath, line: $0.line) }
+        }
         let indexed = MutantIndexingStage().run(mutationPoints: mutationPoints, sources: parsedSources)
         let (schematizedFiles, schematizableDescriptors) = SchematizationStage()
             .run(indexed: indexed, sources: parsedSources)
@@ -33,6 +42,10 @@ struct DiscoveryPipeline: Sendable {
             supportFileContent: SchematizationStage.supportFileContent,
             mutants: allDescriptors
         )
+    }
+
+    private func canonical(_ path: String) -> String {
+        URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
     private func indexFromID(_ id: String) -> Int {

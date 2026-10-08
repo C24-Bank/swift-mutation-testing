@@ -32,6 +32,7 @@ struct RunnerConfiguration: Sendable {
     struct FilterOptions: Sendable {
         var sourcesPath: String?
         var excludePatterns: [String]
+        var diffBase: String?
         var operators: [String]
     }
 }
