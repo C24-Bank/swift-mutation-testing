@@ -299,7 +299,7 @@ struct TestExecutionStage: Sendable {
                 additionalEnvironment: [:],
                 workingDirectoryURL: context.sandbox.rootURL,
                 timeout: timeout
-            )
+            ).stopping(at: .firstXcodeTestFailureOrCrash)
         )
 
         return TestLaunchResult(

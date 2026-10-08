@@ -1,5 +1,6 @@
 struct TestOutputParser: Sendable {
     static let failureMarkers = ["]' failed (", " recorded an issue", " failed after "]
+    static let crashMarkers = ["Fatal error", "EXC_BAD_INSTRUCTION"]
 
     enum Result: Sendable {
         case killed(by: String)
@@ -15,7 +16,7 @@ struct TestOutputParser: Sendable {
                 return .killed(by: name)
             }
 
-            if line.contains("Fatal error") || line.contains("EXC_BAD_INSTRUCTION") {
+            if Self.crashMarkers.contains(where: { line.contains($0) }) {
                 return .crashed
             }
 

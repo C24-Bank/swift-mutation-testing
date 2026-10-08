@@ -11,4 +11,11 @@ struct OutputStopRule: Sendable, Equatable {
 
 extension OutputStopRule {
     static let firstTestFailure = OutputStopRule(markers: TestOutputParser.failureMarkers, exitCode: 1)
+
+    /// Also stops at a crash, before xcodebuild relaunches the test runner and runs into the same crash again.
+    static let firstXcodeTestFailureOrCrash = OutputStopRule(
+        markers: TestOutputParser.failureMarkers + TestOutputParser.crashMarkers
+            + ["Restarting after unexpected exit"],
+        exitCode: 1
+    )
 }
