@@ -435,8 +435,8 @@ struct TestExecutionStageTests {
         (0 ..< 4).map { makeMutantDescriptor(id: "m\($0)", isSchematizable: true) }
     }
 
-    @Test("Given a mutant that times out under load, when the pass ends, then it is run again alone and takes its real verdict")
-    func timedOutMutantIsRetriedAloneAndTakesItsRealVerdict() async throws {
+    @Test("Given a mutant that times out, when executed, then it is a timeout after a single attempt")
+    func timedOutMutantIsReportedAfterOneAttempt() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -446,10 +446,9 @@ struct TestExecutionStageTests {
 
         let results = try await stage.execute(mutants: fourMutants(), in: context)
 
-        #expect(results.count == 4)
-        #expect(results.allSatisfy { $0.status == .survived })
-        #expect(await launcher.attemptCount(for: "m1") == 2)
-        #expect(await launcher.attemptCount(for: "m0") == 1)
+        let statuses = Dictionary(uniqueKeysWithValues: results.map { ($0.descriptor.id, $0.status) })
+        #expect(statuses == ["m0": .survived, "m1": .timeout, "m2": .survived, "m3": .survived])
+        #expect(await launcher.attemptCount(for: "m1") == 1)
 
         let finished = await reporter.events.filter {
             if case .mutantFinished = $0 { return true }
@@ -458,26 +457,8 @@ struct TestExecutionStageTests {
         #expect(finished.count == 4)
     }
 
-    @Test("Given a mutant that times out under load, when it is run again, then nothing else is running")
-    func retryRunsAloneAfterEveryFirstAttempt() async throws {
-        let dir = try FileHelpers.makeTemporaryDirectory()
-        defer { FileHelpers.cleanup(dir) }
-
-        let launcher = TimeoutUnderLoadLauncher(timesOutFirst: ["m0", "m2"])
-        let (stage, context, _) = try await makeLoadFixture(in: dir, launcher: launcher, reporter: MockProgressReporter())
-
-        _ = try await stage.execute(mutants: fourMutants(), in: context)
-
-        let sequence = await launcher.sequence
-        let lastFirstAttempt = sequence.lastIndex { $0.attempt == 1 } ?? -1
-        let firstRetry = sequence.firstIndex { $0.attempt == 2 } ?? Int.max
-        #expect(firstRetry > lastFirstAttempt)
-        #expect(await launcher.maxInFlightDuringFirstAttempts >= 2)
-        #expect(await launcher.inFlightDuringRetry == ["m0": 1, "m2": 1])
-    }
-
-    @Test("Given a mutant under load, when it runs, then its limit is twice the timeout and the run again uses the timeout")
-    func loadedPassDoublesTheLimitAndTheRunAgainRestoresIt() async throws {
+    @Test("Given several mutants, when executed, then every run gets exactly the configured timeout")
+    func everyRunUsesTheConfiguredTimeout() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 
@@ -487,57 +468,12 @@ struct TestExecutionStageTests {
         _ = try await stage.execute(mutants: fourMutants(), in: context)
 
         let timeouts = await launcher.timeouts
-        #expect(timeouts["m1"]?.count == 2)
-        #expect(timeouts["m1"]?[0] ?? 0 > 59)
-        #expect(timeouts["m1"]?[0] ?? 0 <= 60)
-        #expect(timeouts["m1"]?[1] ?? 0 > 29)
-        #expect(timeouts["m1"]?[1] ?? 0 <= 30)
-        #expect(timeouts["m0"]?.count == 1)
-        #expect(timeouts["m0"]?[0] ?? 0 > 59)
+        #expect(timeouts.values.allSatisfy { $0.count == 1 })
+        #expect(timeouts.values.flatMap { $0 }.allSatisfy { $0 > 29 && $0 <= 30 })
     }
 
-    @Test("Given eight workers and stragglers, when they run again, then at most two run at once")
-    func stragglersRunAgainWithAQuarterOfTheWorkers() async throws {
-        let dir = try FileHelpers.makeTemporaryDirectory()
-        defer { FileHelpers.cleanup(dir) }
-
-        let stragglers: Set<String> = ["m0", "m1", "m2", "m3"]
-        let launcher = TimeoutUnderLoadLauncher(timesOutFirst: stragglers)
-        let (stage, context, _) = try await makeLoadFixture(
-            in: dir, launcher: launcher, reporter: MockProgressReporter(), concurrency: 8
-        )
-
-        _ = try await stage.execute(mutants: fourMutants(), in: context)
-
-        let inFlight = await launcher.inFlightDuringRetry
-        #expect(Set(inFlight.keys) == stragglers)
-        #expect(inFlight.values.max() == 2)
-        #expect(await launcher.maxInFlightDuringFirstAttempts == 4)
-    }
-
-    @Test("Given a mutant that times out even alone, when the pass ends, then it is reported as a timeout once")
-    func mutantThatTimesOutAloneIsReportedAsTimeoutOnce() async throws {
-        let dir = try FileHelpers.makeTemporaryDirectory()
-        defer { FileHelpers.cleanup(dir) }
-
-        let launcher = TimeoutUnderLoadLauncher(timesOutFirst: [], alwaysTimesOut: ["m3"])
-        let reporter = MockProgressReporter()
-        let (stage, context, _) = try await makeLoadFixture(in: dir, launcher: launcher, reporter: reporter)
-
-        let results = try await stage.execute(mutants: fourMutants(), in: context)
-
-        #expect(results.first { $0.descriptor.id == "m3" }?.status == .timeout)
-        #expect(await launcher.attemptCount(for: "m3") == 2)
-
-        let reportedForM3 = await reporter.events.filter {
-            if case .mutantFinished(let descriptor, _, _, _) = $0 { return descriptor.id == "m3" }
-            return false
-        }
-        #expect(reportedForM3.count == 1)
-    }
-
-    @Test("Given a cached mutant, when the pass runs, then it is neither run nor retried")
-    func cachedMutantIsNotRetried() async throws {
+    @Test("Given a cached mutant, when the pass runs, then it is not run")
+    func cachedMutantIsNotRun() async throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
         defer { FileHelpers.cleanup(dir) }
 

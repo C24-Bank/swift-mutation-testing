@@ -3,7 +3,6 @@ import Foundation
 struct TestExecutionStage: Sendable {
     let deps: ExecutionDeps
 
-    static let loadedTimeoutFactor: Double = 2
     static let retryWorkerShare = 4
 
     func execute(
@@ -13,21 +12,9 @@ struct TestExecutionStage: Sendable {
         let timeout = context.configuration.build.timeout
         let concurrency = context.configuration.build.concurrency
         var results: [ExecutionResult] = []
-        var timedOut: [MutantDescriptor] = []
 
         try await forEach(mutants, concurrency: concurrency, run: { mutant in
-            try await self.attempt(mutant, in: context, timeout: timeout * Self.loadedTimeoutFactor)
-        }) { attempt in
-            switch attempt {
-            case .settled(let result):
-                results.append(result)
-            case .timedOut(let mutant):
-                timedOut.append(mutant)
-            }
-        }
-
-        try await forEach(timedOut, concurrency: max(1, concurrency / Self.retryWorkerShare), run: { mutant in
-            try await self.runAgain(mutant, in: context, timeout: timeout)
+            try await self.attempt(mutant, in: context, timeout: timeout)
         }) { result in
             results.append(result)
         }
@@ -60,16 +47,11 @@ struct TestExecutionStage: Sendable {
         }
     }
 
-    private enum Attempt: Sendable {
-        case settled(ExecutionResult)
-        case timedOut(MutantDescriptor)
-    }
-
     private func attempt(
         _ mutant: MutantDescriptor,
         in context: TestExecutionContext,
         timeout: Double
-    ) async throws -> Attempt {
+    ) async throws -> ExecutionResult {
         let key = MutantCacheKey.make(for: mutant)
 
         if let cached = await deps.cacheStore.result(for: key) {
@@ -80,26 +62,9 @@ struct TestExecutionStage: Sendable {
             let index = await deps.counter.increment()
             await deps.reporter.report(
                 .mutantFinished(descriptor: mutant, status: cached, index: index, total: deps.counter.total))
-            return .settled(result)
+            return result
         }
 
-        let (outcome, launched) = try await measure(mutant, in: context, timeout: timeout)
-
-        if case .timedOut = outcome {
-            return .timedOut(mutant)
-        }
-
-        return .settled(
-            await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
-        )
-    }
-
-    private func runAgain(
-        _ mutant: MutantDescriptor,
-        in context: TestExecutionContext,
-        timeout: Double
-    ) async throws -> ExecutionResult {
-        let key = MutantCacheKey.make(for: mutant)
         let (outcome, launched) = try await measure(mutant, in: context, timeout: timeout)
         return await recordResult(mutant: mutant, key: key, outcome: outcome, launched: launched, in: context)
     }

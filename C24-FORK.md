@@ -23,6 +23,7 @@ here).
 | 6 | One `fileprivate` mutant-ID variable per schematized file | The single internal global changed the module's interface (testability), so every importer recompiled. It also broke the build when an out-of-body mutant replaced the file holding it |
 | 7 | Treat shorthand getters (`var x: T { … }`) as schematizable scopes | They have no `AccessorDecl`, so every mutation in them needed its own build. On our app this cut out-of-body mutants from 33% to 0.7% |
 | 8 | `--diff <git-ref>` (config `diff`): only mutate lines added or changed since the ref, compared with the working tree | Weekly or per-PR runs: last week's changes on our app are 130 mutants instead of 15,230. Without it, a full run as before |
+| 9 | One test pass with exactly the configured `--timeout`; no doubled first pass, no retry pass | A hanging mutant cost 3× the timeout (one cost 20 min). With selected tests a run takes 5–37 s, so a fixed 60 s is enough and a hang costs exactly that |
 
 ## Usage
 
@@ -30,7 +31,7 @@ here).
 SMT_IN_PLACE=1 \
 SMT_TEST_PLAN=<plan> \
 swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
-  --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 120 \
+  --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 60 \
   [--diff origin/develop] \
   --exclude Page.swift --exclude View.swift --no-cache
 ```
@@ -49,9 +50,10 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
 
 - No baseline check on the Xcode path: if the unmutated suite is red, every mutant counts as killed
   and the score reads 100%.
-- Fixed timeout only. A hanging mutant costs 3× the timeout (2× in the first pass, 1× on retry).
 - One `--target` for all mutants; no per-mutant test selection yet.
 - The killer is only the first failing test, and a flaky test can fake a kill.
+- `TimeoutEscalationTests` (upstream, timing-based) can fail in a full `swift test` run under load;
+  it passes on its own. Upstream v1.5.1 itself fails two fixture tests here that pass on this branch.
 
 ## Candidates for upstream
 
