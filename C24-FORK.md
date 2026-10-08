@@ -7,6 +7,9 @@ disposable checkout. These changes make that work and make it fast.
 
 Branch `prototype/bank-ios-trial` holds them as one commit per fix, unpolished. Options are
 environment variables for now; they should become config keys before anything goes upstream.
+Tried and removed: `-only-testing` on `build-for-testing` (it does not shrink the build; use a
+package scheme), and a `-skip-testing` list (flaky tests are fixed in the tests, not worked around
+here).
 
 ## Changes and why
 
@@ -15,19 +18,16 @@ environment variables for now; they should become config keys before anything go
 | 1 | Copy project files into the sandbox instead of symlinking them | Xcode rejects signed `.xcframework`s whose files are symlinks, so every build failed |
 | 2 | Skip the project's `.git`; give each sandbox an empty throwaway repository | A worktree's `.git` points at the real repository, so build scripts in the sandbox rewrote its shared config (e.g. `core.hooksPath`). With no repository at all, scripts that call git fail and stop the build |
 | 3 | `-collect-test-diagnostics never` on every test run | After a failing run, xcodebuild may run `simctl diagnose` for up to 600 s, turning killed mutants into timeouts |
-| 4 | Pin the test plan (`SMT_TEST_PLAN`); find the `.xctestrun` under custom build locations; prefer the pinned plan, else the newest | With a custom Xcode build location, products land outside `-derivedDataPath`. A scheme with several plans produces several `.xctestrun` files and the first one found was used |
+| 4 | Pin the test plan (`SMT_TEST_PLAN`, also for out-of-body mutant builds); find the `.xctestrun` under custom build locations; prefer the pinned plan, else the newest | With a custom Xcode build location, products land outside `-derivedDataPath`. A scheme with several plans produces several `.xctestrun` files and the first one found was used |
 | 5 | In-place mode (`SMT_IN_PLACE=1`) | Every sandbox started with empty DerivedData, so each build was cold (10+ min). In place, mutated files are written into the checkout and restored afterwards, and builds reuse its warm DerivedData |
 | 6 | One `fileprivate` mutant-ID variable per schematized file | The single internal global changed the module's interface (testability), so every importer recompiled. It also broke the build when an out-of-body mutant replaced the file holding it |
-| 7 | `SMT_BUILD_ONLY_TESTING` adds `-only-testing` to `build-for-testing` | Does not shrink the build in practice; use a package scheme for that. Kept for completeness |
-| 8 | Treat shorthand getters (`var x: T { … }`) as schematizable scopes | They have no `AccessorDecl`, so every mutation in them needed its own build. On our app this cut out-of-body mutants from 33% to 0.7% |
-| 9 | `SMT_SKIP_TESTING_FILE`: one test identifier per line, passed as `-skip-testing` | Keeps known-failing or flaky tests from turning survivors into kills |
+| 7 | Treat shorthand getters (`var x: T { … }`) as schematizable scopes | They have no `AccessorDecl`, so every mutation in them needed its own build. On our app this cut out-of-body mutants from 33% to 0.7% |
 
 ## Usage
 
 ```sh
 SMT_IN_PLACE=1 \
 SMT_TEST_PLAN=<plan> \
-SMT_SKIP_TESTING_FILE=skip-testing.txt \
 swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
   --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 120 \
   --exclude Page.swift --exclude View.swift --no-cache
@@ -53,5 +53,5 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
 
 ## Candidates for upstream
 
-1, 2, 3, 4, 6 and 8 are general fixes. 5 (in-place) and 9 (skip list) fit as opt-in config keys.
+1, 2, 3, 4, 6 and 7 are general fixes. 5 (in-place) fits as an opt-in config key.
 Single-file `--sources-path` is a separate small bug.

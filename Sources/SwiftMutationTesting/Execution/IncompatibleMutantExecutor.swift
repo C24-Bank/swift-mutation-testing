@@ -301,15 +301,10 @@ struct IncompatibleMutantExecutor: Sendable {
     }
 
     private static var buildScopeArguments: [String] {
-        var arguments: [String] = []
-        let environment = ProcessInfo.processInfo.environment
-        if let testPlan = environment["SMT_TEST_PLAN"], !testPlan.isEmpty {
-            arguments += ["-testPlan", testPlan]
+        guard let testPlan = ProcessInfo.processInfo.environment["SMT_TEST_PLAN"], !testPlan.isEmpty else {
+            return []
         }
-        if let onlyTesting = environment["SMT_BUILD_ONLY_TESTING"], !onlyTesting.isEmpty {
-            arguments += ["-only-testing", onlyTesting]
-        }
-        return arguments
+        return ["-testPlan", testPlan]
     }
 
     private func launchXcode(
