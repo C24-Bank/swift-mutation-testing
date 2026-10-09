@@ -21,7 +21,9 @@ struct DiscoveryPipeline: Sendable {
         }
         let parsedSources = await ParsingStage().run(sourceFiles: sourceFiles)
         let ops = resolvedOperators(from: input.operators)
-        var mutationPoints = await MutantDiscoveryStage(operators: ops).run(sources: parsedSources)
+        var mutationPoints = await MutantDiscoveryStage(
+            operators: ops, excludeCoverageBlocks: input.excludeCoverageBlocks
+        ).run(sources: parsedSources)
         if let changedLines {
             mutationPoints = mutationPoints.filter { changedLines.contains(filePath: $0.filePath, line: $0.line) }
         }

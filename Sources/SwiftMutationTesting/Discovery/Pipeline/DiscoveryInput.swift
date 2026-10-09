@@ -8,5 +8,6 @@ struct DiscoveryInput: Sendable {
     let excludePatterns: [String]
     var diffBase: String? = nil
     var sonarPropertiesPath: String? = nil
+    var excludeCoverageBlocks = false
     let operators: [String]
 }

@@ -68,6 +68,13 @@ public struct SwiftMutationTesting {
                 ))
         }
 
+        if configuration.filter.discoverOnly {
+            for mutant in input.mutants where !mutant.isSchematizable {
+                print("incompatible: \(mutant.filePath):\(mutant.line): \(mutant.description)")
+            }
+            return .success
+        }
+
         let executionLauncher: any ProcessLaunching = launcher ?? defaultLauncher(for: configuration.build.projectType)
 
         SandboxCleaner.removeOrphaned()
@@ -95,6 +102,7 @@ public struct SwiftMutationTesting {
             excludePatterns: configuration.filter.excludePatterns,
             diffBase: configuration.filter.diffBase,
             sonarPropertiesPath: configuration.filter.sonarPropertiesPath,
+            excludeCoverageBlocks: configuration.filter.excludeCoverageBlocks,
             operators: configuration.filter.operators
         )
         let input = try await DiscoveryPipeline().run(input: discoveryInput)

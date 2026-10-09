@@ -55,6 +55,9 @@ struct ConfigurationResolver: Sendable {
                 ),
                 diffBase: cliArguments.filter.diffBase ?? fileValues["diff"],
                 sonarPropertiesPath: cliArguments.filter.sonarPropertiesPath ?? fileValues["sonar-exclusions"],
+                excludeCoverageBlocks: cliArguments.filter.excludeCoverageBlocks
+                    || fileValues["exclude-coverage-blocks"]?.lowercased() == "true",
+                discoverOnly: cliArguments.filter.discoverOnly,
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
             )
         )

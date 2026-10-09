@@ -27,6 +27,8 @@ enum HelpText {
           --sources-path <path>         Root directory to discover Swift source files (default: project path)
           --diff <git-ref>              Only mutate lines added or changed since <git-ref> (working tree vs ref)
           --sonar-exclusions <path>     Skip files matched by sonar.exclusions / sonar.coverage.exclusions in <path>
+          --exclude-coverage-blocks     Skip #if blocks and code between START/END-COVERAGE-EXCLUSION comments
+          --discover-only               Report the mutants that would be tested, then exit without building
           --exclude <pattern>           Exclude files matching pattern (repeatable)
           --operator <id>               Mutation operator to apply (repeatable, default: all)
           --disable-mutator <id>        Disable a specific mutation operator (repeatable)

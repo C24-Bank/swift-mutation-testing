@@ -31,6 +31,8 @@ struct ParsedArguments: Sendable {
         var excludePatterns: [String] = []
         var diffBase: String?
         var sonarPropertiesPath: String?
+        var excludeCoverageBlocks = false
+        var discoverOnly = false
         var operators: [String] = []
         var disabledMutators: [String] = []
     }

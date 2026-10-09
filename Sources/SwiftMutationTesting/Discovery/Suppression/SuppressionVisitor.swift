@@ -2,8 +2,17 @@ import SwiftSyntax
 
 final class SuppressionVisitor: SyntaxVisitor {
 
-    init() {
+    private let suppressesConditionalCompilation: Bool
+
+    init(suppressesConditionalCompilation: Bool = false) {
+        self.suppressesConditionalCompilation = suppressesConditionalCompilation
         super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: IfConfigDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard suppressesConditionalCompilation else { return .visitChildren }
+        suppressedRanges.append(node.position ..< node.endPosition)
+        return .skipChildren
     }
 
     private(set) var suppressedRanges: [Range<AbsolutePosition>] = []

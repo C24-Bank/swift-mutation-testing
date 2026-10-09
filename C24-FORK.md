@@ -30,6 +30,8 @@ here).
 | 13 | Stop an Xcode test run at the first failing test or crash | xcodebuild ran on after a test had failed, and relaunched the test runner after each crash (one mutant: ~20 relaunches, 530 s). Kills now end within seconds; on 61 mutants the run went from 11.6 to 6.4 min with the same verdicts |
 | 14 | With a pinned test plan, build and test with a derived `<scheme>-Mutation` user scheme that lists only that plan and its testables; removed after the run | `build-for-testing` builds every testable in a scheme, whichever plan is selected, so our app scheme built its snapshot and UI test targets on every run |
 | 15 | `--sonar-exclusions <sonar-project.properties>` (config `sonar-exclusions`): skip files matched by `sonar.exclusions` and `sonar.coverage.exclusions`, with real glob matching relative to `sonar.projectBaseDir` | One definition of "code we test" for coverage and mutation testing. On our app it removes 18% of mutants (views, adapters, requests, DI, UI component module) without a hand-written exclude list |
+| 16 | `--exclude-coverage-blocks` (config `exclude-coverage-blocks`): skip mutants inside `#if` blocks and between `// START-COVERAGE-EXCLUSION` and `// END-COVERAGE-EXCLUSION` | Debug-only code and code we deliberately exclude from coverage can't be killed by our tests. Removes 4% of mutants; in NetworkingSecurity 15 of 16 out-of-body mutants (each one a separate build) sat in `#if` blocks |
+| 17 | `--discover-only`: report the mutant count and list each out-of-body mutant as `file:line`, then stop | Counting mutants used to need a run with an invalid destination, which still resolved packages. Now it takes seconds and shows which code costs a separate build |
 
 ## Usage
 
@@ -39,7 +41,8 @@ SMT_TEST_PLAN=<plan> \
 swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
   --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 60 \
   [--diff origin/develop] \
-  --sonar-exclusions Sonarcube/sonar-project.properties --no-cache
+  --sonar-exclusions Sonarcube/sonar-project.properties --exclude-coverage-blocks \
+  [--discover-only] --no-cache
 ```
 
 - **In-place mode is only for disposable checkouts.** An interrupted run leaves mutated files

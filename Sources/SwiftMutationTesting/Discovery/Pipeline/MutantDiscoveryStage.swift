@@ -1,8 +1,9 @@
 struct MutantDiscoveryStage: Sendable {
     let operators: [any MutationOperator]
+    var excludeCoverageBlocks = false
 
     func run(sources: [ParsedSource]) async -> [MutationPoint] {
-        let extractor = SuppressionAnnotationExtractor()
+        let extractor = SuppressionAnnotationExtractor(excludeCoverageBlocks: excludeCoverageBlocks)
         let filter = SuppressionFilter()
         let loopExtractor = InfiniteLoopBodyExtractor()
         let loopFilter = InfiniteLoopFilter()

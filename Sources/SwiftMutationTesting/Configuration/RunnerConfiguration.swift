@@ -34,6 +34,8 @@ struct RunnerConfiguration: Sendable {
         var excludePatterns: [String]
         var diffBase: String?
         var sonarPropertiesPath: String?
+        var excludeCoverageBlocks = false
+        var discoverOnly = false
         var operators: [String]
     }
 }
