@@ -54,32 +54,34 @@ struct MutantExecutor: Sendable {
         )
         SandboxCleaner.register(sandbox)
 
-        let (artifact, schemaBuildExcluded) = try await buildArtifact(sandbox: sandbox, input: input, deps: deps)
-        let pool = try await makePool(launcher: launcher)
-        try await pool.setUp()
-        await reporter.report(.workersReady(count: pool.size, usesSimulators: pool.usesSimulators))
-
+        var pool: SimulatorPool?
         let results: [ExecutionResult]
         do {
+            let (artifact, schemaBuildExcluded) = try await buildArtifact(sandbox: sandbox, input: input, deps: deps)
+            let createdPool = try await makePool(launcher: launcher)
+            pool = createdPool
+            try await createdPool.setUp()
+            await reporter.report(.workersReady(count: createdPool.size, usesSimulators: createdPool.usesSimulators))
+
             results = try await runAllMutants(
                 MutantRunContext(
                     deps: deps,
                     input: input,
                     sandbox: sandbox,
-                    pool: pool,
+                    pool: createdPool,
                     artifact: artifact,
                     schemaBuildExcluded: schemaBuildExcluded
                 )
             )
         } catch {
-            await pool.tearDown()
+            await pool?.tearDown()
             DerivedScheme.removeAll(in: sandbox.rootURL)
             try? sandbox.cleanup()
             SandboxCleaner.deregister()
             throw error
         }
 
-        await pool.tearDown()
+        await pool?.tearDown()
         DerivedScheme.removeAll(in: sandbox.rootURL)
         try? sandbox.cleanup()
         SandboxCleaner.deregister()

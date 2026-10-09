@@ -33,6 +33,7 @@ here).
 | 16 | `--exclude-coverage-blocks` (config `exclude-coverage-blocks`): skip mutants inside `#if` blocks and between `// START-COVERAGE-EXCLUSION` and `// END-COVERAGE-EXCLUSION` | Debug-only code and code we deliberately exclude from coverage can't be killed by our tests. Removes 4% of mutants; in NetworkingSecurity 15 of 16 out-of-body mutants (each one a separate build) sat in `#if` blocks |
 | 17 | `--discover-only`: report the mutant count and list each out-of-body mutant as `file:line`, then stop | Counting mutants used to need a run with an invalid destination, which still resolved packages. Now it takes seconds and shows which code costs a separate build |
 | 18 | A closure outside any function body (`lazy var`, stored or static property initializer) gets its own `switch`, around its statements only | Mutants there were out-of-body, and each one cost a separate build (~4 min). On our app 76 → 9; the 9 left are ternaries directly in an initializer, with no closure around them |
+| 19 | Clean up (simulator clones, derived scheme, sandbox) also when the build or the simulator setup throws | A clone that did not boot under load ended the run with the clones left behind and, in in-place mode, the schematized sources still in the worktree |
 
 ## Usage
 
