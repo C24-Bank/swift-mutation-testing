@@ -32,6 +32,7 @@ here).
 | 15 | `--sonar-exclusions <sonar-project.properties>` (config `sonar-exclusions`): skip files matched by `sonar.exclusions` and `sonar.coverage.exclusions`, with real glob matching relative to `sonar.projectBaseDir` | One definition of "code we test" for coverage and mutation testing. On our app it removes 18% of mutants (views, adapters, requests, DI, UI component module) without a hand-written exclude list |
 | 16 | `--exclude-coverage-blocks` (config `exclude-coverage-blocks`): skip mutants inside `#if` blocks and between `// START-COVERAGE-EXCLUSION` and `// END-COVERAGE-EXCLUSION` | Debug-only code and code we deliberately exclude from coverage can't be killed by our tests. Removes 4% of mutants; in NetworkingSecurity 15 of 16 out-of-body mutants (each one a separate build) sat in `#if` blocks |
 | 17 | `--discover-only`: report the mutant count and list each out-of-body mutant as `file:line`, then stop | Counting mutants used to need a run with an invalid destination, which still resolved packages. Now it takes seconds and shows which code costs a separate build |
+| 18 | A closure outside any function body (`lazy var`, stored or static property initializer) gets its own `switch`, around its statements only | Mutants there were out-of-body, and each one cost a separate build (~4 min). On our app 76 → 9; the 9 left are ternaries directly in an initializer, with no closure around them |
 
 ## Usage
 
@@ -67,5 +68,5 @@ swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
 
 ## Candidates for upstream
 
-1, 2, 3, 4, 6 and 7 are general fixes. 5 (in-place) and 8 (diff) fit as opt-in config keys.
+1, 2, 3, 4, 6, 7 and 18 are general fixes. 5 (in-place) and 8 (diff) fit as opt-in config keys.
 Single-file `--sources-path` is a separate small bug.

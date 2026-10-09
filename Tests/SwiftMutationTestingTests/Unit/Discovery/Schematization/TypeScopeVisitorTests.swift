@@ -79,15 +79,15 @@ struct TypeScopeVisitorTests {
         #expect(visitor.isSchematizable(utf8Offset: mutation.utf8Offset))
     }
 
-    @Test("Given mutation inside global-scope closure, when checked, then isSchematizable returns false")
-    func mutationInsideGlobalScopeClosureIsNotSchematizable() {
+    @Test("Given mutation inside global-scope closure, when checked, then isSchematizable returns true")
+    func mutationInsideGlobalScopeClosureIsSchematizable() {
         let code = "let compute: () -> Bool = { return true }"
         let source = makeParsedSource(code)
         let visitor = TypeScopeVisitor()
         visitor.walk(source.syntax)
 
         let mutation = BooleanLiteralReplacement().mutations(in: source)[0]
-        #expect(!visitor.isSchematizable(utf8Offset: mutation.utf8Offset))
+        #expect(visitor.isSchematizable(utf8Offset: mutation.utf8Offset))
     }
 
     @Test("Given deinitializer with body, when walked, then records one scope")

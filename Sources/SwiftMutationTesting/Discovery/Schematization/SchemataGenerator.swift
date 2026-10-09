@@ -43,7 +43,11 @@ struct SchemataGenerator: Sendable {
                 cases.append((id: mutantID(entry.index), statements: mutated))
             }
 
-            let switchBody = buildSwitchBody(cases: cases, defaultStatements: originalStatements)
+            let switchBody = buildSwitchBody(
+                cases: cases,
+                defaultStatements: originalStatements,
+                inBraces: scope.replacesBraces
+            )
             content = replaceRange(
                 in: content,
                 start: scope.bodyStartOffset,
@@ -83,9 +87,10 @@ struct SchemataGenerator: Sendable {
 
     private func buildSwitchBody(
         cases: [(id: String, statements: String)],
-        defaultStatements: String
+        defaultStatements: String,
+        inBraces: Bool
     ) -> String {
-        var result = "{\n"
+        var result = inBraces ? "{\n" : "\n"
         result += "switch __swiftMutationTestingID {\n"
 
         for (id, statements) in cases {
@@ -93,7 +98,7 @@ struct SchemataGenerator: Sendable {
         }
 
         result += "default:\n\(defaultStatements)\n"
-        result += "}\n}"
+        result += inBraces ? "}\n}" : "}\n"
 
         return result
     }
