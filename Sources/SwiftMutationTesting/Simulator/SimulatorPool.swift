@@ -1,11 +1,18 @@
 import Foundation
 
 actor SimulatorPool {
-    init(baseUDID: String?, size: Int, destination: String, launcher: any ProcessLaunching) {
+    init(
+        baseUDID: String?,
+        size: Int,
+        destination: String,
+        launcher: any ProcessLaunching,
+        bootPollInterval: Duration = .milliseconds(500)
+    ) {
         self.baseUDID = baseUDID
         self.size = size
         self.destination = destination
         self.launcher = launcher
+        self.bootPollInterval = bootPollInterval
         self.sessionID = String(UUID().uuidString.prefix(8)).lowercased()
     }
 
@@ -16,6 +23,7 @@ actor SimulatorPool {
     private let baseUDID: String?
     private let destination: String
     private let launcher: any ProcessLaunching
+    private let bootPollInterval: Duration
     private let sessionID: String
     private var clonedUDIDs: [String] = []
     private var available: [SimulatorSlot] = []
@@ -79,21 +87,40 @@ actor SimulatorPool {
 
     private func bootClones(_ clones: [String]) async throws {
         let launcher = self.launcher
+        let pollInterval = self.bootPollInterval
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for udid in clones {
                 group.addTask {
-                    _ = try await launcher.launch(
-                        executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
-                        arguments: ["simctl", "boot", udid],
-                        workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
-                        timeout: 60
-                    )
-                    try await SimulatorManager(launcher: launcher).waitForBooted(udid: udid)
+                    do {
+                        try await Self.boot(udid, launcher: launcher, pollInterval: pollInterval)
+                    } catch SimulatorError.bootTimeout {
+                        _ = try? await launcher.launch(
+                            executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
+                            arguments: ["simctl", "shutdown", udid],
+                            workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+                            timeout: 30
+                        )
+                        try await Self.boot(udid, launcher: launcher, pollInterval: pollInterval)
+                    }
                 }
             }
             try await group.waitForAll()
         }
+    }
+
+    private static func boot(
+        _ udid: String,
+        launcher: any ProcessLaunching,
+        pollInterval: Duration
+    ) async throws {
+        _ = try await launcher.launch(
+            executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
+            arguments: ["simctl", "boot", udid],
+            workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+            timeout: 60
+        )
+        try await SimulatorManager(launcher: launcher).waitForBooted(udid: udid, sleepDuration: pollInterval)
     }
 
     func acquire() async throws -> SimulatorSlot {

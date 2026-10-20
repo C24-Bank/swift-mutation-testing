@@ -168,4 +168,77 @@ struct SimulatorPoolTests {
         let slot = try await pool.acquire()
         await pool.release(slot)
     }
+
+    @Test("Given a clone that does not boot at first, when setUp called, then it is shut down and booted again")
+    func setUpRebootsCloneAfterBootTimeout() async throws {
+        let mock = FirstBootTimesOutMock(cloneUDID: "MOCK-CLONE-UDID")
+        let pool = SimulatorPool(
+            baseUDID: "BASE-UDID",
+            size: 1,
+            destination: "platform=iOS Simulator,name=iPhone 15",
+            launcher: mock,
+            bootPollInterval: .milliseconds(1)
+        )
+
+        try await pool.setUp()
+
+        #expect(mock.commands == ["shutdown BASE-UDID", "boot", "shutdown MOCK-CLONE-UDID", "boot"])
+    }
+
+    @Test("Given a clone that never boots, when setUp called, then it throws after one reboot")
+    func setUpThrowsWhenRebootAlsoTimesOut() async throws {
+        let mock = FirstBootTimesOutMock(cloneUDID: "MOCK-CLONE-UDID", bootsAfterShutdown: false)
+        let pool = SimulatorPool(
+            baseUDID: "BASE-UDID",
+            size: 1,
+            destination: "platform=iOS Simulator,name=iPhone 15",
+            launcher: mock,
+            bootPollInterval: .milliseconds(1)
+        )
+
+        await #expect(throws: SimulatorError.self) {
+            try await pool.setUp()
+        }
+        #expect(mock.commands.filter { $0 == "boot" }.count == 2)
+    }
+}
+
+private final class FirstBootTimesOutMock: ProcessLaunching, @unchecked Sendable {
+    private let lock = NSLock()
+    private let cloneUDID: String
+    private let bootsAfterShutdown: Bool
+    private var recorded: [String] = []
+    private var cloneWasShutDown = false
+
+    init(cloneUDID: String, bootsAfterShutdown: Bool = true) {
+        self.cloneUDID = cloneUDID
+        self.bootsAfterShutdown = bootsAfterShutdown
+    }
+
+    var commands: [String] { lock.withLock { recorded } }
+
+    func launch(
+        executableURL: URL,
+        arguments: [String],
+        workingDirectoryURL: URL,
+        timeout: Double
+    ) async throws -> Int32 {
+        lock.withLock {
+            if arguments.contains("shutdown") {
+                recorded.append("shutdown \(arguments.last ?? "")")
+                if arguments.last == cloneUDID { cloneWasShutDown = true }
+            } else if arguments.contains("boot") {
+                recorded.append("boot")
+            }
+        }
+        return 0
+    }
+
+    func launchCapturing(_ request: ProcessRequest) async throws -> (exitCode: Int32, output: String) {
+        if request.arguments.contains("clone") {
+            return (0, cloneUDID + "\n")
+        }
+        let booted = lock.withLock { cloneWasShutDown && bootsAfterShutdown }
+        return (0, booted ? SimulatorCommandMock.bootedDevicesJSON(udid: cloneUDID) : #"{"devices":{}}"#)
+    }
 }
