@@ -85,13 +85,22 @@ struct TestExecutionStage: Sendable {
             return try await measureSPM(mutant, in: context, timeout: timeout)
         }
 
+        let selectedTests = context.testSelection?.tests(
+            for: mutant.filePath, within: context.configuration.build.testTarget
+        )
+        if let selectedTests, selectedTests.isEmpty {
+            return (.noTestsSelected, TestLaunchResult(exitCode: 0, output: "", xcresultPath: "", duration: 0))
+        }
+
         let plistData = plist.activating(mutant.id)
         let slot = try await context.pool.acquire()
         let isFirstRunOnSlot = await firstRuns.claim(slot.udid)
         let limit = isFirstRunOnSlot ? Self.firstRunLimit(for: timeout) : timeout
         let launched: TestLaunchResult
         do {
-            launched = try await launch(plistData: plistData, slot: slot, in: context, timeout: limit)
+            launched = try await launch(
+                plistData: plistData, slot: slot, tests: selectedTests, in: context, timeout: limit
+            )
         } catch {
             await context.pool.release(slot)
             throw error
@@ -263,6 +272,7 @@ struct TestExecutionStage: Sendable {
     private func launch(
         plistData: Data,
         slot: SimulatorSlot,
+        tests: [String]?,
         in context: TestExecutionContext,
         timeout: Double
     ) async throws -> TestLaunchResult {
@@ -286,7 +296,9 @@ struct TestExecutionStage: Sendable {
             "-collect-test-diagnostics", "never",
         ]
 
-        if let testTarget = context.configuration.build.testTarget {
+        if let tests {
+            arguments += tests.flatMap { ["-only-testing", $0] }
+        } else if let testTarget = context.configuration.build.testTarget {
             arguments += ["-only-testing", testTarget]
         }
 

@@ -19,6 +19,7 @@ struct CommandLineParser: Sendable {
         var sonarPropertiesPath: String?
         var excludeCoverageBlocks = false
         var discoverOnly = false
+        var selectTests = false
         var operators: [String] = []
         var disabledMutators: [String] = []
     }
@@ -91,6 +92,7 @@ struct CommandLineParser: Sendable {
                 sonarPropertiesPath: flags.sonarPropertiesPath,
                 excludeCoverageBlocks: flags.excludeCoverageBlocks,
                 discoverOnly: flags.discoverOnly,
+                selectTests: flags.selectTests,
                 operators: flags.operators,
                 disabledMutators: flags.disabledMutators
             )
@@ -169,6 +171,9 @@ struct CommandLineParser: Sendable {
 
         case "--discover-only":
             values.discoverOnly = true
+
+        case "--select-tests":
+            values.selectTests = true
 
         case "--sonar-exclusions":
             values.sonarPropertiesPath = try nextValue(for: flag, at: &index, in: arguments)

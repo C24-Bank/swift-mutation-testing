@@ -3,6 +3,7 @@ import Foundation
 struct IncompatibleMutantExecutor: Sendable {
     let deps: ExecutionDeps
     let sandboxFactory: SandboxFactory
+    var testSelection: TestSelection?
 
     func execute(
         _ mutants: [MutantDescriptor],
@@ -258,6 +259,16 @@ struct IncompatibleMutantExecutor: Sendable {
             )
         }
 
+        let selectedTests = testSelection?.tests(for: mutant.filePath, within: configuration.build.testTarget)
+        if let selectedTests, selectedTests.isEmpty {
+            let total = deps.counter.total
+            let index = await deps.counter.increment()
+            await deps.reporter.report(
+                .mutantFinished(descriptor: mutant, status: .noCoverage, index: index, total: total))
+            await deps.cacheStore.store(status: .noCoverage, for: key)
+            return ExecutionResult(descriptor: mutant, status: .noCoverage, testDuration: 0)
+        }
+
         let sandbox = try await sandboxFactory.create(
             projectPath: configuration.projectPath,
             mutatedFilePath: mutant.filePath,
@@ -268,7 +279,7 @@ struct IncompatibleMutantExecutor: Sendable {
         let launched: TestLaunchResult
         do {
             launched = try await launchXcode(
-                scheme: scheme, slot: slot, sandbox: sandbox, configuration: configuration)
+                scheme: scheme, slot: slot, sandbox: sandbox, tests: selectedTests, configuration: configuration)
         } catch {
             await pool.release(slot)
             try? sandbox.cleanup()
@@ -311,6 +322,7 @@ struct IncompatibleMutantExecutor: Sendable {
         scheme: String,
         slot: SimulatorSlot,
         sandbox: Sandbox,
+        tests: [String]?,
         configuration: RunnerConfiguration
     ) async throws -> TestLaunchResult {
         let scheme = DerivedScheme.prepare(in: sandbox.rootURL, scheme: scheme)
@@ -359,7 +371,9 @@ struct IncompatibleMutantExecutor: Sendable {
             testArguments += ["-testPlan", testPlan]
         }
 
-        if let testTarget = configuration.build.testTarget {
+        if let tests {
+            testArguments += tests.flatMap { ["-only-testing", $0] }
+        } else if let testTarget = configuration.build.testTarget {
             testArguments += ["-only-testing", testTarget]
         }
 

@@ -29,6 +29,7 @@ enum HelpText {
           --sonar-exclusions <path>     Skip files matched by sonar.exclusions / sonar.coverage.exclusions in <path>
           --exclude-coverage-blocks     Skip #if blocks and code between START/END-COVERAGE-EXCLUSION comments
           --discover-only               Report the mutants that would be tested, then exit without building
+          --select-tests                Run each mutant only against the test classes that reference its file (Xcode)
           --exclude <pattern>           Exclude files matching pattern (repeatable)
           --operator <id>               Mutation operator to apply (repeatable, default: all)
           --disable-mutator <id>        Disable a specific mutation operator (repeatable)

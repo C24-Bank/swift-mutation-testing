@@ -35,6 +35,7 @@ here).
 | 18 | A closure outside any function body (`lazy var`, stored or static property initializer) gets its own `switch`, around its statements only | Mutants there were out-of-body, and each one cost a separate build (~4 min). On our app 76 → 9; the 9 left are ternaries directly in an initializer, with no closure around them |
 | 19 | Clean up (simulator clones, derived scheme, sandbox) also when the build or the simulator setup throws | A clone that did not boot under load ended the run with the clones left behind and, in in-place mode, the schematized sources still in the worktree |
 | 20 | A clone that does not boot in time is shut down and booted once more | Under load CoreSimulator gave up on one clone's first boot (`could not bind to session`) while the other booted fine, and the whole run ended before any test |
+| 21 | `--select-tests` (config `select-tests`): each mutant runs only the test classes, in any test target, whose files reference a symbol defined in the mutated file, read from the build's index store (`swift-indexstore`). A file with none is reported as no coverage without a test run | Running a whole test target per mutant was slow and missed tests in other targets: NetworkingSecurity's app tests never ran, so it scored 27.6%. On 80 recorded kills, 78 killer classes were inside the selection; the 2 others test the code only indirectly |
 
 ## Usage
 
@@ -42,11 +43,14 @@ here).
 SMT_IN_PLACE=1 \
 SMT_TEST_PLAN=<plan> \
 swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
-  --target "<TestTarget>[/<TestClass>]" --concurrency 4 --timeout 60 \
+  --select-tests --concurrency 4 --timeout 60 \
   [--diff origin/develop] \
   --sonar-exclusions Sonarcube/sonar-project.properties --exclude-coverage-blocks \
   [--discover-only] --no-cache
 ```
+
+`--discover-only --select-tests` prints each file's selected tests from the last build's index.
+`--target` still works and narrows the selection to one target.
 
 - **In-place mode is only for disposable checkouts.** An interrupted run leaves mutated files
   behind (`git checkout .` restores them) plus `.xmr-derived-data/` and `.xmr-results/`.

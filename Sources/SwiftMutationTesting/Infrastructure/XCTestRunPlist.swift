@@ -11,6 +11,29 @@ struct XCTestRunPlist: Sendable, Equatable {
 
     private let data: Data
 
+    /// Test target names keyed by their module name, e.g. `C24_MockedTests` → `C24 MockedTests`.
+    var testTargetsByModule: [String: String] {
+        guard
+            let dict = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil))
+                as? [String: Any]
+        else { return [:] }
+
+        let targets: [[String: Any]]
+        if let configurations = dict["TestConfigurations"] as? [[String: Any]] {
+            targets = configurations.flatMap { $0["TestTargets"] as? [[String: Any]] ?? [] }
+        } else {
+            targets = dict.filter { !$0.key.hasPrefix("__") }.compactMap { $0.value as? [String: Any] }
+        }
+
+        var result: [String: String] = [:]
+        for target in targets {
+            guard let name = target["BlueprintName"] as? String else { continue }
+            let module = target["ProductModuleName"] as? String ?? name
+            result[module] = name
+        }
+        return result
+    }
+
     func activating(
         _ mutantID: String,
         serialize: PlistSerializer = {

@@ -137,6 +137,7 @@ struct MutantExecutor: Sendable {
         let schemaBuildExcluded = context.schemaBuildExcluded
         let schematizable = input.mutants.filter { $0.isSchematizable }
         let incompatible = input.mutants.filter { !$0.isSchematizable }
+        let testSelection = try await loadTestSelection(artifact: artifact, mutants: input.mutants)
 
         var results: [ExecutionResult] = []
 
@@ -171,7 +172,8 @@ struct MutantExecutor: Sendable {
                 libraries: libraries,
                 targetedSuites: TargetedSuites.declared(
                     in: TestFilesHasher().testFilePaths(projectPath: input.projectPath)
-                )
+                ),
+                testSelection: testSelection
             )
             results += try await runNormal(deps: deps, context: context, schematizable: testableSchematizable)
         } else if !testableSchematizable.isEmpty {
@@ -179,7 +181,7 @@ struct MutantExecutor: Sendable {
         }
 
         results += try await runIncompatible(
-            deps: deps, mutants: incompatible + reroutedToIncompatible, pool: pool
+            deps: deps, mutants: incompatible + reroutedToIncompatible, pool: pool, testSelection: testSelection
         )
 
         return results
@@ -353,10 +355,32 @@ struct MutantExecutor: Sendable {
     private func runIncompatible(
         deps: ExecutionDeps,
         mutants: [MutantDescriptor],
-        pool: SimulatorPool
+        pool: SimulatorPool,
+        testSelection: TestSelection?
     ) async throws -> [ExecutionResult] {
-        try await IncompatibleMutantExecutor(deps: deps, sandboxFactory: SandboxFactory())
-            .execute(mutants, configuration: configuration, pool: pool)
+        try await IncompatibleMutantExecutor(
+            deps: deps, sandboxFactory: SandboxFactory(), testSelection: testSelection
+        )
+        .execute(mutants, configuration: configuration, pool: pool)
+    }
+
+    private func loadTestSelection(artifact: BuildArtifact?, mutants: [MutantDescriptor]) async throws
+        -> TestSelection?
+    {
+        guard configuration.filter.selectTests, let artifact, let plist = artifact.plist else { return nil }
+
+        let start = Date()
+        let selection = try await TestSelectionLoader(launcher: launcher).load(
+            derivedDataURL: URL(fileURLWithPath: artifact.derivedDataPath),
+            plist: plist,
+            sourceFiles: Set(mutants.map(\.filePath))
+        )
+
+        if !configuration.reporting.quiet {
+            let seconds = String(format: "%.1f", Date().timeIntervalSince(start))
+            print("  ✓ Test selection: \(selection.coveredFileCount) of \(selection.fileCount) files have tests (\(seconds)s)")
+        }
+        return selection
     }
 
     private func probeTestingLibraries(sandbox: Sandbox, deps: ExecutionDeps) async throws -> Set<TestingFramework> {
@@ -423,7 +447,7 @@ struct MutantExecutor: Sendable {
         case .timedOut:
             throw BaselineError.didNotFinish(seconds: configuration.build.timeout)
 
-        case .testsFailed, .crashed, .unviable, .buildFailed:
+        case .testsFailed, .crashed, .unviable, .buildFailed, .noTestsSelected:
             let failing = TestOutputParser().failingTests(in: output)
             throw failing.isEmpty
                 ? BaselineError.runFailed(output: output)

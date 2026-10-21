@@ -58,6 +58,8 @@ struct ConfigurationResolver: Sendable {
                 excludeCoverageBlocks: cliArguments.filter.excludeCoverageBlocks
                     || fileValues["exclude-coverage-blocks"]?.lowercased() == "true",
                 discoverOnly: cliArguments.filter.discoverOnly,
+                selectTests: cliArguments.filter.selectTests
+                    || fileValues["select-tests"]?.lowercased() == "true",
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
             )
         )

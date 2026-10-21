@@ -48,12 +48,8 @@ struct BuildStage: Sendable {
             throw BuildError.compilationFailed(output: buildOutput)
         }
 
-        let productsURLs = [
-            derivedDataURL.appendingPathComponent("Build/Products"),
-            sandbox.rootURL.appendingPathComponent("DerivedData/Build/Products"),
-        ]
-
-        guard let xctestrunURL = productsURLs.lazy.compactMap({ findXctestrun(in: $0) }).first else {
+        guard let xctestrunURL = Self.locateXctestrun(rootURL: sandbox.rootURL, derivedDataURL: derivedDataURL)
+        else {
             throw BuildError.xctestrunNotFound
         }
 
@@ -118,7 +114,16 @@ struct BuildStage: Sendable {
         return items.first { $0.pathExtension == "xcodeproj" }
     }
 
-    private func findXctestrun(in directory: URL) -> URL? {
+    /// The `.xctestrun` of the last build, in the derived data or, with a custom build location, the project's.
+    static func locateXctestrun(rootURL: URL, derivedDataURL: URL) -> URL? {
+        let productsURLs = [
+            derivedDataURL.appendingPathComponent("Build/Products"),
+            rootURL.appendingPathComponent("DerivedData/Build/Products"),
+        ]
+        return productsURLs.lazy.compactMap { findXctestrun(in: $0) }.first
+    }
+
+    private static func findXctestrun(in directory: URL) -> URL? {
         let items =
             (try? FileManager.default.contentsOfDirectory(
                 at: directory,

@@ -50,6 +50,31 @@ public struct SwiftMutationTesting {
         }
     }
 
+    /// Prints each mutated file's selected tests, from the index and `.xctestrun` of the last build.
+    private static func printTestSelection(
+        for input: RunnerInput,
+        configuration: RunnerConfiguration,
+        launcher: any ProcessLaunching
+    ) async throws {
+        let rootURL = URL(fileURLWithPath: configuration.projectPath)
+        let derivedDataURL = rootURL.appendingPathComponent(".xmr-derived-data")
+        guard
+            let xctestrunURL = BuildStage.locateXctestrun(rootURL: rootURL, derivedDataURL: derivedDataURL),
+            let plist = XCTestRunPlist(try Data(contentsOf: xctestrunURL))
+        else {
+            throw BuildError.xctestrunNotFound
+        }
+
+        let files = Set(input.mutants.map(\.filePath))
+        let selection = try await TestSelectionLoader(launcher: launcher).load(
+            derivedDataURL: derivedDataURL, plist: plist, sourceFiles: files
+        )
+        for file in files.sorted() {
+            let tests = selection.tests(for: file, within: configuration.build.testTarget)
+            print("selection: \(file): \(tests.joined(separator: ", "))")
+        }
+    }
+
     private static func runPipeline(
         configuration: RunnerConfiguration,
         launcher: (any ProcessLaunching)?
@@ -71,6 +96,13 @@ public struct SwiftMutationTesting {
         if configuration.filter.discoverOnly {
             for mutant in input.mutants where !mutant.isSchematizable {
                 print("incompatible: \(mutant.filePath):\(mutant.line): \(mutant.description)")
+            }
+            if configuration.filter.selectTests {
+                try await printTestSelection(
+                    for: input,
+                    configuration: configuration,
+                    launcher: launcher ?? defaultLauncher(for: configuration.build.projectType)
+                )
             }
             return .success
         }

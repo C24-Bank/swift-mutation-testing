@@ -5,11 +5,12 @@ enum TestRunOutcome: Sendable {
     case timedOut
     case buildFailed
     case unviable
+    case noTestsSelected
 
     var isKill: Bool {
         switch self {
         case .testsFailed, .crashed: return true
-        case .testsSucceeded, .timedOut, .buildFailed, .unviable: return false
+        case .testsSucceeded, .timedOut, .buildFailed, .unviable, .noTestsSelected: return false
         }
     }
 
@@ -21,6 +22,7 @@ enum TestRunOutcome: Sendable {
         case .timedOut: return .timeout
         case .buildFailed: return .unviable
         case .unviable: return .unviable
+        case .noTestsSelected: return .noCoverage
         }
     }
 }

@@ -8,7 +8,8 @@ let package = Package(
         .executable(name: "swift-mutation-testing", targets: ["swift-mutation-testing"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-syntax.git", from: "603.0.0")
+        .package(url: "https://github.com/apple/swift-syntax.git", from: "603.0.0"),
+        .package(url: "https://github.com/kateinoigakukun/swift-indexstore.git", from: "0.5.0"),
     ],
     targets: [
         .target(
@@ -17,6 +18,7 @@ let package = Package(
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "SwiftIndexStore", package: "swift-indexstore"),
             ],
             path: "Sources/SwiftMutationTesting",
             swiftSettings: [

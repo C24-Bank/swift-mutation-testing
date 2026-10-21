@@ -5,4 +5,5 @@ struct TestExecutionContext: Sendable {
     let configuration: RunnerConfiguration
     var libraries: Set<TestingFramework> = [.xctest, .swiftTesting]
     var targetedSuites: Set<String> = []
+    var testSelection: TestSelection?
 }
