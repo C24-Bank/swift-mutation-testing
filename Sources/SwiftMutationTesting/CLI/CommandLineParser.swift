@@ -20,6 +20,8 @@ struct CommandLineParser: Sendable {
         var excludeCoverageBlocks = false
         var discoverOnly = false
         var selectTests = false
+        var verifyKills = false
+        var mutantIDs: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
     }
@@ -93,6 +95,8 @@ struct CommandLineParser: Sendable {
                 excludeCoverageBlocks: flags.excludeCoverageBlocks,
                 discoverOnly: flags.discoverOnly,
                 selectTests: flags.selectTests,
+                verifyKills: flags.verifyKills,
+                mutantIDs: flags.mutantIDs,
                 operators: flags.operators,
                 disabledMutators: flags.disabledMutators
             )
@@ -174,6 +178,13 @@ struct CommandLineParser: Sendable {
 
         case "--select-tests":
             values.selectTests = true
+
+        case "--verify-kills":
+            values.verifyKills = true
+
+        case "--mutants":
+            values.mutantIDs += try nextValue(for: flag, at: &index, in: arguments)
+                .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
 
         case "--sonar-exclusions":
             values.sonarPropertiesPath = try nextValue(for: flag, at: &index, in: arguments)

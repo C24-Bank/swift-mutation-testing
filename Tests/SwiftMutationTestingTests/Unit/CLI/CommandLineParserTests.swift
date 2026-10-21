@@ -74,6 +74,18 @@ struct CommandLineParserTests {
         #expect(result.reporting.quiet)
     }
 
+    @Test("Given --select-tests, --verify-kills and --mutants, when parsed, then they are set")
+    func parsesSelectionAndVerificationFlags() throws {
+        let result = try parser.parse([
+            "run", "--scheme", "App", "--destination", "d",
+            "--select-tests", "--verify-kills", "--mutants", "m_1, m_2", "--mutants", "m_3",
+        ])
+
+        #expect(result.filter.selectTests)
+        #expect(result.filter.verifyKills)
+        #expect(result.filter.mutantIDs == ["m_1", "m_2", "m_3"])
+    }
+
     @Test("Given optional string flags, when parsed, then all string values are set")
     func parsesOptionalStringFlags() throws {
         let result = try parser.parse([

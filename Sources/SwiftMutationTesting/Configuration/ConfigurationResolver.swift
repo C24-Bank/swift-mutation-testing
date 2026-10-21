@@ -60,6 +60,9 @@ struct ConfigurationResolver: Sendable {
                 discoverOnly: cliArguments.filter.discoverOnly,
                 selectTests: cliArguments.filter.selectTests
                     || fileValues["select-tests"]?.lowercased() == "true",
+                verifyKills: cliArguments.filter.verifyKills
+                    || fileValues["verify-kills"]?.lowercased() == "true",
+                mutantIDs: cliArguments.filter.mutantIDs,
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
             )
         )

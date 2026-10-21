@@ -36,6 +36,8 @@ here).
 | 19 | Clean up (simulator clones, derived scheme, sandbox) also when the build or the simulator setup throws | A clone that did not boot under load ended the run with the clones left behind and, in in-place mode, the schematized sources still in the worktree |
 | 20 | A clone that does not boot in time is shut down and booted once more | Under load CoreSimulator gave up on one clone's first boot (`could not bind to session`) while the other booted fine, and the whole run ended before any test |
 | 21 | `--select-tests` (config `select-tests`): each mutant runs only the test classes, in any test target, whose files reference a symbol defined in the mutated file, read from the build's index store (`swift-indexstore`). A file with none is reported as no coverage without a test run | Running a whole test target per mutant was slow and missed tests in other targets: NetworkingSecurity's app tests never ran, so it scored 27.6%. On 80 recorded kills, 78 killer classes were inside the selection; the 2 others test the code only indirectly |
+| 22 | `--verify-kills`: after a kill, run the same tests again with no mutant active and print `confirmed` or `FALSE KILL`; `--mutants <id,...>` tests only the listed mutants of an earlier run | A high score is only worth something if kills are real. On 50 random kills of a weekly run, all 50 reproduced and passed without the mutant |
+| 23 | `--sources-path` takes a comma-separated list, and a path that is a file stands for itself | A single file discovered nothing (upstream), so a fixed sample of files spread over the repo could not be run |
 
 ## Usage
 

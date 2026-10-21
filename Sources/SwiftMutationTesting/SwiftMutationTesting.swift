@@ -79,7 +79,21 @@ public struct SwiftMutationTesting {
         configuration: RunnerConfiguration,
         launcher: (any ProcessLaunching)?
     ) async throws -> ExitCode {
-        let (input, discoveryDuration) = try await discover(configuration: configuration)
+        var (input, discoveryDuration) = try await discover(configuration: configuration)
+
+        if !configuration.filter.mutantIDs.isEmpty {
+            let wanted = Set(configuration.filter.mutantIDs)
+            input = RunnerInput(
+                projectPath: input.projectPath,
+                projectType: input.projectType,
+                timeout: input.timeout,
+                concurrency: input.concurrency,
+                noCache: input.noCache,
+                schematizedFiles: input.schematizedFiles,
+                supportFileContent: input.supportFileContent,
+                mutants: input.mutants.filter { wanted.contains($0.id) }
+            )
+        }
 
         if !configuration.reporting.quiet {
             let schematizable = input.mutants.filter { $0.isSchematizable }.count

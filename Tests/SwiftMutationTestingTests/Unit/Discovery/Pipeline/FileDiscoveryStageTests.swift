@@ -279,4 +279,37 @@ struct FileDiscoveryStageTests {
             try stage.run(input: input)
         }
     }
+
+    @Test("Given a single swift file as sources path, when run, then returns that file")
+    func singleFileSourcesPath() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        try FileHelpers.write("let x = 1", named: "Foo.swift", in: dir)
+        try FileHelpers.write("let y = 2", named: "Bar.swift", in: dir)
+        let file = dir.appendingPathComponent("Foo.swift").path
+
+        let result = try stage.run(input: makeDiscoveryInput(projectPath: dir.path, sourcesPath: file))
+
+        #expect(result.map(\.path) == [file])
+    }
+
+    @Test("Given a comma-separated list of a file and a folder, when run, then returns files from both")
+    func fileAndFolderListSourcesPath() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let sub = dir.appendingPathComponent("Sub")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try FileHelpers.write("let x = 1", named: "Foo.swift", in: dir)
+        try FileHelpers.write("let y = 2", named: "Bar.swift", in: sub)
+
+        let result = try stage.run(
+            input: makeDiscoveryInput(
+                projectPath: dir.path, sourcesPath: "\(dir.appendingPathComponent("Foo.swift").path), \(sub.path)"
+            )
+        )
+
+        #expect(result.map { URL(fileURLWithPath: $0.path).lastPathComponent }.sorted() == ["Bar.swift", "Foo.swift"])
+    }
 }

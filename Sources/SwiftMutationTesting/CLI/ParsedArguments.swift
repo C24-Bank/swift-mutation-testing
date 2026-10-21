@@ -34,6 +34,8 @@ struct ParsedArguments: Sendable {
         var excludeCoverageBlocks = false
         var discoverOnly = false
         var selectTests = false
+        var verifyKills = false
+        var mutantIDs: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
     }

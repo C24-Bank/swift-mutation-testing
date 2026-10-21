@@ -92,14 +92,40 @@ struct TestExecutionStage: Sendable {
             return (.noTestsSelected, TestLaunchResult(exitCode: 0, output: "", xcresultPath: "", duration: 0))
         }
 
-        let plistData = plist.activating(mutant.id)
+        let (outcome, launched) = try await run(
+            plistData: plist.activating(mutant.id), tests: selectedTests, in: context, timeout: timeout
+        )
+
+        guard context.configuration.filter.verifyKills, outcome.isKill else { return (outcome, launched) }
+
+        let (clean, _) = try await run(
+            plistData: plist.activating(""), tests: selectedTests, in: context, timeout: timeout
+        )
+        let verdict = clean.isKill ? "FALSE KILL: tests also fail without the mutant (\(clean))" : "confirmed"
+        print("verify-kill: \(mutant.id) \(mutant.filePath):\(mutant.line) \(verdict)")
+
+        let verified = TestLaunchResult(
+            exitCode: launched.exitCode,
+            output: launched.output + "\n--- verify-kill without mutant: \(verdict)\n",
+            xcresultPath: launched.xcresultPath,
+            duration: launched.duration
+        )
+        return (outcome, verified)
+    }
+
+    private func run(
+        plistData: Data,
+        tests: [String]?,
+        in context: TestExecutionContext,
+        timeout: Double
+    ) async throws -> (TestRunOutcome, TestLaunchResult) {
         let slot = try await context.pool.acquire()
         let isFirstRunOnSlot = await firstRuns.claim(slot.udid)
         let limit = isFirstRunOnSlot ? Self.firstRunLimit(for: timeout) : timeout
         let launched: TestLaunchResult
         do {
             launched = try await launch(
-                plistData: plistData, slot: slot, tests: selectedTests, in: context, timeout: limit
+                plistData: plistData, slot: slot, tests: tests, in: context, timeout: limit
             )
         } catch {
             await context.pool.release(slot)
