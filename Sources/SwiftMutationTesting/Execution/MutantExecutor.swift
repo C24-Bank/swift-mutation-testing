@@ -328,7 +328,7 @@ struct MutantExecutor: Sendable {
     }
 
     private func errorLocation(in line: String, under root: String) -> (path: String, line: Int)? {
-        guard let rootRange = line.range(of: root) else { return nil }
+        guard line.contains("error:"), let rootRange = line.range(of: root) else { return nil }
         let fromRoot = line[rootRange.lowerBound...]
 
         guard let marker = fromRoot.range(of: ".swift:") else { return nil }
@@ -514,9 +514,21 @@ struct MutantExecutor: Sendable {
             return mutantsInFile
         }
 
-        try? narrowed.write(toFile: sandboxPath, atomically: true, encoding: .utf8)
+        let support = Self.perFileSupport(in: content).map { "\n" + $0 } ?? ""
+        try? (narrowed + support).write(toFile: sandboxPath, atomically: true, encoding: .utf8)
 
         return mutantsInFile.filter { problematicIDs.contains($0.id) }
+    }
+
+    /// The file's own mutant-ID declaration appended by the sandbox, which a regenerated schema must keep.
+    static func perFileSupport(in content: String) -> String? {
+        let marker = "fileprivate nonisolated(unsafe) var __swiftMutationTestingID"
+        guard let markerRange = content.range(of: marker, options: .backwards) else { return nil }
+
+        let lineEnd = content[markerRange.upperBound...].firstIndex(of: "\n") ?? content.endIndex
+        let start = content.range(of: "import Foundation", options: .backwards, range: content.startIndex ..< markerRange.lowerBound)?
+            .lowerBound ?? markerRange.lowerBound
+        return String(content[start ..< lineEnd])
     }
 
     func regeneratedSchema(originalPath: String, keeping mutants: [MutantDescriptor]) -> String? {

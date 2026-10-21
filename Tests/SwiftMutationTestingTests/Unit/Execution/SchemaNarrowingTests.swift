@@ -133,6 +133,15 @@ struct SchemaNarrowingTests {
         )
     }
 
+    @Test("Given a file with its own mutant-ID declaration, when the support is extracted, then the declaration is returned")
+    func perFileSupportIsKeptForRegeneratedFiles() {
+        let declaration = "fileprivate nonisolated(unsafe) var __swiftMutationTestingID: String = \"\""
+        let content = "func f() {}\n\nimport Foundation\n\n\(declaration)\n"
+
+        #expect(MutantExecutor.perFileSupport(in: content) == "import Foundation\n\n\(declaration)")
+        #expect(MutantExecutor.perFileSupport(in: "func f() {}") == nil)
+    }
+
     @Test("Given an in-place sandbox, when the original is looked up, then the saved content is used, not the mutated file")
     func inPlaceOriginalComesFromTheSavedCopy() throws {
         let dir = try FileHelpers.makeTemporaryDirectory()
