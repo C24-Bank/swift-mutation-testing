@@ -1,3 +1,4 @@
+import Foundation
 import SwiftSyntax
 
 final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
@@ -16,7 +17,7 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
 
         let callee = callExpr.calledExpression.trimmedDescription
 
-        guard !Self.deniedCallee.contains(callee) else {
+        guard !Self.deniedCallee.contains(callee), !Self.isLoggingOrFramework(callee) else {
             return .visitChildren
         }
 
@@ -41,6 +42,19 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
         )
 
         return .visitChildren
+    }
+
+    /// Logging, tracking and `super` calls: removing them changes nothing a unit test should check.
+    static func isLoggingOrFramework(_ callee: String) -> Bool {
+        if callee.hasPrefix("super.") { return true }
+        let words = ["logger", "track", "matomo", "sentry", "analytics", "breadcrumb"]
+        return callee.split(separator: ".").contains { component in
+            let original = component.trimmingCharacters(in: CharacterSet(charactersIn: "?!"))
+            let name = original.lowercased()
+            let afterLog = original.dropFirst(3).first
+            let isLogCall = name.hasPrefix("log") && (afterLog == nil || afterLog?.isUppercase == true)
+            return isLogCall || words.contains { name.contains($0) }
+        }
     }
 
     private func isSoleStatementOfBody(_ node: CodeBlockItemSyntax) -> Bool {

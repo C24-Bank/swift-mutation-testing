@@ -11,7 +11,15 @@ struct DiscoveryPipeline: Sendable {
         (name: "RemoveSideEffects", operator: RemoveSideEffects()),
     ]
 
-    static let allOperatorNames: [String] = registry.map(\.name)
+    /// Types that run only when named with `--operator`.
+    private static let optInRegistry: [(name: String, operator: any MutationOperator)] = [
+        (name: "ConstantCondition", operator: ConstantCondition()),
+        (name: "ConditionalBoundary", operator: ConditionalBoundary()),
+        (name: "ReturnValue", operator: ReturnValue()),
+        (name: "CollectionOperation", operator: CollectionOperation()),
+    ]
+
+    static let allOperatorNames: [String] = (registry + optInRegistry).map(\.name)
 
     func run(input: DiscoveryInput) async throws -> RunnerInput {
         let changedLines = try input.diffBase.map { try ChangedLines.load(projectPath: input.projectPath, base: $0) }
@@ -59,6 +67,6 @@ struct DiscoveryPipeline: Sendable {
             return Self.registry.map(\.operator)
         }
 
-        return Self.registry.compactMap { identifiers.contains($0.name) ? $0.operator : nil }
+        return (Self.registry + Self.optInRegistry).compactMap { identifiers.contains($0.name) ? $0.operator : nil }
     }
 }

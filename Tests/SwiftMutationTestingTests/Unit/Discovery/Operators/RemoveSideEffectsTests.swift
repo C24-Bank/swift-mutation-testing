@@ -135,4 +135,26 @@ struct RemoveSideEffectsTests {
 
         #expect(offset == code.range(of: "notify()")?.lowerBound)
     }
+
+    @Test("Given logging, tracking and super calls, when visited, then only the other call is removed")
+    func loggingTrackingAndSuperCallsAreKept() {
+        let code = """
+            func f() {
+                logger.info("x")
+                log("y")
+                LogError("z")
+                logWarning("w")
+                trackingManager.trackEvent(.tap)
+                matomo?.track(screen)
+                SentrySDK.addBreadcrumb(crumb)
+                super.viewDidLoad()
+                coordinator?.didFinish()
+                loginManager.start()
+            }
+            """
+
+        let removed = RemoveSideEffects().mutations(in: makeParsedSource(code)).map(\.description)
+
+        #expect(removed == ["remove coordinator?.didFinish()", "remove loginManager.start()"])
+    }
 }
