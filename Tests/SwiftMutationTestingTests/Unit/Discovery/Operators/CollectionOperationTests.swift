@@ -23,6 +23,29 @@ struct CollectionOperationTests {
         #expect(mutated("func f() { _ = items.filter { $0.isActive } }") == ["items.filter { $0.isActive } → items"])
     }
 
+    @Test("Given lookups by a single equality, when visited, then first and last are not swapped")
+    func keyLookupsAreSkipped() {
+        let code = """
+            func f() {
+                _ = accounts.first { $0.accountNumber == number }
+                _ = bookings.first(where: { $0.id == id })
+                _ = items.last { item in return item.key === key }
+            }
+            """
+        #expect(mutated(code).isEmpty)
+    }
+
+    @Test("Given a compound condition or a fallback chain, when visited, then first and last are still swapped")
+    func compoundConditionsAndFallbacksAreKept() {
+        let code = """
+            func f() {
+                _ = items.first { $0.type == .card && $0.status == .pending }
+                _ = yearData.last ?? yearData.first
+            }
+            """
+        #expect(mutated(code) == ["first → last", "last → first", "first → last"])
+    }
+
     @Test("Given a variable, an enum case or a static member named first, when visited, then nothing is mutated")
     func namesThatAreNotCollectionsAreSkipped() {
         #expect(mutated("func f() { let first = 1; _ = Order.first == x ? first : 0; g(.first) }").isEmpty)

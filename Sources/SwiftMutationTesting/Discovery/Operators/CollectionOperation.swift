@@ -16,7 +16,7 @@ final class CollectionOperationVisitor: MutationSyntaxVisitor {
         guard let base = node.base, !Self.isTypeName(base) else { return .visitChildren }
         let name = node.declName.baseName
 
-        if let swapped = Self.swaps[name.text] {
+        if let swapped = Self.swaps[name.text], !Self.isKeyLookup(node) {
             append(
                 at: name,
                 original: name.text,
@@ -41,6 +41,28 @@ final class CollectionOperationVisitor: MutationSyntaxVisitor {
             description: "remove .filter"
         )
         return .visitChildren
+    }
+
+    /// `first { $0.id == id }`: with a unique key, first and last find the same element.
+    private static func isKeyLookup(_ member: MemberAccessExprSyntax) -> Bool {
+        guard ["first", "last"].contains(member.declName.baseName.text),
+            let call = member.parent?.as(FunctionCallExprSyntax.self),
+            call.calledExpression.id == member.id,
+            let closure = call.trailingClosure ?? call.arguments.first?.expression.as(ClosureExprSyntax.self),
+            closure.statements.count == 1,
+            let statement = closure.statements.first?.item
+        else { return false }
+
+        let expression: ExprSyntax?
+        switch statement {
+        case .expr(let expr): expression = expr
+        case .stmt(let stmt): expression = stmt.as(ReturnStmtSyntax.self)?.expression
+        default: expression = nil
+        }
+
+        guard let sequence = expression?.as(SequenceExprSyntax.self) else { return false }
+        let operators = sequence.elements.compactMap { $0.as(BinaryOperatorExprSyntax.self)?.operator.text }
+        return operators == ["=="] || operators == ["==="]
     }
 
     /// `Order.first` names an enum case or static member, not a collection element.
