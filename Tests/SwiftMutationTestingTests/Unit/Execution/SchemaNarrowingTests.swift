@@ -132,4 +132,21 @@ struct SchemaNarrowingTests {
                 == nil
         )
     }
+
+    @Test("Given an in-place sandbox, when the original is looked up, then the saved content is used, not the mutated file")
+    func inPlaceOriginalComesFromTheSavedCopy() throws {
+        let dir = try FileHelpers.makeTemporaryDirectory()
+        defer { FileHelpers.cleanup(dir) }
+
+        let file = dir.appendingPathComponent("Foo.swift")
+        try "let schematized = true".write(to: file, atomically: true, encoding: .utf8)
+        let sandbox = Sandbox(
+            rootURL: dir,
+            originals: [Sandbox.OriginalFile(url: file, content: Data("let original = true".utf8))],
+            isInPlace: true
+        )
+
+        #expect(MutantExecutor.originalContent(of: file.path, in: sandbox) == "let original = true")
+        #expect(MutantExecutor.originalContent(of: file.path, in: Sandbox(rootURL: dir)) == "let schematized = true")
+    }
 }

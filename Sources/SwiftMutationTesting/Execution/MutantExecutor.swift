@@ -26,6 +26,7 @@ struct MutantExecutor: Sendable {
         let stage: BuildStage
         let deps: ExecutionDeps
         let start: Date
+        let rebuild: @Sendable () async throws -> BuildArtifact
     }
 
     func execute(_ input: RunnerInput) async throws -> [ExecutionResult] {
@@ -146,7 +147,9 @@ struct MutantExecutor: Sendable {
         let rewriter = MutationRewriter()
 
         for mutant in schemaBuildExcluded {
-            if let rerouted = rewriteForIncompatible(mutant, rewriter: rewriter, sourceCache: &sourceCache) {
+            if !configuration.filter.skipIncompatible,
+                let rerouted = rewriteForIncompatible(mutant, rewriter: rewriter, sourceCache: &sourceCache)
+            {
                 reroutedToIncompatible.append(rerouted)
             } else {
                 let key = MutantCacheKey.make(for: mutant)
@@ -218,31 +221,35 @@ struct MutantExecutor: Sendable {
 
         switch configuration.build.projectType {
         case .xcode(let scheme, let destination):
-            do {
-                let artifact = try await stage.build(
-                    sandbox: sandbox,
-                    scheme: scheme,
-                    destination: destination,
-                    timeout: configuration.build.buildTimeout
-                )
-                await deps.reporter.report(.buildFinished(duration: Date().timeIntervalSince(start)))
-                return (artifact, [])
-            } catch BuildError.compilationFailed(_) {
-                return (nil, [])
+            let timeout = configuration.build.buildTimeout
+            let rebuild: @Sendable () async throws -> BuildArtifact = {
+                try await stage.build(sandbox: sandbox, scheme: scheme, destination: destination, timeout: timeout)
             }
-
-        case .spm:
             do {
-                let artifact = try await stage.buildSPM(
-                    sandbox: sandbox,
-                    timeout: configuration.build.buildTimeout
-                )
+                let artifact = try await rebuild()
                 await deps.reporter.report(.buildFinished(duration: Date().timeIntervalSince(start)))
                 return (artifact, [])
             } catch BuildError.compilationFailed(let output) {
                 let retryCtx = RetryContext(
                     sandbox: sandbox, input: input,
-                    stage: stage, deps: deps, start: start
+                    stage: stage, deps: deps, start: start, rebuild: rebuild
+                )
+                return try await retryExcludingErrors(output: output, context: retryCtx, alreadyExcluded: [])
+            }
+
+        case .spm:
+            let timeout = configuration.build.buildTimeout
+            let rebuild: @Sendable () async throws -> BuildArtifact = {
+                try await stage.buildSPM(sandbox: sandbox, timeout: timeout)
+            }
+            do {
+                let artifact = try await rebuild()
+                await deps.reporter.report(.buildFinished(duration: Date().timeIntervalSince(start)))
+                return (artifact, [])
+            } catch BuildError.compilationFailed(let output) {
+                let retryCtx = RetryContext(
+                    sandbox: sandbox, input: input,
+                    stage: stage, deps: deps, start: start, rebuild: rebuild
                 )
                 let (artifact, excluded) = try await retryExcludingErrors(
                     output: output,
@@ -283,6 +290,7 @@ struct MutantExecutor: Sendable {
             guard !mutantsInFile.isEmpty else { continue }
 
             newlyExcluded += excludeProblematicMutants(
+                sandbox: sandbox,
                 sandboxPath: sandboxPath,
                 originalPath: originalPath,
                 errorOutput: output,
@@ -297,10 +305,7 @@ struct MutantExecutor: Sendable {
         let allExcluded = alreadyExcluded + newlyExcluded
 
         do {
-            let artifact = try await context.stage.buildSPM(
-                sandbox: sandbox,
-                timeout: configuration.build.buildTimeout
-            )
+            let artifact = try await context.rebuild()
             await context.deps.reporter.report(
                 .buildFinished(duration: Date().timeIntervalSince(context.start))
             )
@@ -456,11 +461,14 @@ struct MutantExecutor: Sendable {
     }
 
     private func excludeProblematicMutants(
+        sandbox: Sandbox,
         sandboxPath: String,
         originalPath: String,
         errorOutput: String,
         mutantsInFile: [MutantDescriptor]
     ) -> [MutantDescriptor] {
+        let original = Self.originalContent(of: originalPath, in: sandbox)
+        let restoreOriginal = { self.restoreOriginal(sandboxPath: sandboxPath, originalPath: originalPath, content: original) }
         let errorLines = Set(
             errorLocations(in: errorOutput, under: sandboxPath)
                 .filter { $0.path == sandboxPath }
@@ -471,7 +479,7 @@ struct MutantExecutor: Sendable {
             !errorLines.isEmpty,
             let content = try? String(contentsOfFile: sandboxPath, encoding: .utf8)
         else {
-            restoreOriginal(sandboxPath: sandboxPath, originalPath: originalPath)
+            restoreOriginal()
             return mutantsInFile
         }
 
@@ -495,14 +503,14 @@ struct MutantExecutor: Sendable {
         }
 
         guard !problematicIDs.isEmpty else {
-            restoreOriginal(sandboxPath: sandboxPath, originalPath: originalPath)
+            restoreOriginal()
             return mutantsInFile
         }
 
         let kept = mutantsInFile.filter { !problematicIDs.contains($0.id) }
 
-        guard let narrowed = regeneratedSchema(originalPath: originalPath, keeping: kept) else {
-            restoreOriginal(sandboxPath: sandboxPath, originalPath: originalPath)
+        guard let narrowed = regeneratedSchema(originalPath: originalPath, content: original, keeping: kept) else {
+            restoreOriginal()
             return mutantsInFile
         }
 
@@ -512,7 +520,15 @@ struct MutantExecutor: Sendable {
     }
 
     func regeneratedSchema(originalPath: String, keeping mutants: [MutantDescriptor]) -> String? {
-        guard let content = try? String(contentsOfFile: originalPath, encoding: .utf8) else { return nil }
+        regeneratedSchema(
+            originalPath: originalPath,
+            content: try? String(contentsOfFile: originalPath, encoding: .utf8),
+            keeping: mutants
+        )
+    }
+
+    func regeneratedSchema(originalPath: String, content: String?, keeping mutants: [MutantDescriptor]) -> String? {
+        guard let content else { return nil }
 
         let source = ParsedSource(
             file: SourceFile(path: originalPath, content: content),
@@ -535,7 +551,20 @@ struct MutantExecutor: Sendable {
         return Int(id.dropFirst(prefix.count))
     }
 
-    private func restoreOriginal(sandboxPath: String, originalPath: String) {
+    /// The unmutated source: in place it is the saved original, in a copy it is the file in the project.
+    static func originalContent(of originalPath: String, in sandbox: Sandbox) -> String? {
+        guard sandbox.isInPlace else { return try? String(contentsOfFile: originalPath, encoding: .utf8) }
+        let saved = sandbox.originals.first {
+            $0.url.resolvingSymlinksInPath().path == URL(fileURLWithPath: originalPath).resolvingSymlinksInPath().path
+        }
+        return saved?.content.flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    private func restoreOriginal(sandboxPath: String, originalPath: String, content: String?) {
+        guard sandboxPath != originalPath else {
+            if let content { try? content.write(toFile: sandboxPath, atomically: true, encoding: .utf8) }
+            return
+        }
         try? FileManager.default.removeItem(atPath: sandboxPath)
         try? FileManager.default.createSymbolicLink(atPath: sandboxPath, withDestinationPath: originalPath)
     }

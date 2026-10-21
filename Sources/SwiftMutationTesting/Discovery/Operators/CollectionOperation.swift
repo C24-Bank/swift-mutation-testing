@@ -31,16 +31,28 @@ final class CollectionOperationVisitor: MutationSyntaxVisitor {
         guard let member = node.calledExpression.as(MemberAccessExprSyntax.self),
             member.declName.baseName.text == "filter",
             let base = member.base,
-            let firstToken = node.firstToken(viewMode: .sourceAccurate)
+            let firstToken = node.firstToken(viewMode: .sourceAccurate),
+            !Self.isSelfAssignment(of: base, from: node)
         else { return .visitChildren }
 
+        let unfiltered = base.as(OptionalChainingExprSyntax.self)?.expression ?? base
         append(
             at: firstToken,
             original: node.trimmedDescription,
-            mutated: base.trimmedDescription,
+            mutated: unfiltered.trimmedDescription,
             description: "remove .filter"
         )
         return .visitChildren
+    }
+
+    /// `items = items.filter { … }` without the filter is `items = items`, which Swift rejects.
+    private static func isSelfAssignment(of base: ExprSyntax, from call: FunctionCallExprSyntax) -> Bool {
+        guard let elements = call.parent?.as(ExprListSyntax.self).map(Array.init),
+            let index = elements.firstIndex(where: { $0.id == ExprSyntax(call).id }),
+            index >= 2,
+            elements[index - 1].is(AssignmentExprSyntax.self)
+        else { return false }
+        return elements[index - 2].trimmedDescription == base.trimmedDescription
     }
 
     /// `first { $0.id == id }`: with a unique key, first and last find the same element.

@@ -23,6 +23,16 @@ struct CollectionOperationTests {
         #expect(mutated("func f() { _ = items.filter { $0.isActive } }") == ["items.filter { $0.isActive } → items"])
     }
 
+    @Test("Given a filter assigned back to its own base, when visited, then it is not dropped")
+    func filterAssignedToItselfIsSkipped() {
+        #expect(mutated("func f() { deleted = deleted.filter { $0 != id } }").isEmpty)
+    }
+
+    @Test("Given a filter on an optional chain, when visited, then the chain's question mark is dropped too")
+    func filterOnOptionalChain() {
+        #expect(mutated("func f() { _ = images?.filter { $0.isLarge } }") == ["images?.filter { $0.isLarge } → images"])
+    }
+
     @Test("Given lookups by a single equality, when visited, then first and last are not swapped")
     func keyLookupsAreSkipped() {
         let code = """
