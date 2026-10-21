@@ -62,6 +62,8 @@ struct ConfigurationResolver: Sendable {
                     || fileValues["select-tests"]?.lowercased() == "true",
                 verifyKills: cliArguments.filter.verifyKills
                     || fileValues["verify-kills"]?.lowercased() == "true",
+                skipIncompatible: cliArguments.filter.skipIncompatible
+                    || fileValues["skip-incompatible"]?.lowercased() == "true",
                 mutantIDs: cliArguments.filter.mutantIDs,
                 operators: resolveOperators(cli: cliArguments, fileValues: fileValues)
             )

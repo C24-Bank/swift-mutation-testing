@@ -21,6 +21,7 @@ struct CommandLineParser: Sendable {
         var discoverOnly = false
         var selectTests = false
         var verifyKills = false
+        var skipIncompatible = false
         var mutantIDs: [String] = []
         var operators: [String] = []
         var disabledMutators: [String] = []
@@ -96,6 +97,7 @@ struct CommandLineParser: Sendable {
                 discoverOnly: flags.discoverOnly,
                 selectTests: flags.selectTests,
                 verifyKills: flags.verifyKills,
+                skipIncompatible: flags.skipIncompatible,
                 mutantIDs: flags.mutantIDs,
                 operators: flags.operators,
                 disabledMutators: flags.disabledMutators
@@ -181,6 +183,9 @@ struct CommandLineParser: Sendable {
 
         case "--verify-kills":
             values.verifyKills = true
+
+        case "--skip-incompatible":
+            values.skipIncompatible = true
 
         case "--mutants":
             values.mutantIDs += try nextValue(for: flag, at: &index, in: arguments)

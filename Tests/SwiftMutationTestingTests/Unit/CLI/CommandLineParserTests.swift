@@ -78,11 +78,12 @@ struct CommandLineParserTests {
     func parsesSelectionAndVerificationFlags() throws {
         let result = try parser.parse([
             "run", "--scheme", "App", "--destination", "d",
-            "--select-tests", "--verify-kills", "--mutants", "m_1, m_2", "--mutants", "m_3",
+            "--select-tests", "--verify-kills", "--skip-incompatible", "--mutants", "m_1, m_2", "--mutants", "m_3",
         ])
 
         #expect(result.filter.selectTests)
         #expect(result.filter.verifyKills)
+        #expect(result.filter.skipIncompatible)
         #expect(result.filter.mutantIDs == ["m_1", "m_2", "m_3"])
     }
 

@@ -32,6 +32,7 @@ enum HelpText {
           --select-tests                Run each mutant only against the test classes that reference its file (Xcode)
           --verify-kills                Re-run a killed mutant's tests with no mutant active; report kills that still fail
           --mutants <id,...>            Test only these mutant IDs (from an earlier report) of the discovered mutants
+          --skip-incompatible           Leave out mutants that would each need their own build; report how many
           --exclude <pattern>           Exclude files matching pattern (repeatable)
           --operator <id>               Mutation operator to apply (repeatable, default: all)
           --disable-mutator <id>        Disable a specific mutation operator (repeatable)

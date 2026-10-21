@@ -38,6 +38,7 @@ struct RunnerConfiguration: Sendable {
         var discoverOnly = false
         var selectTests = false
         var verifyKills = false
+        var skipIncompatible = false
         var mutantIDs: [String] = []
         var operators: [String]
     }

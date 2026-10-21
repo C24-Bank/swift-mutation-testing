@@ -81,8 +81,12 @@ public struct SwiftMutationTesting {
     ) async throws -> ExitCode {
         var (input, discoveryDuration) = try await discover(configuration: configuration)
 
-        if !configuration.filter.mutantIDs.isEmpty {
+        if !configuration.filter.mutantIDs.isEmpty || configuration.filter.skipIncompatible {
             let wanted = Set(configuration.filter.mutantIDs)
+            let skipped = configuration.filter.skipIncompatible ? input.mutants.filter { !$0.isSchematizable }.count : 0
+            if skipped > 0, !configuration.reporting.quiet {
+                print("  ✓ Skipped \(skipped) mutants that would each need their own build")
+            }
             input = RunnerInput(
                 projectPath: input.projectPath,
                 projectType: input.projectType,
@@ -91,7 +95,10 @@ public struct SwiftMutationTesting {
                 noCache: input.noCache,
                 schematizedFiles: input.schematizedFiles,
                 supportFileContent: input.supportFileContent,
-                mutants: input.mutants.filter { wanted.contains($0.id) }
+                mutants: input.mutants.filter {
+                    (wanted.isEmpty || wanted.contains($0.id))
+                        && (!configuration.filter.skipIncompatible || $0.isSchematizable)
+                }
             )
         }
 
