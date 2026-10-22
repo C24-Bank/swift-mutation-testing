@@ -36,6 +36,14 @@ struct RunnerSummary: Sendable {
         return Double(numerator) / Double(denominator) * 100.0
     }
 
+    /// The score as shown to people: "n/a" when no mutant could be tested, so a fully unviable run never reads as 100%.
+    var scoreText: String {
+        guard killed.count + survived.count + timeouts.count + noCoverage.count > 0 else {
+            return "n/a (no mutant could be tested)"
+        }
+        return String(format: "%.1f%%", score)
+    }
+
     var resultsByFile: [String: [ExecutionResult]] {
         Dictionary(grouping: results, by: { $0.descriptor.filePath })
     }

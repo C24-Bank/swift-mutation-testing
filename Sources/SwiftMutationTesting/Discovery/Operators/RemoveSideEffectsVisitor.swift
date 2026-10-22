@@ -21,7 +21,7 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
             return .visitChildren
         }
 
-        guard !isSoleStatementOfBody(node) else {
+        guard !isSoleStatementOfBody(node), !isValueOfIfExpressionBranch(node) else {
             return .visitChildren
         }
 
@@ -55,6 +55,19 @@ final class RemoveSideEffectsVisitor: MutationSyntaxVisitor {
             let isLogCall = name.hasPrefix("log") && (afterLog == nil || afterLog?.isUppercase == true)
             return isLogCall || words.contains { name.contains($0) }
         }
+    }
+
+    /// `let x = if c { make() } else { … }`: the branch's only statement is its value, so it cannot be removed.
+    private func isValueOfIfExpressionBranch(_ node: CodeBlockItemSyntax) -> Bool {
+        guard let list = node.parent?.as(CodeBlockItemListSyntax.self), list.count == 1,
+            let block = list.parent?.as(CodeBlockSyntax.self),
+            var ifExpr = block.parent?.as(IfExprSyntax.self)
+        else { return false }
+
+        while let outer = ifExpr.parent?.as(IfExprSyntax.self) {
+            ifExpr = outer
+        }
+        return !(ifExpr.parent?.is(ExpressionStmtSyntax.self) ?? false)
     }
 
     private func isSoleStatementOfBody(_ node: CodeBlockItemSyntax) -> Bool {

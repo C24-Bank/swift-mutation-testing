@@ -59,6 +59,18 @@ struct RunnerSummaryTests {
         #expect(summary.score == 100.0)
     }
 
+    @Test("Given only unviable mutants, when the score is shown, then it reads n/a instead of 100%")
+    func scoreTextIsNotApplicableWhenNothingWasTested() {
+        let unviable = RunnerSummary(results: [makeExecutionResult(status: .unviable)], totalDuration: 0)
+        let tested = RunnerSummary(
+            results: [makeExecutionResult(status: .killed(by: "t")), makeExecutionResult(status: .survived)],
+            totalDuration: 0
+        )
+
+        #expect(unviable.scoreText == "n/a (no mutant could be tested)")
+        #expect(tested.scoreText == "50.0%")
+    }
+
     @Test("Given results from two files, when resultsByFile accessed, then results are grouped by file path")
     func resultsByFileGroupsByFilePath() {
         let results = [

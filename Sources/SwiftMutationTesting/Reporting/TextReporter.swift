@@ -21,14 +21,14 @@ struct TextReporter: Sendable {
         lines.append("Results by file:")
         for (filePath, fileResults) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
             let file = RunnerSummary(results: fileResults, totalDuration: 0)
-            let score = String(format: "%.1f", file.score)
+            let score = file.scoreText
             let stats = [
                 "killed: \(file.killed.count)",
                 "survived: \(file.survived.count)",
                 "timeout: \(file.timeouts.count)",
                 "unviable: \(file.unviable.count)",
             ].joined(separator: "   ")
-            lines.append("  \(relative(filePath))    score: \(score)%   \(stats)")
+            lines.append("  \(relative(filePath))    score: \(score)   \(stats)")
         }
 
         let unkilledMutants = summary.survived + summary.noCoverage
@@ -48,7 +48,7 @@ struct TextReporter: Sendable {
         }
 
         lines.append("")
-        lines.append("Overall mutation score: \(String(format: "%.1f", summary.score))%")
+        lines.append("Overall mutation score: \(summary.scoreText)")
         lines.append(
             "Killed: \(summary.killed.count)"
                 + " / Survived: \(summary.survived.count)"

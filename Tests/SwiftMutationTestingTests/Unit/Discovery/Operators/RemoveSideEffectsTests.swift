@@ -136,6 +136,29 @@ struct RemoveSideEffectsTests {
         #expect(offset == code.range(of: "notify()")?.lowerBound)
     }
 
+    @Test("Given an if expression, when visited, then its branch values are kept but if statements are still mutated")
+    func ifExpressionBranchesAreKept() {
+        let code = """
+            func f() {
+                let model = if a {
+                    makeA()
+                } else if b {
+                    makeB()
+                } else {
+                    makeC()
+                }
+                if c {
+                    refresh()
+                }
+                use(model)
+            }
+            """
+
+        let removed = RemoveSideEffects().mutations(in: makeParsedSource(code)).map(\.description)
+
+        #expect(removed == ["remove refresh()", "remove use()"])
+    }
+
     @Test("Given logging, tracking and super calls, when visited, then only the other call is removed")
     func loggingTrackingAndSuperCallsAreKept() {
         let code = """

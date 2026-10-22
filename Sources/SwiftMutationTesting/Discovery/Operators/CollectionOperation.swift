@@ -13,10 +13,10 @@ final class CollectionOperationVisitor: MutationSyntaxVisitor {
     private static let swaps = ["first": "last", "last": "first", "min": "max", "max": "min"]
 
     override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
-        guard let base = node.base, !Self.isTypeName(base) else { return .visitChildren }
+        guard let base = node.base, !Self.isTypeName(base), !Self.isOwnMember(base) else { return .visitChildren }
         let name = node.declName.baseName
 
-        if let swapped = Self.swaps[name.text], !Self.isKeyLookup(node) {
+        if let swapped = Self.swaps[name.text], !Self.isKeyLookup(node), Self.isCallIfRequired(node) {
             append(
                 at: name,
                 original: name.text,
@@ -75,6 +75,18 @@ final class CollectionOperationVisitor: MutationSyntaxVisitor {
         guard let sequence = expression?.as(SequenceExprSyntax.self) else { return false }
         let operators = sequence.elements.compactMap { $0.as(BinaryOperatorExprSyntax.self)?.operator.text }
         return operators == ["=="] || operators == ["==="]
+    }
+
+    /// `self.min` is a property of the type itself, not a collection operation.
+    private static func isOwnMember(_ base: ExprSyntax) -> Bool {
+        base.is(SuperExprSyntax.self) || base.as(DeclReferenceExprSyntax.self)?.baseName.tokenKind == .keyword(.self)
+    }
+
+    /// `min` and `max` are collection methods, so only a call (`xs.min()`) is one; `first`/`last` are properties.
+    private static func isCallIfRequired(_ member: MemberAccessExprSyntax) -> Bool {
+        guard ["min", "max"].contains(member.declName.baseName.text) else { return true }
+        guard let call = member.parent?.as(FunctionCallExprSyntax.self) else { return false }
+        return call.calledExpression.id == member.id
     }
 
     /// `Order.first` names an enum case or static member, not a collection element.

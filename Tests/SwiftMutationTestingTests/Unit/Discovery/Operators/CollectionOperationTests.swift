@@ -23,6 +23,19 @@ struct CollectionOperationTests {
         #expect(mutated("func f() { _ = items.filter { $0.isActive } }") == ["items.filter { $0.isActive } → items"])
     }
 
+    @Test("Given properties named min, max, first or last on self, or min/max without a call, when visited, then nothing is mutated")
+    func ownPropertiesAndUncalledMinMaxAreSkipped() {
+        let code = """
+            init(min: Int, max: Int) {
+                self.min = min
+                self.max = max
+                _ = self.first
+                _ = range.min
+            }
+            """
+        #expect(mutated(code).isEmpty)
+    }
+
     @Test("Given a filter assigned back to its own base, when visited, then it is not dropped")
     func filterAssignedToItselfIsSkipped() {
         #expect(mutated("func f() { deleted = deleted.filter { $0 != id } }").isEmpty)

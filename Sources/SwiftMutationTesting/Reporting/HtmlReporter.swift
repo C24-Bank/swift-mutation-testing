@@ -10,7 +10,7 @@ struct HtmlReporter: Sendable {
     }
 
     private func buildHtml(_ summary: RunnerSummary) -> String {
-        let score = String(format: "%.1f", summary.score)
+        let score = summary.scoreText
         let rows = buildRows(summary)
         let totals = buildTotals(summary)
         return htmlTemplate(score: score, totals: totals, rows: rows)
@@ -26,13 +26,13 @@ struct HtmlReporter: Sendable {
         var rows = ""
         for (filePath, results) in summary.resultsByFile.sorted(by: { $0.key < $1.key }) {
             let file = RunnerSummary(results: results, totalDuration: 0)
-            let fileScore = String(format: "%.1f", file.score)
+            let fileScore = file.scoreText
             let colorClass = scoreColorClass(file.score)
             let relativePath = String(filePath.dropFirst(projectRoot.count))
             let details = buildSurvivedDetails(file.survived)
             rows +=
                 "<tr>"
-                + "<td>\(relativePath)\(details)</td><td class=\"\(colorClass)\">\(fileScore)%</td>"
+                + "<td>\(relativePath)\(details)</td><td class=\"\(colorClass)\">\(fileScore)</td>"
                 + "<td>\(file.killed.count)</td><td>\(file.survived.count)</td>"
                 + "<td>\(file.timeouts.count)</td><td>\(file.unviable.count)</td>"
                 + "<td>\(file.noCoverage.count)</td>"
@@ -92,7 +92,7 @@ struct HtmlReporter: Sendable {
         </head>
         <body>
             <h1>Mutation Testing Report</h1>
-            <p class="score">Score: \(score)%</p>
+            <p class="score">Score: \(score)</p>
             <p>\(totals)</p>
             <table>
                 <thead>
