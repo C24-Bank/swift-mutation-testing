@@ -86,5 +86,20 @@ struct CIRunTests {
         #expect(markdown.contains("| `Untested.swift` | 2 |"))
         #expect(markdown.contains("| `A.swift` | 1 | 50.0% | 3: + → - |"))
         #expect(markdown.contains("| ArithmeticOperatorReplacement | a calculation is not pinned | 4 | 1 | 25.0% |"))
+
+    }
+
+    @Test("Given a type whose explanation contains pipes, when the summary is rendered, then they are escaped for the table")
+    func summaryEscapesPipesInExplanations() {
+        let logical = ExecutionResult(
+            descriptor: makeMutantDescriptor(filePath: "/p/B.swift", operatorIdentifier: "LogicalOperatorReplacement"),
+            status: .survived,
+            testDuration: 0
+        )
+
+        let markdown = SummaryReporter(outputPath: "", projectRoot: "/p")
+            .render(RunnerSummary(results: [logical], totalDuration: 0))
+
+        #expect(markdown.contains("| LogicalOperatorReplacement | `&&` and `\\|\\|` are interchangeable |"))
     }
 }

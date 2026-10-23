@@ -37,7 +37,7 @@ struct SummaryReporter: Sendable {
     private func overview(_ summary: RunnerSummary) -> [String] {
         let hours = summary.totalDuration / 3600
         return [
-            "| Mutants | Caught | Survived | No tests | Timeouts | Not compilable | Score | Run time |",
+            "| Mutants | Caught | Survived | No tests | Timeouts | Not compilable | Score | Run time (this run) |",
             "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             "| \(summary.results.count) | \(summary.killed.count) | \(summary.survived.count) "
                 + "| \(summary.noCoverage.count) | \(summary.timeouts.count) | \(summary.unviable.count) "
@@ -107,7 +107,7 @@ struct SummaryReporter: Sendable {
         for (name, results) in byOperator.sorted(by: { $0.value.count > $1.value.count }) {
             let typeSummary = RunnerSummary(results: results, totalDuration: 0)
             lines.append(
-                "| \(name) | \(Self.meanings[name] ?? "") | \(results.count) "
+                "| \(name) | \(escaped(Self.meanings[name] ?? "")) | \(results.count) "
                     + "| \(typeSummary.survived.count) | \(typeSummary.scoreText) |"
             )
         }
