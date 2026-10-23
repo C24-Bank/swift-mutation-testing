@@ -41,32 +41,32 @@ here).
 | 24 | Opt-in mutation types (`--operator <name>`): `ConstantCondition` (condition → `true`/`false`), `ConditionalBoundary` (`<`↔`<=`, `>`↔`>=`), `ReturnValue` (`true`/`false`, `nil`, `[]`, `[:]` by declared return type), `CollectionOperation` (`first`↔`last`, `min`↔`max`, drop `.filter`). `RemoveSideEffects` now keeps logging, tracking and `super.` calls | Negating a condition is killed by one test of either branch, so it hides untested branches: on a 5-file sample, constant conditions found an untested branch in 31 of 91 conditions whose negation was killed. Measurements per type are in the trial README |
 | 25 | When the shared build fails, Xcode projects also exclude the mutants named by the compiler errors and rebuild (upstream: SPM only). In place, narrowing reads the saved originals and restores by writing them back. With `--skip-incompatible`, excluded mutants are reported as unviable instead of getting their own build | Three of 1,992 mutants of a weekly run (`x = x.filter {…}` → `x = x`, `a?.filter {…}` → `a?`) failed the shared build, and the Xcode path fell back to per-file builds without test selection. Upstream's restore also replaced the file with a symlink to itself in place |
 | 26 | `RemoveSideEffects` keeps a call that is the value of an `if`-expression branch; `CollectionOperation` skips `self.`/`super.` members and swaps `min`/`max` only when called; the score reads "n/a (no mutant could be tested)" instead of 100% when nothing was tested | The three unviable mutants of the weekly and old-code runs (`let x = if … { make() }`, `self.min = min` in an initializer), and a fully unviable run that reported 100% |
+| 27 | CI support: `--cache-path` (cache outside the checkout), results saved every 60 s and the test-file metadata at start, `--in-place` / `--test-plan` as flags and config keys (the `SMT_*` variables still work), `--cleanup-simulators` (delete leftover `XMR-*` clones), `--summary-output` (one-page Markdown of the easy wins), and an interrupted in-place run (SIGINT/SIGTERM) writes the original files back | A whole-project run takes ~60 h on one Mac: it must survive job time limits and restarts without losing results or leaving a mutated checkout, and its ~15,000 survivors need a summary that points at untested files and the files with the most survivors |
 
 ## Usage
 
 ```sh
-SMT_IN_PLACE=1 \
-SMT_TEST_PLAN=<plan> \
-swift-mutation-testing . --sources-path <folder> --scheme <scheme> \
-  --select-tests --concurrency 4 --timeout 60 \
-  [--diff origin/develop] \
-  --sonar-exclusions Sonarcube/sonar-project.properties --exclude-coverage-blocks \
-  [--discover-only] --no-cache
+swift-mutation-testing . --sources-path C24,Modules --scheme C24 \
+  --in-place --test-plan C24Unit --select-tests --concurrency 4 --timeout 60 \
+  --operator NegateConditional --operator LogicalOperatorReplacement --operator SwapTernary \
+  --operator ConstantCondition --operator RemoveSideEffects --operator ReturnValue --operator CollectionOperation \
+  --sonar-exclusions Sonarcube/sonar-project.properties --exclude-coverage-blocks --skip-incompatible \
+  [--diff origin/develop] [--discover-only] \
+  --cache-path <persistent dir> --cleanup-simulators \
+  --output report.json --html-output report.html --summary-output summary.md
 ```
 
+Every flag has a config key of the same name in `.swift-mutation-testing.yml`.
 `--discover-only --select-tests` prints each file's selected tests from the last build's index.
 `--target` still works and narrows the selection to one target.
 
-- **In-place mode is only for disposable checkouts.** An interrupted run leaves mutated files
-  behind (`git checkout .` restores them) plus `.xmr-derived-data/` and `.xmr-results/`.
-- `--sources-path` must be a folder; a single file discovers nothing (upstream bug).
-- Use only the conservative operators (`NegateConditional`, `LogicalOperatorReplacement`,
-  `SwapTernary`). `init` enables all seven, and some arithmetic and boolean mutants don't compile,
-  which breaks the shared build for every mutant.
-- Exclude SwiftUI views (e.g. via `--sonar-exclusions`): their `body` is a result builder and the
-  generated `switch` there is risky.
-- Never kill a run: simulator clones (`XMR-*`) are deleted only on normal exit, and the default
-  concurrency is CPU count − 1.
+- **In-place mode is only for disposable checkouts.** A stopped run (SIGINT/SIGTERM) writes the
+  originals back; after a hard kill, restore the checkout with git before the next run.
+- **Resuming:** run the same command again with the same `--cache-path`; finished mutants are not
+  rerun (survivors are, if a test file changed in between).
+- The seven types above are the recommended set; the trial README has the measurements.
+  `ArithmeticOperatorReplacement` does not compile without type information.
+- Exclude SwiftUI views (e.g. via `--sonar-exclusions`): their `body` is a result builder.
 
 ## Known gaps
 

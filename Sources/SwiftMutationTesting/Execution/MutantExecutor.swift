@@ -95,8 +95,9 @@ struct MutantExecutor: Sendable {
     private func prepareCacheStore(
         input: RunnerInput
     ) async throws -> (CacheStore, CacheStore.CacheMetadata, TestFilesHasher) {
-        let cachePath = URL(fileURLWithPath: configuration.projectPath)
-            .appendingPathComponent("\(CacheStore.directoryName)/results.json").path
+        let cacheDirectory = configuration.build.cachePath.map { URL(fileURLWithPath: $0) }
+            ?? URL(fileURLWithPath: configuration.projectPath).appendingPathComponent(CacheStore.directoryName)
+        let cachePath = cacheDirectory.appendingPathComponent("results.json").path
         let cacheStore = CacheStore(storePath: cachePath, noCache: configuration.build.noCache)
         try await cacheStore.load()
 
@@ -106,6 +107,7 @@ struct MutantExecutor: Sendable {
         await cacheStore.invalidate(diff: diff)
 
         let metadata = CacheStore.CacheMetadata(testFileHashes: currentTestHashes)
+        try await cacheStore.persistMetadata(metadata)
         return (cacheStore, metadata, hasher)
     }
 

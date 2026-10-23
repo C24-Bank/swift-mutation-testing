@@ -37,14 +37,20 @@ struct ConfigurationResolver: Sendable {
                 buildTimeout: buildTimeout,
                 concurrency: effectiveConcurrency,
                 noCache: cliArguments.build.noCache || fileValues["no-cache"]?.lowercased() == "true",
-                testingFramework: testingFramework
+                testingFramework: testingFramework,
+                cachePath: cliArguments.build.cachePath ?? fileValues["cache-path"],
+                inPlace: cliArguments.build.inPlace || fileValues["in-place"]?.lowercased() == "true",
+                testPlan: cliArguments.build.testPlan ?? fileValues["test-plan"],
+                cleanupSimulators: cliArguments.build.cleanupSimulators
+                    || fileValues["cleanup-simulators"]?.lowercased() == "true"
             ),
             reporting: .init(
                 output: cliArguments.reporting.output ?? fileValues["output"],
                 htmlOutput: cliArguments.reporting.htmlOutput ?? fileValues["html-output"],
                 sonarOutput: cliArguments.reporting.sonarOutput ?? fileValues["sonar-output"],
                 keepLogsPath: cliArguments.reporting.keepLogsPath ?? fileValues["keep-logs"],
-                quiet: cliArguments.reporting.quiet || fileValues["quiet"]?.lowercased() == "true"
+                quiet: cliArguments.reporting.quiet || fileValues["quiet"]?.lowercased() == "true",
+                summaryOutput: cliArguments.reporting.summaryOutput ?? fileValues["summary-output"]
             ),
             filter: .init(
                 sourcesPath: cliArguments.filter.sourcesPath ?? fileValues["sources-path"],

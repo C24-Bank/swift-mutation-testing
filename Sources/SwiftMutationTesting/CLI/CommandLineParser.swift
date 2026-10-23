@@ -8,6 +8,11 @@ struct CommandLineParser: Sendable {
         var concurrency: Int?
         var noCache = false
         var testingFramework: String?
+        var cachePath: String?
+        var inPlace = false
+        var testPlan: String?
+        var cleanupSimulators = false
+        var summaryOutput: String?
         var output: String?
         var htmlOutput: String?
         var sonarOutput: String?
@@ -79,14 +84,19 @@ struct CommandLineParser: Sendable {
                 buildTimeout: flags.buildTimeout,
                 concurrency: flags.concurrency,
                 noCache: flags.noCache,
-                testingFramework: flags.testingFramework
+                testingFramework: flags.testingFramework,
+                cachePath: flags.cachePath,
+                inPlace: flags.inPlace,
+                testPlan: flags.testPlan,
+                cleanupSimulators: flags.cleanupSimulators
             ),
             reporting: .init(
                 output: flags.output,
                 htmlOutput: flags.htmlOutput,
                 sonarOutput: flags.sonarOutput,
                 keepLogsPath: flags.keepLogsPath,
-                quiet: flags.quiet
+                quiet: flags.quiet,
+                summaryOutput: flags.summaryOutput
             ),
             filter: .init(
                 sourcesPath: flags.sourcesPath,
@@ -144,6 +154,21 @@ struct CommandLineParser: Sendable {
 
         case "--no-cache":
             values.noCache = true
+
+        case "--cache-path":
+            values.cachePath = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--in-place":
+            values.inPlace = true
+
+        case "--test-plan":
+            values.testPlan = try nextValue(for: flag, at: &index, in: arguments)
+
+        case "--cleanup-simulators":
+            values.cleanupSimulators = true
+
+        case "--summary-output":
+            values.summaryOutput = try nextValue(for: flag, at: &index, in: arguments)
 
         case "--testing-framework":
             values.testingFramework = try nextValue(for: flag, at: &index, in: arguments)

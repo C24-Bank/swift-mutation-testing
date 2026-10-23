@@ -33,6 +33,11 @@ enum HelpText {
           --verify-kills                Re-run a killed mutant's tests with no mutant active; report kills that still fail
           --mutants <id,...>            Test only these mutant IDs (from an earlier report) of the discovered mutants
           --skip-incompatible           Leave out mutants that would each need their own build; report how many
+          --cache-path <directory>      Keep the result cache here (default: <project>/.swift-mutation-testing-cache)
+          --in-place                    Mutate the project's own files instead of a copy (disposable checkouts only)
+          --test-plan <plan>            Build and test only this test plan of the scheme
+          --cleanup-simulators          Delete leftover XMR-* simulator clones before the run
+          --summary-output <file>       Write a one-page Markdown summary of the easy wins
           --exclude <pattern>           Exclude files matching pattern (repeatable)
           --operator <id>               Mutation operator to apply (repeatable, default: all)
           --disable-mutator <id>        Disable a specific mutation operator (repeatable)

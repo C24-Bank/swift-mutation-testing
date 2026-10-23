@@ -16,6 +16,10 @@ struct ParsedArguments: Sendable {
         var concurrency: Int?
         var noCache: Bool = false
         var testingFramework: String?
+        var cachePath: String?
+        var inPlace: Bool = false
+        var testPlan: String?
+        var cleanupSimulators: Bool = false
     }
 
     struct ReportingOptions: Sendable {
@@ -24,6 +28,7 @@ struct ParsedArguments: Sendable {
         var sonarOutput: String?
         var keepLogsPath: String?
         var quiet: Bool = false
+        var summaryOutput: String?
     }
 
     struct FilterOptions: Sendable {

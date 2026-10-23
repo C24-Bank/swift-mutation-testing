@@ -16,6 +16,14 @@ actor CacheStore {
     private let noCache: Bool
     private var entries: [MutantCacheKey: ExecutionStatus]
     private var killerTestFiles: [MutantCacheKey: String]
+    private var lastPersist = Date()
+
+    /// Results are saved at least this often, so an interrupted run resumes instead of starting over.
+    var persistInterval: TimeInterval = 60
+
+    func setPersistInterval(_ interval: TimeInterval) {
+        persistInterval = interval
+    }
 
     private var metadataPath: String {
         let url = URL(fileURLWithPath: storePath)
@@ -54,6 +62,10 @@ actor CacheStore {
         entries[key] = status
         if let killerTestFile {
             killerTestFiles[key] = killerTestFile
+        }
+
+        if Date().timeIntervalSince(lastPersist) >= persistInterval {
+            try? persist()
         }
     }
 
@@ -96,6 +108,7 @@ actor CacheStore {
             withIntermediateDirectories: true
         )
         try data.write(to: url, options: .atomic)
+        lastPersist = Date()
     }
 
     func loadMetadata() throws -> CacheMetadata? {

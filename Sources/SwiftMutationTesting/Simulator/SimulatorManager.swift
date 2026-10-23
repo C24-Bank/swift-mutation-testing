@@ -47,6 +47,48 @@ struct SimulatorManager: Sendable {
         throw SimulatorError.bootTimeout(udid: udid)
     }
 
+    /// Shuts down and deletes the `XMR-*` clones an interrupted run left behind; returns how many.
+    func removeLeftoverClones() async -> Int {
+        guard
+            let result = try? await launcher.launchCapturing(
+                ProcessRequest(
+                    executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
+                    arguments: ["simctl", "list", "devices", "--json"],
+                    environment: nil,
+                    additionalEnvironment: [:],
+                    workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+                    timeout: 30
+                )
+            )
+        else { return 0 }
+
+        let udids = Self.leftoverCloneUDIDs(in: result.output)
+        for udid in udids {
+            for command in ["shutdown", "delete"] {
+                _ = try? await launcher.launch(
+                    executableURL: URL(fileURLWithPath: "/usr/bin/xcrun"),
+                    arguments: ["simctl", command, udid],
+                    workingDirectoryURL: URL(fileURLWithPath: "/tmp"),
+                    timeout: 60
+                )
+            }
+        }
+        return udids.count
+    }
+
+    static func leftoverCloneUDIDs(in simctlListJSON: String) -> [String] {
+        guard
+            let data = simctlListJSON.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let devices = json["devices"] as? [String: [[String: Any]]]
+        else { return [] }
+
+        return devices.values.flatMap { $0 }.compactMap { device in
+            guard let name = device["name"] as? String, name.hasPrefix("XMR-") else { return nil }
+            return device["udid"] as? String
+        }
+    }
+
     private func parseValue(for key: String, in destination: String) -> String? {
         let prefix = "\(key)="
         return destination.components(separatedBy: ",")

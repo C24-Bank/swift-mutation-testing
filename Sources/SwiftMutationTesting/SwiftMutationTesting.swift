@@ -79,6 +79,13 @@ public struct SwiftMutationTesting {
         configuration: RunnerConfiguration,
         launcher: (any ProcessLaunching)?
     ) async throws -> ExitCode {
+        if configuration.build.inPlace {
+            setenv("SMT_IN_PLACE", "1", 1)
+        }
+        if let testPlan = configuration.build.testPlan {
+            setenv("SMT_TEST_PLAN", testPlan, 1)
+        }
+
         var (input, discoveryDuration) = try await discover(configuration: configuration)
 
         if !configuration.filter.mutantIDs.isEmpty || configuration.filter.skipIncompatible {
@@ -132,6 +139,13 @@ public struct SwiftMutationTesting {
 
         SandboxCleaner.removeOrphaned()
 
+        if configuration.build.cleanupSimulators {
+            let removed = await SimulatorManager(launcher: executionLauncher).removeLeftoverClones()
+            if removed > 0, !configuration.reporting.quiet {
+                print("  ✓ Removed \(removed) leftover simulator clones")
+            }
+        }
+
         let start = Date()
         let results = try await MutantExecutor(configuration: configuration, launcher: executionLauncher).execute(input)
         let duration = Date().timeIntervalSince(start)
@@ -167,6 +181,7 @@ public struct SwiftMutationTesting {
             configuration.reporting.output != nil
             || configuration.reporting.htmlOutput != nil
             || configuration.reporting.sonarOutput != nil
+            || configuration.reporting.summaryOutput != nil
         guard hasReports else { return }
         StandardOutput.write("")
 
@@ -185,6 +200,15 @@ public struct SwiftMutationTesting {
         if let sonarOutput = configuration.reporting.sonarOutput {
             writeReport(label: "Sonar", to: sonarOutput) {
                 try SonarReporter(outputPath: sonarOutput, projectRoot: configuration.projectPath).report(summary)
+            }
+        }
+
+        if let summaryOutput = configuration.reporting.summaryOutput {
+            writeReport(label: "Summary", to: summaryOutput) {
+                try SummaryReporter(
+                    outputPath: summaryOutput,
+                    projectRoot: URL(fileURLWithPath: configuration.projectPath).standardizedFileURL.path
+                ).report(summary)
             }
         }
     }

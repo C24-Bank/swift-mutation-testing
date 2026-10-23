@@ -19,6 +19,10 @@ struct RunnerConfiguration: Sendable {
         var concurrency: Int
         var noCache: Bool
         var testingFramework: TestingFramework = .swiftTesting
+        var cachePath: String?
+        var inPlace = false
+        var testPlan: String?
+        var cleanupSimulators = false
     }
 
     struct ReportingOptions: Sendable {
@@ -27,6 +31,7 @@ struct RunnerConfiguration: Sendable {
         var sonarOutput: String?
         var keepLogsPath: String?
         var quiet: Bool
+        var summaryOutput: String?
     }
 
     struct FilterOptions: Sendable {
